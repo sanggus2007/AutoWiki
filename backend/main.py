@@ -7,7 +7,7 @@ import httpx
 from typing import List
 from database import engine, Base, get_db
 from models import schema
-from services.langchain_service import extract_proposals, execute_batch_knowledge_generation, execute_section_patch, apply_section_patches, plan_knowledge_extraction, get_llm, slugify
+from services.langchain_service import extract_proposals, execute_batch_knowledge_generation, execute_section_patch, apply_section_patches, plan_knowledge_extraction, get_llm, slugify, execute_project_chat
 from langchain_githubcopilot_chat.auth import (
     CLIENT_ID,
     fetch_copilot_token,
@@ -288,8 +288,18 @@ def request_device_code():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+security = HTTPBearer()
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db=Depends(get_db)):
+    token = credentials.credentials
+    user = db.query(schema.User).filter(schema.User.access_token == token).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid auth token. Please login again.")
+    return user
+
 @app.post("/api/auth/poll")
-def poll_for_token(payload: PollPayload):
+def poll_for_token(payload: PollPayload, db=Depends(get_db)):
     try:
         res = httpx.post(
             "https://github.com/login/oauth/access_token",
@@ -313,7 +323,39 @@ def poll_for_token(payload: PollPayload):
                     expires_at = data.get("expires_at")
                     if copilot_token:
                         save_tokens_to_cache(access_token, copilot_token, expires_at)
-                        return {"status": "success", "message": "Authenticated successfully"}
+                        
+                        # Fetch GitHub User info
+                        user_res = client.get("https://api.github.com/user", headers={"Authorization": f"Bearer {access_token}"})
+                        if user_res.status_code == 200:
+                            user_data = user_res.json()
+                            github_id = str(user_data.get("id"))
+                            username = user_data.get("login")
+                            avatar_url = user_data.get("avatar_url")
+                            
+                            # Create or Update User in DB
+                            user = db.query(schema.User).filter(schema.User.github_id == github_id).first()
+                            if not user:
+                                user = schema.User(github_id=github_id, username=username, avatar_url=avatar_url, access_token=access_token)
+                                db.add(user)
+                            else:
+                                user.username = username
+                                user.avatar_url = avatar_url
+                                user.access_token = access_token
+                            db.commit()
+                            db.refresh(user)
+                            
+                            return {
+                                "status": "success", 
+                                "message": "Authenticated successfully",
+                                "access_token": access_token,
+                                "user": {
+                                    "id": user.id,
+                                    "username": user.username,
+                                    "avatar_url": user.avatar_url
+                                }
+                            }
+                        else:
+                            raise HTTPException(status_code=401, detail="Failed to fetch GitHub user info")
                 
                 error_detail = f"Copilot Token API Error: {dbg_res.status_code} - Body: {dbg_res.text}"
                 print(f"[AUTH ERROR] {error_detail}")
@@ -365,24 +407,46 @@ def update_prompt(key: str, payload: PromptUpdate, db=Depends(get_db)):
 # ──────────────────────────────────────
 
 
+def get_storage_usage(user_id: int, db) -> int:
+    projects = db.query(schema.Project).filter(schema.Project.user_id == user_id).all()
+    project_ids = [p.id for p in projects]
+    if not project_ids:
+        return 0
+    docs = db.query(schema.Document.content_text).filter(schema.Document.project_id.in_(project_ids)).all()
+    doc_bytes = sum(len(d[0].encode('utf-8')) for d in docs if d[0])
+    entities = db.query(schema.Entity.summary).filter(schema.Entity.project_id.in_(project_ids)).all()
+    entity_bytes = sum(len(e[0].encode('utf-8')) for e in entities if e[0])
+    return doc_bytes + entity_bytes
+
+@app.get("/api/users/me")
+def get_user_me(user=Depends(get_current_user), db=Depends(get_db)):
+    usage = get_storage_usage(user.id, db)
+    return {
+        "id": user.id,
+        "username": user.username,
+        "avatar_url": user.avatar_url,
+        "storage_used": usage,
+        "storage_limit": 1048576
+    }
+
 @app.post("/api/projects")
-def create_project(name: str = Form(...), description: str = Form(""), db=Depends(get_db)):
+def create_project(name: str = Form(...), description: str = Form(""), user=Depends(get_current_user), db=Depends(get_db)):
     slug = name.strip().lower().replace(" ", "-")
     slug = re.sub(r'[^a-z0-9가-힣\-]', '', slug) or "project"
-    # Ensure unique slug
+    slug = f"{user.username}-{slug}"
     existing = db.query(schema.Project).filter(schema.Project.slug == slug).first()
     if existing:
-        slug = f"{slug}-{existing.id + 1}"
+        slug = f"{slug}-1"
     
-    project = schema.Project(name=name.strip(), slug=slug, description=description.strip())
+    project = schema.Project(name=name.strip(), slug=slug, description=description.strip(), user_id=user.id)
     db.add(project)
     db.commit()
     db.refresh(project)
     return {"id": project.id, "name": project.name, "slug": project.slug}
 
 @app.get("/api/projects")
-def list_projects(db=Depends(get_db)):
-    projects = db.query(schema.Project).order_by(schema.Project.created_date.desc()).all()
+def list_projects(user=Depends(get_current_user), db=Depends(get_db)):
+    projects = db.query(schema.Project).filter(schema.Project.user_id == user.id).order_by(schema.Project.created_date.desc()).all()
     result = []
     for p in projects:
         doc_count = db.query(schema.Document).filter(schema.Document.project_id == p.id).count()
@@ -406,8 +470,8 @@ class TextAnalysisRequest(BaseModel):
     api_key: str = ""
 
 @app.post("/api/projects/{project_id}/analyze-text")
-def analyze_text(project_id: int, payload: TextAnalysisRequest, db=Depends(get_db)):
-    project = db.query(schema.Project).filter(schema.Project.id == project_id).first()
+def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -434,8 +498,8 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, db=Depends(get_d
     }
 
 @app.get("/api/projects/{project_id}")
-def get_project(project_id: int, db=Depends(get_db)):
-    project = db.query(schema.Project).filter(schema.Project.id == project_id).first()
+def get_project(project_id: int, user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
@@ -463,8 +527,8 @@ class ProjectUpdate(BaseModel):
     description: str = ""
 
 @app.patch("/api/projects/{project_id}")
-def update_project(project_id: int, payload: ProjectUpdate, db=Depends(get_db)):
-    project = db.query(schema.Project).filter(schema.Project.id == project_id).first()
+def update_project(project_id: int, payload: ProjectUpdate, user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     project.name = payload.name.strip()
@@ -474,8 +538,8 @@ def update_project(project_id: int, payload: ProjectUpdate, db=Depends(get_db)):
     return {"id": project.id, "name": project.name, "description": project.description}
 
 @app.delete("/api/projects/{project_id}")
-def delete_project(project_id: int, db=Depends(get_db)):
-    project = db.query(schema.Project).filter(schema.Project.id == project_id).first()
+def delete_project(project_id: int, user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
@@ -491,6 +555,38 @@ def delete_project(project_id: int, db=Depends(get_db)):
     db.commit()
     return {"status": "deleted", "project_id": project_id}
 
+class ChatRequest(BaseModel):
+    message: str
+    history: List[dict]
+    model_name: str = ""
+    api_key: str = ""
+
+@app.post("/api/projects/{project_id}/chat")
+def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    entities = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
+    project_context = ""
+    for e in entities:
+        categories = ", ".join([c.name for c in e.categories])
+        project_context += f"- **{e.name}** ({e.type}, 분류: {categories})\n  {e.summary[:300]}...\n\n"
+        
+    if not project_context:
+        project_context = "이 프로젝트에는 아직 등록된 문서/데이터가 없습니다."
+
+    llm = get_llm(payload.model_name, payload.api_key)
+    
+    reply = execute_project_chat(
+        message=payload.message,
+        history=payload.history,
+        project_context=project_context,
+        llm=llm
+    )
+    
+    return {"reply": reply}
+
 # ──────────────────────────────────────
 # Upload (Project-scoped)
 # ──────────────────────────────────────
@@ -503,11 +599,15 @@ async def upload_files(
     model_name: str = Form(""),
     sub_model_name: str = Form(""),
     api_key: str = Form(""),
+    user=Depends(get_current_user),
     db=Depends(get_db)
 ):
-    project = db.query(schema.Project).filter(schema.Project.id == project_id).first()
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    if get_storage_usage(user.id, db) >= 1048576:
+        raise HTTPException(status_code=413, detail="Storage limit (1MB) exceeded.")
 
     prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_extraction").first()
     system_prompt = prompt_record.content if prompt_record else ""
@@ -530,7 +630,14 @@ async def upload_files(
     }
 
 @app.post("/api/projects/{project_id}/commit")
-def commit_changes(project_id: int, payload_data: dict, db=Depends(get_db)):
+def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if get_storage_usage(user.id, db) >= 1048576:
+        raise HTTPException(status_code=413, detail="Storage limit (1MB) exceeded. Cannot commit more data.")
+
     proposals = payload_data.get("proposals", [])
     custom_prompt = payload_data.get("custom_prompt", "")
     model_name = payload_data.get("model_name", "")

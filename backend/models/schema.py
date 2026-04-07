@@ -11,15 +11,30 @@ entity_category = Table(
     Column("category_id", Integer, ForeignKey("categories.id"), primary_key=True),
 )
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    github_id = Column(String, unique=True, index=True)
+    username = Column(String)
+    avatar_url = Column(String)
+    access_token = Column(String)
+    created_date = Column(DateTime, default=datetime.datetime.utcnow)
+
+    projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
+
+
 class Project(Base):
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
     name = Column(String, index=True)
     slug = Column(String, unique=True, index=True)
     description = Column(Text, default="")
     created_date = Column(DateTime, default=datetime.datetime.utcnow)
 
+    user = relationship("User", back_populates="projects")
     documents = relationship("Document", back_populates="project", cascade="all, delete-orphan")
     entities = relationship("Entity", back_populates="project", cascade="all, delete-orphan")
 

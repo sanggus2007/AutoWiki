@@ -9,6 +9,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_githubcopilot_chat import ChatGithubCopilot
 from langchain_githubcopilot_chat.auth import load_tokens_from_cache, fetch_copilot_token, save_tokens_to_cache
 from pydantic import BaseModel, Field
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
 class PlanNode(BaseModel):
     id: str = Field(description="Unique, lowercase short slug identifier for the node (English alphanumeric only)")
@@ -41,6 +42,9 @@ def get_llm(model_name: str, api_key: str):
     
     if github_token:
         os.environ["GITHUB_TOKEN"] = github_token
+    elif not os.environ.get("GITHUB_TOKEN"):
+        # Explicitly raise a 401 to trigger the frontend's AuthOverlay instead of failing with 500 Pydantic ValidationError
+        raise HTTPException(status_code=401, detail="Token Expired. A GitHub token is required.")
         
     target_model = model_name if model_name else "gpt-4o"
     return ChatGithubCopilot(model=target_model, temperature=0.2)
@@ -329,3 +333,39 @@ async def extract_proposals(file: UploadFile, custom_prompt: str, model_name: st
         }
     finally:
         os.unlink(tmp_path)
+
+def execute_project_chat(message: str, history: list[dict], project_context: str, llm) -> str:
+    """
+    프로젝트의 정보를 바탕으로 QA 채팅을 수행합니다.
+    """
+    messages = []
+    
+    # Add System Message
+    system_prompt = f"""당신은 이 프로젝트의 문서를 잘 알고 있는 친절한 AI 전문가입니다.
+사용자가 묻는 질문에 대해 아래에 제공된 [프로젝트 정보]를 바탕으로 정확하게 답변해주세요.
+정보에 없는 내용은 추측하지 말고 모른다고 하거나, 주어진 정보 내에서 유추할 수 있는 선까지만 답변하세요.
+
+[프로젝트 정보]
+{project_context}
+"""
+    messages.append(SystemMessage(content=system_prompt))
+    
+    # Add History
+    for msg in history:
+        if msg.get("role") == "user":
+            messages.append(HumanMessage(content=msg.get("content", "")))
+        else:
+            messages.append(AIMessage(content=msg.get("content", "")))
+    
+    # Add Current Message
+    messages.append(HumanMessage(content=message))
+    
+    for attempt in range(3):
+        try:
+            response = invoke_with_auth_fallback(llm, messages)
+            return response.content if hasattr(response, 'content') else str(response)
+        except Exception as e:
+            print(f"[Chat Retry {attempt + 1}] Chat failed: {e}")
+            if attempt == 2:
+                raise e
+
