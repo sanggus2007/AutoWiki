@@ -825,9 +825,11 @@ def get_graph_data(project_id: int = Query(None), db=Depends(get_db)):
         nodes.append({
             "id": e.slug,
             "name": e.name,
+            "type": t,        # 분류 (프론트 색상 매핑에 필요)
             "val": 15,
             "color": color
         })
+
         
     links = []
     for r in relationships:
