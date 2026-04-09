@@ -33,15 +33,29 @@ def init_db():
 [이미 프로젝트에 존재하는 문서들]
 <<<EXISTING_ENTITIES>>>
 
+[프로젝트 전체 카테고리 목록]
+<<<ALL_CATEGORIES>>>
+
+[사용자가 첨부한 참고 파일 목록]
+<<<PROJECT_FILES>>>
+
 사용자의 특별 지시사항: <<<CUSTOM_PROMPT>>>
 
 절대 규칙:
 - 모든 필드의 텍스트는 한국어(Korean)로 작성하세요. (단, id는 영어 슬러그)
 - type과 categories는 한국어 명사형으로 작성하세요.
+- **edges의 label은 "[출발노드]가 [도착노드]를 [서술어]" 형태로 대상이 명확히 드러나는 완전한 문장으로 작성하세요. (예: "닉퓨리가 어벤져스를 창설함")**
 - **Return ONLY the raw JSON object. Do NOT include Markdown code blocks, backticks, or any explanatory text. The response must start with { and end with }.**
 - 이미 존재하는 문서는 nodes에 포함하지 마세요. 새롭게 추가될 문서만 포함합니다.
 - 이미 존재하는 문서 중에서 새 텍스트에 의해 보완/수정이 필요한 것이 있다면 patches 배열에 포함하세요. patches가 없으면 빈 배열([])로 두세요.
 - 만약 확신이 서지 않더라도, 문서 내에서 가장 핵심적인 주요 개체(Primary Entities)라도 반드시 추출하려고 시도하십시오.
+
+[관계(Edge) 생성 원칙 — 엄격히 준수]
+- **관계는 오직 텍스트에서 명시적으로 서술된 핵심 사실만 추출하세요.** 단순히 같은 분야이거나 시대적으로 비슷하다는 이유로 관계를 만들지 마세요.
+- **한 노드 쌍(A→B)에는 가장 중요한 관계 1개만 추출**하세요. 같은 두 노드 사이에 여러 개의 엣지를 만들지 마세요.
+- **약하거나 추론적인 관계는 모두 제외**하세요. "~와 관련 있음", "~와 동시대에 존재함", "~의 분야에 속함" 같은 막연한 연결은 금지입니다.
+- **전체 edges 수는 nodes 수를 초과하지 않도록** 절제하세요. edges가 nodes보다 많다면 가장 덜 중요한 것들부터 제거하세요.
+- 추가해도 될까 망설여진다면, **추가하지 마세요.**
 
 [Perfect JSON Example]
 당신이 출력해야 하는 정확하고 완벽한 포맷은 아래와 같습니다. 아래 예시 구조를 100% 동일하게 따르세요:
@@ -55,7 +69,7 @@ def init_db():
     {"id": "alan-turing", "name": "앨런 튜링", "type": "인물", "categories": ["과학자", "인물"]}
   ],
   "edges": [
-    {"source": "alan-turing", "target": "artificial-intelligence", "label": "의 기초 형성에 기여함"}
+    {"source": "alan-turing", "target": "artificial-intelligence", "label": "앨런 튜링이 인공지능의 기초 형성에 기여함"}
   ]
 }
 
@@ -416,7 +430,9 @@ def get_storage_usage(user_id: int, db) -> int:
     doc_bytes = sum(len(d[0].encode('utf-8')) for d in docs if d[0])
     entities = db.query(schema.Entity.summary).filter(schema.Entity.project_id.in_(project_ids)).all()
     entity_bytes = sum(len(e[0].encode('utf-8')) for e in entities if e[0])
-    return doc_bytes + entity_bytes
+    project_files = db.query(schema.ProjectFile.content_text).filter(schema.ProjectFile.project_id.in_(project_ids)).all()
+    file_bytes = sum(len(f[0].encode('utf-8')) for f in project_files if f[0])
+    return doc_bytes + entity_bytes + file_bytes
 
 @app.get("/api/users/me")
 def get_user_me(user=Depends(get_current_user), db=Depends(get_db)):
@@ -426,7 +442,7 @@ def get_user_me(user=Depends(get_current_user), db=Depends(get_db)):
         "username": user.username,
         "avatar_url": user.avatar_url,
         "storage_used": usage,
-        "storage_limit": 1048576
+        "storage_limit": 10485760
     }
 
 @app.post("/api/projects")
@@ -576,13 +592,24 @@ def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current
     if not project_context:
         project_context = "이 프로젝트에는 아직 등록된 문서/데이터가 없습니다."
 
+    # Auto-load selected project reference files
+    selected_pf = db.query(schema.ProjectFile).filter(
+        schema.ProjectFile.project_id == project_id,
+        schema.ProjectFile.is_selected == True
+    ).all()
+    files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
+    project_files_text = "\n\n".join(files_text)
+    if len(project_files_text) > 50000:
+        raise HTTPException(status_code=400, detail="선택된 참고 파일들의 텍스트 총합이 50,000자를 초과합니다. 참고 파일 관리에서 일부 파일의 체크를 해제하세요.")
+
     llm = get_llm(payload.model_name, payload.api_key)
     
     reply = execute_project_chat(
         message=payload.message,
         history=payload.history,
         project_context=project_context,
-        llm=llm
+        llm=llm,
+        project_files_text=project_files_text
     )
     
     return {"reply": reply}
@@ -606,8 +633,8 @@ async def upload_files(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if get_storage_usage(user.id, db) >= 1048576:
-        raise HTTPException(status_code=413, detail="Storage limit (1MB) exceeded.")
+    if get_storage_usage(user.id, db) >= 10485760:
+        raise HTTPException(status_code=413, detail="Storage limit (10MB) exceeded.")
 
     prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_extraction").first()
     system_prompt = prompt_record.content if prompt_record else ""
@@ -616,13 +643,34 @@ async def upload_files(
     existing = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
     existing_entities = [e.name for e in existing]
 
+    # Collect all categories for global structure context
+    all_cat_records = db.query(schema.Category).all()
+    all_categories = [c.name for c in all_cat_records]
+
+    # Auto-load selected project reference files
+    selected_pf = db.query(schema.ProjectFile).filter(
+        schema.ProjectFile.project_id == project_id,
+        schema.ProjectFile.is_selected == True
+    ).all()
+    files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
+    project_files_text = "\n\n".join(files_text)
+    if len(project_files_text) > 50000:
+        raise HTTPException(status_code=400, detail="선택된 참고 파일들의 텍스트 총합이 50,000자를 초과합니다. 참고 파일 관리에서 일부 파일의 체크를 해제하세요.")
+
     # Use sub_model for extraction (cheaper), fall back to main model if not set
     extraction_model = sub_model_name if sub_model_name else model_name
 
     results = []
     for file in files:
-        res = await extract_proposals(file, custom_prompt, extraction_model, api_key, system_prompt, existing_entities)
-        results.append(res)
+        try:
+            res = await extract_proposals(file, custom_prompt, extraction_model, api_key, system_prompt, existing_entities, all_categories, project_files_text)
+            results.append(res)
+        except HTTPException:
+            raise
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"파일 처리 중 오류 발생: {str(e)}")
 
     return {
         "message": f"Processed {len(files)} files successfully",
@@ -635,8 +683,8 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if get_storage_usage(user.id, db) >= 1048576:
-        raise HTTPException(status_code=413, detail="Storage limit (1MB) exceeded. Cannot commit more data.")
+    if get_storage_usage(user.id, db) >= 10485760:
+        raise HTTPException(status_code=413, detail="Storage limit (10MB) exceeded. Cannot commit more data.")
 
     proposals = payload_data.get("proposals", [])
     custom_prompt = payload_data.get("custom_prompt", "")
@@ -1042,6 +1090,71 @@ def get_category(slug: str, db=Depends(get_db)):
         "description": category.description,
         "entities": entities
     }
+
+# ──────────────────────────────────────
+# Project Files Endpoints
+# ──────────────────────────────────────
+
+@app.get("/api/projects/{project_id}/files")
+def list_project_files(project_id: int, user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    files = db.query(schema.ProjectFile).filter(schema.ProjectFile.project_id == project_id).order_by(schema.ProjectFile.upload_date.desc()).all()
+    return [{"id": f.id, "filename": f.filename, "upload_date": f.upload_date.isoformat() if f.upload_date else None, "size": len(f.content_text.encode('utf-8')), "is_selected": bool(f.is_selected)} for f in files]
+
+from services.langchain_service import extract_text_from_file
+
+@app.post("/api/projects/{project_id}/files")
+async def add_project_files(project_id: int, files: list[UploadFile] = File(...), user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if get_storage_usage(user.id, db) >= 10485760:
+        raise HTTPException(status_code=413, detail="Storage limit (10MB) exceeded. Cannot upload more files.")
+
+    results = []
+    for f in files:
+        text = await extract_text_from_file(f)
+        if not text.strip():
+            continue
+        pf = schema.ProjectFile(project_id=project_id, filename=f.filename, content_text=text)
+        db.add(pf)
+        db.flush()
+        results.append({"id": pf.id, "filename": pf.filename})
+    
+    db.commit()
+    return {"status": "success", "files": results}
+
+@app.delete("/api/projects/{project_id}/files/{file_id}")
+def delete_project_file(project_id: int, file_id: int, user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    pf = db.query(schema.ProjectFile).filter(schema.ProjectFile.id == file_id, schema.ProjectFile.project_id == project_id).first()
+    if not pf:
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    db.delete(pf)
+    db.commit()
+    return {"status": "success"}
+
+@app.patch("/api/projects/{project_id}/files/{file_id}/toggle")
+def toggle_project_file(project_id: int, file_id: int, payload: dict, user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    pf = db.query(schema.ProjectFile).filter(schema.ProjectFile.id == file_id, schema.ProjectFile.project_id == project_id).first()
+    if not pf:
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    pf.is_selected = payload.get("is_selected", pf.is_selected)
+    db.commit()
+    return {"status": "success", "is_selected": bool(pf.is_selected)}
 
 # ──────────────────────────────────────
 # Export / Import Endpoints

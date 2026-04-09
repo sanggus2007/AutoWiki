@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Table
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Table, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
@@ -37,6 +37,20 @@ class Project(Base):
     user = relationship("User", back_populates="projects")
     documents = relationship("Document", back_populates="project", cascade="all, delete-orphan")
     entities = relationship("Entity", back_populates="project", cascade="all, delete-orphan")
+    files = relationship("ProjectFile", back_populates="project", cascade="all, delete-orphan")
+
+class ProjectFile(Base):
+    __tablename__ = "project_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String, index=True)
+    content_text = Column(Text)
+    upload_date = Column(DateTime, default=datetime.datetime.utcnow)
+    project_id = Column(Integer, ForeignKey("projects.id"))
+    is_selected = Column(Boolean, default=False)
+
+    project = relationship("Project", back_populates="files")
+
 
 class Document(Base):
     __tablename__ = "documents"

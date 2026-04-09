@@ -88,11 +88,16 @@ def invoke_with_auth_fallback(llm, base_prompt):
             raise HTTPException(status_code=401, detail="Token Expired. Master token expired or refresh failed.")
         raise HTTPException(status_code=500, detail=str(e))
 
-def plan_knowledge_extraction(text: str, custom_prompt: str, llm, system_prompt: str, existing_entities: list[str] | None = None) -> KnowledgePlan:
+def plan_knowledge_extraction(text: str, custom_prompt: str, llm, system_prompt: str, existing_entities: list[str] | None = None, all_categories: list[str] | None = None, project_files_text: str | None = None) -> KnowledgePlan:
     existing_block = "\n".join(f"- {e}" for e in existing_entities) if existing_entities else "(없음)"
+    categories_block = ", ".join(all_categories) if all_categories else "(없음)"
+    files_block = project_files_text if project_files_text else "(없음)"
+    
     base_prompt = system_prompt.replace("<<<TEXT>>>", text)\
                                .replace("<<<CUSTOM_PROMPT>>>", custom_prompt if custom_prompt else "없음")\
-                               .replace("<<<EXISTING_ENTITIES>>>", existing_block)
+                               .replace("<<<EXISTING_ENTITIES>>>", existing_block)\
+                               .replace("<<<ALL_CATEGORIES>>>", categories_block)\
+                               .replace("<<<PROJECT_FILES>>>", files_block)
     
     for attempt in range(3):
         try:
@@ -290,7 +295,7 @@ def execute_section_patch(existing_summary: str, entity_name: str, entity_type: 
             if attempt == 2:
                 return existing_summary  # 모든 재시도 실패 시 원본 유지
 
-async def extract_proposals(file: UploadFile, custom_prompt: str, model_name: str, api_key: str, system_prompt: str, existing_entities: list[str] | None = None):
+async def extract_text_from_file(file: UploadFile) -> str:
     ext = file.filename.split('.')[-1].lower()
     
     with NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
@@ -309,30 +314,37 @@ async def extract_proposals(file: UploadFile, custom_prompt: str, model_name: st
             loader = TextLoader(tmp_path, encoding="utf-8")
             docs = loader.load()
 
-        full_text = "\n".join([doc.page_content for doc in docs])
-        
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=4000, chunk_overlap=200)
-        chunks = text_splitter.split_text(full_text)
-        target_chunk = chunks[0] if chunks else full_text
-        
-        print("\n" + "="*50)
-        print("DEBUG TARGET CHUNK PREVIEW (First 200 chars):")
-        print(target_chunk[:200])
-        print("="*50 + "\n")
-        
-        llm = get_llm(model_name, api_key)
-        plan = plan_knowledge_extraction(target_chunk, custom_prompt, llm, system_prompt, existing_entities)
-        
-        return {
-            "filename": file.filename,
-            "content_text": target_chunk,
-            "plan_summary": plan.plan_summary,
-            "patches": [p.dict() for p in plan.patches],
-            "nodes": [n.dict() for n in plan.nodes],
-            "edges": [e.dict() for e in plan.edges]
-        }
+        full_text = "\n".join([doc.page_content for doc in docs if doc.page_content])
+        return full_text
     finally:
         os.unlink(tmp_path)
+
+async def extract_proposals(file: UploadFile, custom_prompt: str, model_name: str, api_key: str, system_prompt: str, existing_entities: list[str] | None = None, all_categories: list[str] | None = None, project_files_text: str | None = None):
+    full_text = await extract_text_from_file(file)
+    if not full_text.strip():
+        raise HTTPException(status_code=400, detail="파일에서 텍스트를 추출할 수 없습니다. 파일이 비어 있거나 지원되지 않는 형식일 수 있습니다.")
+    
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=4000, chunk_overlap=200)
+    chunks = [c for c in text_splitter.split_text(full_text) if c]
+    target_chunk = chunks[0] if chunks else full_text[:4000]
+    
+    print("\n" + "="*50)
+    print("DEBUG TARGET CHUNK PREVIEW (First 200 chars):")
+    print(target_chunk[:200])
+    print("="*50 + "\n")
+    
+    llm = get_llm(model_name, api_key)
+    plan = plan_knowledge_extraction(target_chunk, custom_prompt, llm, system_prompt, existing_entities, all_categories, project_files_text)
+    
+    return {
+        "filename": file.filename,
+        "content_text": target_chunk,
+        "plan_summary": plan.plan_summary,
+        "patches": [p.dict() for p in plan.patches],
+        "nodes": [n.dict() for n in plan.nodes],
+        "edges": [e.dict() for e in plan.edges]
+    }
+
 
 def execute_project_chat(message: str, history: list[dict], project_context: str, llm) -> str:
     """
