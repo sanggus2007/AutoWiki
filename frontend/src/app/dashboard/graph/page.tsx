@@ -1,0 +1,667 @@
+"use client";
+
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { KnowledgeGraph, GraphSettings, DEFAULT_SETTINGS } from "@/components/KnowledgeGraph";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { apiFetch } from "@/lib/api";
+import {
+  ChevronDown, Edit3, X, Check, Trash2, Link as LinkIcon,
+  PlusCircle, AlertTriangle, Settings2, RotateCcw,
+} from "lucide-react";
+
+
+const ENTITY_TYPES = ["개념", "기술", "인물", "프로젝트", "조직", "이론", "방법론", "기타"];
+
+interface ProjectItem { id: number; name: string; slug: string; }
+
+// ─── Settings Panel ────────────────────────────────────────────────────────────
+
+function SettingsPanel({
+  settings,
+  onChange,
+  onClose,
+}: {
+  settings: GraphSettings;
+  onChange: (s: GraphSettings) => void;
+  onClose: () => void;
+}) {
+  const set = (partial: Partial<GraphSettings>) => onChange({ ...settings, ...partial });
+
+  const ToggleBtn = ({
+    active, onClick, children,
+  }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+    <button
+      onClick={onClick}
+      className={`flex-1 text-xs py-2 rounded-md border transition-all leading-none ${
+        active
+          ? 'bg-[#a855f7]/20 border-[#a855f7]/55 text-[#c084fc]'
+          : 'bg-[#151515] border-[#2a2a2a] text-[#666] hover:border-[#444] hover:text-[#999]'
+      }`}
+    >
+      {children}
+    </button>
+  );
+
+  const Slider = ({
+    label, value, min, max, step, unit = '', onChange: onCh,
+  }: { label: string; value: number; min: number; max: number; step: number; unit?: string; onChange: (v: number) => void }) => (
+    <div>
+      <div className="flex justify-between items-center mb-1.5">
+        <span className="text-[11px] text-[#666]">{label}</span>
+        <span className="text-[11px] text-[#888] tabular-nums">{value}{unit}</span>
+      </div>
+      <input
+        type="range" min={min} max={max} step={step} value={value}
+        onChange={e => onCh(Number(e.target.value))}
+        className="w-full h-1 rounded-full cursor-pointer accent-[#a855f7]"
+        style={{ background: `linear-gradient(to right, #a855f7 ${((value - min) / (max - min)) * 100}%, #2a2a2a ${((value - min) / (max - min)) * 100}%)` }}
+      />
+    </div>
+  );
+
+  const Toggle = ({ label, value, onToggle }: { label: string; value: boolean; onToggle: () => void }) => (
+    <label className="flex items-center justify-between cursor-pointer select-none">
+      <span className="text-xs text-[#999]">{label}</span>
+      <div
+        onClick={onToggle}
+        className={`w-9 h-[18px] rounded-full border transition-all relative flex-shrink-0 ${
+          value ? 'bg-[#a855f7]/50 border-[#a855f7]/60' : 'bg-[#1a1a1a] border-[#333]'
+        }`}
+      >
+        <div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-transform duration-200 ${
+          value ? 'translate-x-[18px]' : 'translate-x-0.5'
+        }`} />
+      </div>
+    </label>
+  );
+
+  const themes = [
+    { id: 'dark', label: '다크', swatch: '#0a0a0a' },
+    { id: 'cosmos', label: '코스모스', swatch: '#03030e' },
+    { id: 'neon', label: '네온', swatch: '#060009' },
+    { id: 'forest', label: '포레스트', swatch: '#020906' },
+  ] as const;
+
+  return (
+    <div className="w-72 h-full flex flex-col bg-[#0e0e0e] border-l border-[#222]">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e] flex-shrink-0">
+        <span className="text-[#ccc] text-sm font-semibold flex items-center gap-2">
+          <Settings2 size={13} className="text-[#a855f7]" /> 그래프 설정
+        </span>
+        <button onClick={onClose} className="text-[#555] hover:text-[#aaa] transition-colors">
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5 scrollbar-thin">
+
+        {/* Layout */}
+        <section>
+          <div className="text-[10px] text-[#555] uppercase tracking-widest mb-3 font-bold">레이아웃</div>
+          <div className="flex gap-2">
+            <ToggleBtn active={settings.layout === 'radial'} onClick={() => set({ layout: 'radial' })}>
+              🌐 방사형 마인드맵
+            </ToggleBtn>
+            <ToggleBtn active={settings.layout === 'force'} onClick={() => set({ layout: 'force' })}>
+              ⚡ 자유 배치
+            </ToggleBtn>
+          </div>
+        </section>
+
+        {/* Node Size */}
+        <section>
+          <div className="text-[10px] text-[#555] uppercase tracking-widest mb-3 font-bold">노드 크기</div>
+          <div className="flex gap-2">
+            <ToggleBtn active={settings.nodeSizeMode === 'dynamic'} onClick={() => set({ nodeSizeMode: 'dynamic' })}>
+              연결 수 비례
+            </ToggleBtn>
+            <ToggleBtn active={settings.nodeSizeMode === 'uniform'} onClick={() => set({ nodeSizeMode: 'uniform' })}>
+              균일
+            </ToggleBtn>
+          </div>
+        </section>
+
+        {/* Label */}
+        <section>
+          <div className="text-[10px] text-[#555] uppercase tracking-widest mb-3 font-bold">레이블 표시</div>
+          <div className="flex gap-1.5">
+            {(['always', 'hover', 'hidden'] as const).map(m => (
+              <ToggleBtn key={m} active={settings.labelMode === m} onClick={() => set({ labelMode: m })}>
+                {{ always: '항상', hover: '호버', hidden: '숨김' }[m]}
+              </ToggleBtn>
+            ))}
+          </div>
+        </section>
+
+        {/* Theme */}
+        <section>
+          <div className="text-[10px] text-[#555] uppercase tracking-widest mb-3 font-bold">배경 테마</div>
+          <div className="grid grid-cols-2 gap-2">
+            {themes.map(t => (
+              <button
+                key={t.id}
+                onClick={() => set({ theme: t.id })}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-md border text-xs transition-all ${
+                  settings.theme === t.id
+                    ? 'border-[#a855f7]/55 text-white bg-[#a855f7]/10'
+                    : 'border-[#2a2a2a] text-[#666] hover:border-[#444] hover:text-[#999]'
+                }`}
+              >
+                <span
+                  className="w-3.5 h-3.5 rounded-full flex-shrink-0 border border-[#444]"
+                  style={{ background: t.swatch }}
+                />
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Sliders */}
+        <section className="space-y-4">
+          <div className="text-[10px] text-[#555] uppercase tracking-widest font-bold">물리 설정</div>
+          <Slider
+            label="반발력 (Charge)"
+            value={settings.chargeStrength}
+            min={-800} max={-50} step={25}
+            onChange={v => set({ chargeStrength: v })}
+          />
+          <Slider
+            label="링크 거리"
+            value={settings.linkDistance}
+            min={30} max={280} step={10} unit="px"
+            onChange={v => set({ linkDistance: v })}
+          />
+          {settings.layout === 'radial' && (
+            <Slider
+              label="링 간격 (방사형)"
+              value={settings.ringSpacing}
+              min={60} max={250} step={10} unit="px"
+              onChange={v => set({ ringSpacing: v })}
+            />
+          )}
+        </section>
+
+        {/* Toggles */}
+        <section className="space-y-3">
+          <div className="text-[10px] text-[#555] uppercase tracking-widest font-bold">표시 옵션</div>
+          <Toggle
+            label="파티클 효과"
+            value={settings.showParticles}
+            onToggle={() => set({ showParticles: !settings.showParticles })}
+          />
+          <Toggle
+            label="링크 레이블"
+            value={settings.showLinkLabels}
+            onToggle={() => set({ showLinkLabels: !settings.showLinkLabels })}
+          />
+        </section>
+
+        {/* Reset */}
+        <button
+          onClick={() => onChange(DEFAULT_SETTINGS)}
+          className="w-full flex items-center justify-center gap-2 text-[11px] text-[#555] hover:text-[#888] py-2.5 border border-[#222] hover:border-[#333] rounded-md transition-all"
+        >
+          <RotateCcw size={11} /> 기본값으로 초기화
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
+
+function GraphPageInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+
+  // Panels
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<GraphSettings>(DEFAULT_SETTINGS);
+
+  // Node edit
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [selectedLink, setSelectedLink] = useState<any>(null);
+  const [editPanel, setEditPanel] = useState<'node' | 'link' | 'link-connect' | null>(null);
+  const [nodeName, setNodeName] = useState('');
+  const [nodeType, setNodeType] = useState('');
+  const [linkLabel, setLinkLabel] = useState('');
+  const [connectingFrom, setConnectingFrom] = useState<any>(null);
+  const [connectTarget, setConnectTarget] = useState<any>(null);
+  const [connectLabel, setConnectLabel] = useState('');
+  const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<'node' | 'link' | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const refreshGraph = () => window.dispatchEvent(new Event('graph:refresh'));
+
+  useEffect(() => {
+    // Load settings from localStorage
+    const savedSettings = localStorage.getItem('autowiki_knowledge_graph_settings');
+    if (savedSettings) {
+      try {
+        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) });
+      } catch (e) {
+        console.error("Failed to parse saved graph settings", e);
+      }
+    }
+
+    apiFetch(`/api/projects`)
+      .then(r => r.json())
+      .then((data: ProjectItem[]) => {
+        setProjects(data);
+        const urlId = searchParams.get('projectId');
+        if (urlId) setSelectedProjectId(Number(urlId));
+        else if (data.length > 0) setSelectedProjectId(data[0].id);
+      })
+      .catch(console.error);
+  }, []);
+
+  const isMounted = useRef(false);
+  useEffect(() => {
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
+    localStorage.setItem('autowiki_knowledge_graph_settings', JSON.stringify(settings));
+  }, [settings]);
+
+  const deselectAll = useCallback(() => {
+    setSelectedNode(null);
+    setSelectedLink(null);
+    setEditPanel(null);
+    setConnectingFrom(null);
+    setConnectModalOpen(false);
+    setConnectTarget(null);
+    setDeleteConfirm(null);
+    setError('');
+  }, []);
+
+  const handleProjectChange = (id: number) => {
+    setSelectedProjectId(id);
+    router.replace(`/dashboard/graph?projectId=${id}`);
+    deselectAll();
+  };
+
+  const handleNodeSelect = (node: any) => {
+    if (connectingFrom) {
+      if (connectingFrom.id === node.id) return;
+      setConnectTarget(node);
+      setConnectLabel('');
+      setConnectModalOpen(true);
+      return;
+    }
+    setSelectedLink(null);
+    setDeleteConfirm(null);
+    setSelectedNode(node);
+    setNodeName(node.name);
+    setNodeType(node.type ?? '개념');
+    setEditPanel('node');
+    setError('');
+  };
+
+  const handleLinkSelect = (link: any) => {
+    setSelectedNode(null);
+    setDeleteConfirm(null);
+    setSelectedLink(link);
+    setLinkLabel(link.label ?? '');
+    setEditPanel('link');
+    setError('');
+  };
+
+  // Node Save
+  const saveNode = async () => {
+    if (!selectedNode) return;
+    setSaving(true); setError('');
+    try {
+      const res = await apiFetch(`/api/entities/${selectedNode.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nodeName, type: nodeType }),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail ?? '저장 실패');
+      refreshGraph();
+      setSelectedNode((p: any) => ({ ...p, name: nodeName, type: nodeType }));
+    } catch (e: any) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  // Node Delete
+  const deleteNode = async () => {
+    if (!selectedNode) return;
+    setSaving(true); setError('');
+    try {
+      const res = await apiFetch(`/api/wiki/${selectedNode.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json()).detail ?? '삭제 실패');
+      refreshGraph(); deselectAll();
+    } catch (e: any) { setError(e.message); setSaving(false); }
+  };
+
+  const startConnect = () => {
+    setConnectingFrom(selectedNode);
+    setEditPanel('link-connect');
+    setSelectedNode(null);
+  };
+  const cancelConnect = () => {
+    setConnectingFrom(null); setConnectModalOpen(false); setConnectTarget(null); setEditPanel(null);
+  };
+
+  const confirmConnect = async () => {
+    if (!connectingFrom || !connectTarget) return;
+    setSaving(true); setError('');
+    try {
+      const res = await apiFetch(`/api/relationships`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: connectingFrom.id, target: connectTarget.id, label: connectLabel.trim() }),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail ?? '엣지 생성 실패');
+      refreshGraph(); cancelConnect();
+    } catch (e: any) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const saveLink = async () => {
+    if (!selectedLink) return;
+    setSaving(true); setError('');
+    try {
+      const res = await apiFetch(`/api/relationships/${selectedLink.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: linkLabel }),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail ?? '저장 실패');
+      refreshGraph(); setSelectedLink((p: any) => ({ ...p, label: linkLabel }));
+    } catch (e: any) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const deleteLink = async () => {
+    if (!selectedLink) return;
+    setSaving(true); setError('');
+    try {
+      const res = await apiFetch(`/api/relationships/${selectedLink.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json()).detail ?? '삭제 실패');
+      refreshGraph(); deselectAll();
+    } catch (e: any) { setError(e.message); setSaving(false); }
+  };
+
+  const selectedProject = projects.find(p => p.id === selectedProjectId);
+
+  // ─── UI helpers ──────────────────────────────────────────
+  const ErrBox = () => error ? (
+    <div className="flex items-center gap-2 bg-red-900/15 border border-red-800/30 text-red-400 text-xs px-3 py-2 rounded-md">
+      <AlertTriangle size={11} /> {error}
+    </div>
+  ) : null;
+
+  const ConfirmDelete = ({ onConfirm, onCancel, message }: { onConfirm: () => void; onCancel: () => void; message: string }) => (
+    <div className="space-y-2">
+      <p className="text-[#f87171] text-xs text-center">{message}</p>
+      <div className="flex gap-2">
+        <button onClick={onConfirm} disabled={saving}
+          className="flex-1 bg-red-900/30 hover:bg-red-900/50 border border-red-800/40 text-[#f87171] text-xs font-bold py-1.5 rounded-md transition-all disabled:opacity-40">
+          삭제 확인
+        </button>
+        <button onClick={onCancel}
+          className="flex-1 bg-[#181818] hover:bg-[#222] border border-[#2a2a2a] text-[#777] text-xs py-1.5 rounded-md transition-all">
+          취소
+        </button>
+      </div>
+    </div>
+  );
+
+  const SidePanel = ({ children, title, onClose }: { children: React.ReactNode; title: string; onClose: () => void }) => (
+    <div className="absolute left-5 top-1/2 -translate-y-1/2 z-20 w-68" style={{ animation: 'slideIn .18s ease' }}>
+      <div className="bg-[#0e0e0e] border border-[#252525] rounded-xl shadow-2xl overflow-hidden w-64">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e]">
+          <span className="text-[#ccc] text-sm font-semibold">{title}</span>
+          <button onClick={onClose} className="text-[#555] hover:text-[#aaa] transition-colors"><X size={14} /></button>
+        </div>
+        <div className="px-4 py-4 space-y-4">{children}</div>
+      </div>
+    </div>
+  );
+
+  // ─── Render ───────────────────────────────────────────────
+  return (
+    <div className="w-full h-[calc(100vh-64px)] relative flex">
+
+      {/* Graph area */}
+      <div className="flex-1 relative min-w-0">
+
+        {/* Overlay header */}
+        <div className="absolute top-5 left-5 z-10 pointer-events-none">
+          <h1 className="text-xl font-bold text-white drop-shadow-lg">
+            {selectedProject ? `${selectedProject.name} — 지식 구조도` : '지식 구조도'}
+          </h1>
+          <p className="text-[#666] text-xs mt-0.5 drop-shadow">
+            {isEditMode
+              ? '편집 모드: 노드·엣지를 클릭하여 선택하세요'
+              : settings.layout === 'radial'
+              ? '방사형 마인드맵 — 중심에서 뻗어나가는 지식 구조'
+              : '자유 배치 — 드래그·줌·클릭으로 탐색'}
+          </p>
+        </div>
+
+        {/* Top-right controls */}
+        <div className="absolute top-5 right-5 z-10 flex items-center gap-2">
+          {/* Settings toggle */}
+          <button
+            onClick={() => setShowSettings(v => !v)}
+            className={`flex items-center gap-1.5 text-xs font-semibold rounded-md px-3 py-2 border transition-all shadow-lg ${
+              showSettings
+                ? 'bg-[#a855f7]/20 border-[#a855f7]/50 text-[#c084fc]'
+                : 'bg-[#111]/90 border-[#333] text-[#aaa] hover:border-[#555] hover:text-white'
+            }`}
+          >
+            <Settings2 size={13} />
+            설정
+          </button>
+
+          {/* Edit mode toggle */}
+          <button
+            onClick={() => { setIsEditMode(v => !v); deselectAll(); }}
+            className={`flex items-center gap-1.5 text-xs font-semibold rounded-md px-3 py-2 border transition-all shadow-lg ${
+              isEditMode
+                ? 'bg-[#fbbf24]/15 border-[#fbbf24]/50 text-[#fbbf24]'
+                : 'bg-[#111]/90 border-[#333] text-[#aaa] hover:border-[#555] hover:text-white'
+            }`}
+          >
+            <Edit3 size={13} />
+            {isEditMode ? '편집 중' : '편집'}
+          </button>
+
+          {/* Project selector */}
+          <div className="relative">
+            <select
+              value={selectedProjectId ?? ''}
+              onChange={e => handleProjectChange(Number(e.target.value))}
+              className="appearance-none bg-[#111]/90 border border-[#333] text-white text-xs font-semibold rounded-md pl-3 pr-7 py-2 cursor-pointer focus:outline-none focus:border-[#666] transition-colors shadow-lg"
+            >
+              {projects.length === 0 && <option value="" disabled>프로젝트 없음</option>}
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#777] pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Graph canvas */}
+        <KnowledgeGraph
+          projectId={selectedProjectId}
+          settings={settings}
+          editMode={isEditMode}
+          selectedNodeId={selectedNode?.id ?? connectingFrom?.id ?? null}
+          selectedLinkId={selectedLink?.id ?? null}
+          onNodeSelect={handleNodeSelect}
+          onLinkSelect={handleLinkSelect}
+          onDeselect={deselectAll}
+        />
+
+        {/* ─── Node Edit Panel ─────────── */}
+        {isEditMode && editPanel === 'node' && selectedNode && (
+          <SidePanel title="노드 편집" onClose={deselectAll}>
+            <div>
+              <label className="text-[10px] text-[#555] uppercase tracking-widest block mb-1.5">이름</label>
+              <input
+                value={nodeName}
+                onChange={e => setNodeName(e.target.value)}
+                className="w-full bg-[#161616] border border-[#2a2a2a] text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-[#444] transition-colors"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-[#555] uppercase tracking-widest block mb-1.5">유형</label>
+              <select
+                value={nodeType}
+                onChange={e => setNodeType(e.target.value)}
+                className="w-full bg-[#161616] border border-[#2a2a2a] text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-[#444] transition-colors cursor-pointer"
+              >
+                {ENTITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <ErrBox />
+            <div className="flex gap-2">
+              <button onClick={saveNode} disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-900/20 hover:bg-emerald-900/30 border border-emerald-800/40 text-emerald-400 text-xs font-bold py-2 rounded-md transition-all disabled:opacity-40">
+                <Check size={12} /> 저장
+              </button>
+              <button onClick={startConnect}
+                className="flex items-center justify-center gap-1 bg-blue-900/20 hover:bg-blue-900/30 border border-blue-800/40 text-blue-400 text-xs font-bold px-3 py-2 rounded-md transition-all"
+                title="이 노드에서 엣지 연결">
+                <LinkIcon size={12} />
+              </button>
+            </div>
+            {deleteConfirm === 'node'
+              ? <ConfirmDelete
+                  message="이 노드와 연결된 모든 엣지가 삭제됩니다."
+                  onConfirm={deleteNode}
+                  onCancel={() => setDeleteConfirm(null)}
+                />
+              : <button onClick={() => setDeleteConfirm('node')}
+                  className="w-full flex items-center justify-center gap-1.5 bg-red-900/10 hover:bg-red-900/20 border border-red-900/25 text-[#f87171] text-xs py-2 rounded-md transition-all">
+                  <Trash2 size={12} /> 노드 삭제
+                </button>
+            }
+          </SidePanel>
+        )}
+
+        {/* ─── Connect Mode Banner ─────── */}
+        {isEditMode && editPanel === 'link-connect' && (
+          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20">
+            <div className="bg-[#1a1200] border border-[#fbbf24]/40 text-[#fbbf24] px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-xs font-semibold backdrop-blur-sm">
+              <PlusCircle size={14} />
+              <span><strong>{connectingFrom?.name}</strong>에서 연결할 노드를 클릭하세요</span>
+              <button onClick={cancelConnect} className="ml-1 text-[#fbbf24]/50 hover:text-[#fbbf24] transition-colors"><X size={13} /></button>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Connect Modal ───────────── */}
+        {connectModalOpen && connectTarget && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/65 backdrop-blur-sm">
+            <div className="bg-[#0e0e0e] border border-[#252525] rounded-xl shadow-2xl w-72 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e]">
+                <span className="text-[#ccc] text-sm font-semibold">엣지 생성</span>
+                <button onClick={cancelConnect} className="text-[#555] hover:text-[#aaa] transition-colors"><X size={14} /></button>
+              </div>
+              <div className="px-4 py-4 space-y-4">
+                <div className="text-center text-xs text-[#666]">
+                  <span className="text-white font-bold">{connectingFrom?.name}</span>
+                  <span className="mx-2 text-[#a855f7]">→</span>
+                  <span className="text-white font-bold">{connectTarget?.name}</span>
+                </div>
+                <div>
+                  <label className="text-[10px] text-[#555] uppercase tracking-widest block mb-1.5">관계 레이블 (선택)</label>
+                  <input
+                    value={connectLabel}
+                    onChange={e => setConnectLabel(e.target.value)}
+                    placeholder="예: 개발함, 소속됨, 활용됨"
+                    className="w-full bg-[#161616] border border-[#2a2a2a] text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-[#444] transition-colors"
+                    onKeyDown={e => e.key === 'Enter' && confirmConnect()}
+                    autoFocus
+                  />
+                </div>
+                <ErrBox />
+                <div className="flex gap-2">
+                  <button onClick={confirmConnect} disabled={saving}
+                    className="flex-1 bg-emerald-900/20 hover:bg-emerald-900/30 border border-emerald-800/40 text-emerald-400 text-xs font-bold py-2 rounded-md transition-all disabled:opacity-40">
+                    <Check size={12} className="inline mr-1" /> 생성
+                  </button>
+                  <button onClick={cancelConnect}
+                    className="flex-1 bg-[#161616] hover:bg-[#1e1e1e] border border-[#2a2a2a] text-[#777] text-xs py-2 rounded-md transition-all">
+                    취소
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Link Edit Panel ─────────── */}
+        {isEditMode && editPanel === 'link' && selectedLink && (
+          <SidePanel title="엣지 편집" onClose={deselectAll}>
+            <div className="text-xs text-[#555] text-center">
+              <span className="text-[#888]">{selectedLink.source?.name ?? selectedLink.source}</span>
+              <span className="mx-2 text-[#a855f7]">→</span>
+              <span className="text-[#888]">{selectedLink.target?.name ?? selectedLink.target}</span>
+            </div>
+            <div>
+              <label className="text-[10px] text-[#555] uppercase tracking-widest block mb-1.5">관계 레이블</label>
+              <input
+                value={linkLabel}
+                onChange={e => setLinkLabel(e.target.value)}
+                className="w-full bg-[#161616] border border-[#2a2a2a] text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-[#444] transition-colors"
+              />
+            </div>
+            <ErrBox />
+            <button onClick={saveLink} disabled={saving}
+              className="w-full flex items-center justify-center gap-1.5 bg-emerald-900/20 hover:bg-emerald-900/30 border border-emerald-800/40 text-emerald-400 text-xs font-bold py-2 rounded-md transition-all disabled:opacity-40">
+              <Check size={12} /> 저장
+            </button>
+            {deleteConfirm === 'link'
+              ? <ConfirmDelete
+                  message="이 연결을 삭제하시겠습니까?"
+                  onConfirm={deleteLink}
+                  onCancel={() => setDeleteConfirm(null)}
+                />
+              : <button onClick={() => setDeleteConfirm('link')}
+                  className="w-full flex items-center justify-center gap-1.5 bg-red-900/10 hover:bg-red-900/20 border border-red-900/25 text-[#f87171] text-xs py-2 rounded-md transition-all">
+                  <Trash2 size={12} /> 엣지 삭제
+                </button>
+            }
+          </SidePanel>
+        )}
+      </div>
+
+      {/* ─── Settings Side Panel ─────────────────────────────── */}
+      {showSettings && (
+        <SettingsPanel
+          settings={settings}
+          onChange={setSettings}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      <style>{`
+        @keyframes slideIn {
+          from { opacity: 0; transform: translate(-10px, -50%); }
+          to   { opacity: 1; transform: translate(0, -50%); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+export default function GraphPage() {
+  return (
+    <Suspense fallback={<div className="w-full h-screen bg-[#0a0a0a]" />}>
+      <GraphPageInner />
+    </Suspense>
+  );
+}

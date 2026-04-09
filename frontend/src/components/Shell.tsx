@@ -1,0 +1,253 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { Home, Book, FileText, Settings, Search, Edit3, FolderOpen, Plus, Network, Archive, LogOut, Database } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import ExportImportPanel from "./ExportImportPanel";
+import { apiFetch } from "@/lib/api";
+import { useAuthStore } from "@/lib/store";
+
+
+export const Sidebar = () => {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [projects, setProjects] = useState<{id: number, name: string, slug: string}[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectDesc, setNewProjectDesc] = useState("");
+  const { user, logout } = useAuthStore();
+  const [storageUsed, setStorageUsed] = useState(0);
+  const storageLimit = 10485760; // 10MB
+  const [showExportImport, setShowExportImport] = useState(false);
+
+  useEffect(() => {
+    apiFetch("/api/users/me")
+      .then(res => res.json())
+      .then(data => setStorageUsed(data.storage_used || 0))
+      .catch(() => {});
+  }, [pathname]);
+
+  const handleLogout = () => {
+    logout();
+    router.replace("/login");
+  };
+
+  useEffect(() => {
+    apiFetch("/api/projects")
+      .then(r => r.json())
+      .then(data => setProjects(data))
+      .catch(err => console.error(err));
+  }, [pathname]);
+
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim()) return;
+    const formData = new FormData();
+    formData.append("name", newProjectName.trim());
+    formData.append("description", newProjectDesc.trim());
+    
+    const res = await apiFetch("/api/projects", {
+      method: "POST",
+      body: formData,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setProjects(prev => [data, ...prev]);
+      setNewProjectName("");
+      setNewProjectDesc("");
+      setShowCreateModal(false);
+      router.push(`/dashboard/project/${data.id}`);
+    }
+  };
+
+  return (
+    <>
+      <aside className="w-56 bg-[#f6f6f6] border-r border-[#a2a9b1] flex flex-col h-full shrink-0 font-sans text-sm">
+        <div className="p-5 pb-3">
+          <div className="flex flex-col items-center justify-center cursor-pointer mb-2" onClick={() => router.push("/dashboard")}>
+            <Book size={40} className="text-[#000000] mb-1" strokeWidth={1} />
+            <span className="text-lg font-serif font-medium text-[#000000] tracking-tight">
+              AutoWiki AI
+            </span>
+            <span className="text-[9px] text-[#54595d] mt-0.5 tracking-wider uppercase">자동 생성 백과사전</span>
+          </div>
+        </div>
+
+        <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto custom-scrollbar">
+          <div className="text-[11px] font-bold text-[#54595d] px-2 mb-1 uppercase tracking-wider">탐색</div>
+          <NavItem icon={<Home size={15} />} label="대문" href="/dashboard" active={pathname === "/dashboard"} />
+          <NavItem icon={<Network size={15} />} label="전체 지식 구조도" href="/dashboard/graph" active={pathname === "/dashboard/graph"} />
+          
+          <div className="mt-5 mb-1">
+            <div className="flex items-center justify-between px-2">
+              <div className="text-[11px] font-bold text-[#54595d] uppercase tracking-wider">프로젝트</div>
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="text-[#0645ad] hover:text-[#0b0080] p-0.5"
+                title="새 프로젝트 만들기"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+          </div>
+          {projects.map(p => (
+            <NavItem 
+              key={p.id} 
+              icon={<FolderOpen size={15} />} 
+              label={p.name} 
+              href={`/dashboard/project/${p.id}`} 
+              active={pathname === `/dashboard/project/${p.id}` || pathname.startsWith(`/dashboard/project/${p.id}/`)} 
+            />
+          ))}
+          {projects.length === 0 && (
+            <div className="px-2 py-2 text-[11px] text-[#54595d] italic">아직 프로젝트가 없습니다.</div>
+          )}
+        </nav>
+
+        <div className="p-3 border-t border-[#a2a9b1]">
+          {/* Storage Details */}
+          <div className="mt-3 px-2 mb-3">
+             <div className="flex items-center justify-between mb-1">
+                 <div className="text-[11px] font-bold text-[#54595d] uppercase tracking-wider flex items-center">
+                    <Database size={11} className="mr-1" />
+                    저장소 용량 제한
+                 </div>
+                 <div className="text-[10px] text-[#54595d]">
+                    {(storageUsed / 1024).toFixed(1)} / 10240 KB
+                 </div>
+             </div>
+             <div className="w-full bg-[#eaecf0] h-1.5 rounded-full overflow-hidden">
+                 <div 
+                    className={`h-full ${storageUsed >= storageLimit ? 'bg-red-500' : 'bg-emerald-500'}`} 
+                    style={{ width: `${Math.min(100, (storageUsed / storageLimit) * 100)}%` }}
+                 />
+             </div>
+          </div>
+
+          <div className="text-[11px] font-bold text-[#54595d] px-2 mt-4 mb-2 uppercase tracking-wider">도구 모음</div>
+          <NavItem icon={<Settings size={15} />} label="환경 설정" href="/dashboard/settings" active={pathname === "/dashboard/settings"} />
+          <div
+            onClick={() => setShowExportImport(true)}
+            className="flex items-center space-x-2 px-2 py-1.5 rounded-sm cursor-pointer transition-colors text-[13px] text-[#0645ad] hover:bg-[#eaecf0] hover:underline mb-2"
+          >
+            <span className="shrink-0 text-[#0645ad]"><Archive size={15} /></span>
+            <span className="truncate">내보내기 / 가져오기</span>
+          </div>
+
+          <div className="text-[11px] font-bold text-[#54595d] px-2 mb-2 uppercase tracking-wider">계정 관리</div>
+          {user && (
+            <div className="flex items-center justify-between px-2 mb-2">
+              <div className="flex items-center space-x-2 truncate">
+                {user.avatar_url ? (
+                   <img src={user.avatar_url} alt="Profile" className="w-6 h-6 rounded-full border border-[#a2a9b1]" />
+                ) : (
+                   <div className="w-6 h-6 rounded-full bg-[#eaecf0] border border-[#a2a9b1] flex items-center justify-center text-[10px] font-bold text-[#54595d]">
+                     {user.username.charAt(0).toUpperCase()}
+                   </div>
+                )}
+                <span className="text-[12px] font-semibold text-[#202122] truncate">{user.username}</span>
+              </div>
+            </div>
+          )}
+          <div
+            onClick={handleLogout}
+            className="flex items-center space-x-2 px-2 py-1.5 rounded-sm cursor-pointer transition-colors text-[13px] text-red-600 hover:bg-[#eaecf0] hover:underline"
+          >
+            <span className="shrink-0 text-red-600"><LogOut size={15} /></span>
+            <span className="truncate">로그아웃</span>
+          </div>
+        </div>
+      </aside>
+
+      {/* Create Project Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={() => setShowCreateModal(false)}>
+          <div className="bg-white border border-[#a2a9b1] shadow-lg p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-[#000000] mb-4 font-serif">새 프로젝트 만들기</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[13px] font-bold mb-1">프로젝트 이름 *</label>
+                <input
+                  type="text"
+                  value={newProjectName}
+                  onChange={e => setNewProjectName(e.target.value)}
+                  placeholder="예: Q2 마케팅 전략"
+                  className="w-full border border-[#a2a9b1] px-3 py-2 text-sm focus:outline-none focus:border-[#0645ad]"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-[13px] font-bold mb-1">설명 (선택)</label>
+                <textarea
+                  value={newProjectDesc}
+                  onChange={e => setNewProjectDesc(e.target.value)}
+                  placeholder="이 프로젝트에 대한 간략한 설명"
+                  className="w-full border border-[#a2a9b1] px-3 py-2 text-sm focus:outline-none focus:border-[#0645ad] resize-none h-20"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-5">
+              <button 
+                onClick={() => setShowCreateModal(false)}
+                className="px-4 py-1.5 text-[13px] border border-[#a2a9b1] bg-[#f8f9fa] text-[#202122] hover:bg-[#eaecf0] font-bold"
+              >
+                취소
+              </button>
+              <button 
+                onClick={handleCreateProject}
+                disabled={!newProjectName.trim()}
+                className="px-4 py-1.5 text-[13px] border border-[#0645ad] bg-[#0645ad] text-white hover:bg-[#0b0080] font-bold disabled:opacity-40"
+              >
+                프로젝트 생성
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export / Import Modal */}
+      {showExportImport && (
+        <ExportImportPanel onClose={() => setShowExportImport(false)} />
+      )}
+    </>
+  );
+};
+
+const NavItem = ({ icon, label, active = false, href }: { icon: React.ReactNode; label: string; active?: boolean; href?: string }) => {
+  const router = useRouter();
+  return (
+    <div
+      onClick={() => href && router.push(href)}
+      className={`flex items-center space-x-2 px-2 py-1.5 rounded-sm cursor-pointer transition-colors text-[13px] ${
+        active
+          ? "bg-[#eaecf0] text-[#000000] font-bold"
+          : "text-[#0645ad] hover:bg-[#eaecf0] hover:underline"
+      }`}
+    >
+      <span className={`shrink-0 ${active ? "text-[#000000]" : "text-[#0645ad]"}`}>{icon}</span>
+      <span className="truncate">{label}</span>
+    </div>
+  );
+};
+
+export const Header = () => {
+  return (
+    <header className="h-12 border-b border-[#a2a9b1] bg-[#ffffff] flex items-center justify-between px-4 shrink-0 font-sans">
+      <div className="flex items-center space-x-6 text-[#0645ad] text-sm">
+        <span className="hover:underline cursor-pointer">토론</span>
+        <span className="hover:underline cursor-pointer">기여</span>
+        <span className="hover:underline cursor-pointer">최근 바뀜</span>
+      </div>
+
+      <div className="flex-1 max-w-sm ml-auto">
+        <div className="relative group flex items-center">
+          <input
+            type="text"
+            placeholder="AutoWiki AI 검색"
+            className="w-full bg-[#ffffff] text-[#000000] border border-[#a2a9b1] pl-3 pr-8 py-1 text-sm focus:outline-none focus:border-[#0645ad] transition-all"
+          />
+          <Search className="absolute right-2 text-[#54595d]" size={16} />
+        </div>
+      </div>
+    </header>
+  );
+};
