@@ -14,8 +14,9 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 class PlanNode(BaseModel):
     id: str = Field(description="Unique, lowercase short slug identifier for the node (English alphanumeric only)")
     name: str = Field(description="Human-readable display name of the entity, written in Korean")
-    type: str = Field(description="Category in Korean (e.g. 개념, 기술, 인물, 프로젝트, 조직)")
-    categories: list[str] = Field(description="1-3 hierarchical Korean category names this entity belongs to (e.g. ['인공지능', '자연어처리'])")
+    type: str = Field(description="Node type (최우선적으로 '개념', '인물', '단체', '장소', '사건', '사물' 중 선택하되 부득이한 경우 자유롭게 생성)")
+    categories: list[str] = Field(description="1-3 hierarchical categories. 유사어(단체/조직 등) 중복을 피하고 기존 분류 목록을 적극 재사용")
+    is_root: bool = Field(default=False, description="가장 핵심이 되는 메인 주제인지 여부 (단 1개만 true)")
 
 class PlanEdge(BaseModel):
     source: str = Field(description="ID of source node")
@@ -27,15 +28,21 @@ class PlanPatch(BaseModel):
     entity_name: str = Field(description="Human-readable name of the entity (Korean)")
     changes: str = Field(description="Description of what changes to make in Korean")
 
+class PlanDelete(BaseModel):
+    entity_slug: str = Field(description="Slug of the existing entity to be deleted")
+    entity_name: str = Field(description="Human-readable name of the entity")
+    reason: str = Field(description="Reason for deletion in Korean")
+
 class KnowledgePlan(BaseModel):
     plan_summary: str = Field(description="AI의 작업 계획 설명 (한국어 자연어)")
     patches: list[PlanPatch] = Field(default_factory=list, description="기존 문서 수정 제안 목록")
+    deletions: list[PlanDelete] = Field(default_factory=list, description="삭제가 필요한 기존 문서 목록")
     nodes: list[PlanNode]
     edges: list[PlanEdge]
 
 # KnowledgeExecution JSON output deprecated for Phase 12 batched multiplexing
 
-def get_llm(model_name: str, api_key: str):
+def get_llm(model_name: str, api_key: str, thinking_level: str = None, reasoning_effort: str = None):
     # If the user explicitly provided an API key in the UI, use it. Otherwise, rely on the global cache.
     tokens = load_tokens_from_cache()
     github_token = api_key if api_key else tokens.get("github_token", "")
@@ -46,8 +53,17 @@ def get_llm(model_name: str, api_key: str):
         # Explicitly raise a 401 to trigger the frontend's AuthOverlay instead of failing with 500 Pydantic ValidationError
         raise HTTPException(status_code=401, detail="Token Expired. A GitHub token is required.")
         
-    target_model = model_name if model_name else "gpt-4o"
-    return ChatGithubCopilot(model=target_model, temperature=0.2)
+    target_model = model_name if model_name else "gemini-3-flash"
+    
+    # Construct advanced params — only pass what ChatGithubCopilot supports.
+    # - thinking_level is a Gemini-native concept and is NOT supported by ChatGithubCopilot.
+    # - reasoning_effort is supported only by o-series models (o1, o3, etc.).
+    kwargs = {}
+    is_o_series = target_model.startswith("o1") or target_model.startswith("o3") or target_model.startswith("o4")
+    if reasoning_effort and is_o_series:
+        kwargs["reasoning_effort"] = reasoning_effort
+        
+    return ChatGithubCopilot(model=target_model, temperature=0.2, **kwargs)
 
 def invoke_with_auth_fallback(llm, base_prompt):
     try:
@@ -88,8 +104,8 @@ def invoke_with_auth_fallback(llm, base_prompt):
             raise HTTPException(status_code=401, detail="Token Expired. Master token expired or refresh failed.")
         raise HTTPException(status_code=500, detail=str(e))
 
-def plan_knowledge_extraction(text: str, custom_prompt: str, llm, system_prompt: str, existing_entities: list[str] | None = None, all_categories: list[str] | None = None, project_files_text: str | None = None) -> KnowledgePlan:
-    existing_block = "\n".join(f"- {e}" for e in existing_entities) if existing_entities else "(없음)"
+def plan_knowledge_extraction(text: str, custom_prompt: str, llm, system_prompt: str, existing_entities: list[str] | None = None, all_categories: list[str] | None = None, project_files_text: str | None = None, project_graph: str = "") -> KnowledgePlan:
+    existing_block = "\n".join(existing_entities) if existing_entities else "(없음)"
     categories_block = ", ".join(all_categories) if all_categories else "(없음)"
     files_block = project_files_text if project_files_text else "(없음)"
     
@@ -97,7 +113,8 @@ def plan_knowledge_extraction(text: str, custom_prompt: str, llm, system_prompt:
                                .replace("<<<CUSTOM_PROMPT>>>", custom_prompt if custom_prompt else "없음")\
                                .replace("<<<EXISTING_ENTITIES>>>", existing_block)\
                                .replace("<<<ALL_CATEGORIES>>>", categories_block)\
-                               .replace("<<<PROJECT_FILES>>>", files_block)
+                               .replace("<<<PROJECT_FILES>>>", files_block)\
+                               .replace("<<<PROJECT_GRAPH>>>", project_graph if project_graph else "(없음)")
     
     for attempt in range(3):
         try:
@@ -126,7 +143,7 @@ def plan_knowledge_extraction(text: str, custom_prompt: str, llm, system_prompt:
                 # Do not fail silently. Throw exception visibly.
                 raise HTTPException(status_code=500, detail=f"LLM AI parsing totally failed. Last Error: {e}")
 
-def execute_batch_knowledge_generation(nodes_batch: list[dict], text: str, custom_prompt: str, llm, system_prompt: str) -> str:
+def execute_batch_knowledge_generation(nodes_batch: list[dict], text: str, custom_prompt: str, llm, system_prompt: str, project_files_text: str = "", project_graph: str = "") -> str:
     target_nodes_info = ""
     for n in nodes_batch:
         target_nodes_info += f"- 개체명: {n['name']}, 카테고리: {n.get('categories', [])}\n"
@@ -134,7 +151,9 @@ def execute_batch_knowledge_generation(nodes_batch: list[dict], text: str, custo
     base_prompt = system_prompt.replace("<<<TEXT>>>", text)\
                                .replace("<<<CUSTOM_PROMPT>>>", custom_prompt if custom_prompt else "없음")\
                                .replace("<<<BATCH_SIZE>>>", str(len(nodes_batch)))\
-                               .replace("<<<TARGET_NODES_INFO>>>", target_nodes_info)
+                               .replace("<<<TARGET_NODES_INFO>>>", target_nodes_info)\
+                               .replace("<<<PROJECT_FILES>>>", project_files_text if project_files_text else "없음")\
+                               .replace("<<<PROJECT_GRAPH>>>", project_graph if project_graph else "(없음)")
     
     for attempt in range(3):
         try:
@@ -252,7 +271,7 @@ def apply_section_patches(existing_summary: str, patch_output: str) -> str:
 
 def execute_section_patch(existing_summary: str, entity_name: str, entity_type: str,
                           patch_description: str, source_text: str,
-                          llm, system_prompt: str) -> str:
+                          llm, system_prompt: str, project_files_text: str = "", project_graph: str = "") -> str:
     """섹션 단위 Surgical Patch: AI가 변경된 섹션만 반환하고, 해당 섹션만 교체합니다."""
     import re as _re
 
@@ -267,7 +286,9 @@ def execute_section_patch(existing_summary: str, entity_name: str, entity_type: 
                    .replace("<<<PATCH_DESCRIPTION>>>", patch_description)
                    .replace("<<<EXISTING_SUMMARY>>>", existing_summary or "")
                    .replace("<<<SECTIONS_LIST>>>", sections_list)
-                   .replace("<<<SOURCE_TEXT>>>", (source_text or "")[:4000]))
+                   .replace("<<<SOURCE_TEXT>>>", (source_text or ""))
+                   .replace("<<<PROJECT_FILES>>>", project_files_text if project_files_text else "없음")
+                   .replace("<<<PROJECT_GRAPH>>>", project_graph if project_graph else "(없음)"))
 
     for attempt in range(3):
         try:
@@ -319,34 +340,25 @@ async def extract_text_from_file(file: UploadFile) -> str:
     finally:
         os.unlink(tmp_path)
 
-async def extract_proposals(file: UploadFile, custom_prompt: str, model_name: str, api_key: str, system_prompt: str, existing_entities: list[str] | None = None, all_categories: list[str] | None = None, project_files_text: str | None = None):
-    full_text = await extract_text_from_file(file)
+async def extract_proposals(filename: str, full_text: str, custom_prompt: str, model_name: str, api_key: str, system_prompt: str, existing_entities: list[str] | None = None, all_categories: list[str] | None = None, project_files_text: str | None = None, thinking_level: str = None, reasoning_effort: str = None, project_graph: str = ""):
     if not full_text.strip():
         raise HTTPException(status_code=400, detail="파일에서 텍스트를 추출할 수 없습니다. 파일이 비어 있거나 지원되지 않는 형식일 수 있습니다.")
     
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=4000, chunk_overlap=200)
-    chunks = [c for c in text_splitter.split_text(full_text) if c]
-    target_chunk = chunks[0] if chunks else full_text[:4000]
-    
-    print("\n" + "="*50)
-    print("DEBUG TARGET CHUNK PREVIEW (First 200 chars):")
-    print(target_chunk[:200])
-    print("="*50 + "\n")
-    
-    llm = get_llm(model_name, api_key)
-    plan = plan_knowledge_extraction(target_chunk, custom_prompt, llm, system_prompt, existing_entities, all_categories, project_files_text)
+    llm = get_llm(model_name, api_key, thinking_level, reasoning_effort)
+    plan = plan_knowledge_extraction(full_text, custom_prompt, llm, system_prompt, existing_entities, all_categories, project_files_text, project_graph=project_graph)
     
     return {
-        "filename": file.filename,
-        "content_text": target_chunk,
+        "filename": filename,
+        "content_text": full_text,
         "plan_summary": plan.plan_summary,
         "patches": [p.dict() for p in plan.patches],
+        "deletions": [d.dict() for d in plan.deletions],
         "nodes": [n.dict() for n in plan.nodes],
         "edges": [e.dict() for e in plan.edges]
     }
 
 
-def execute_project_chat(message: str, history: list[dict], project_context: str, llm) -> str:
+def execute_project_chat(message: str, history: list[dict], project_context: str, llm, project_files_text: str = "") -> str:
     """
     프로젝트의 정보를 바탕으로 QA 채팅을 수행합니다.
     """
@@ -354,11 +366,14 @@ def execute_project_chat(message: str, history: list[dict], project_context: str
     
     # Add System Message
     system_prompt = f"""당신은 이 프로젝트의 문서를 잘 알고 있는 친절한 AI 전문가입니다.
-사용자가 묻는 질문에 대해 아래에 제공된 [프로젝트 정보]를 바탕으로 정확하게 답변해주세요.
+사용자가 묻는 질문에 대해 아래에 제공된 [프로젝트 정보]와 [참조 파일]을 바탕으로 정확하게 답변해주세요.
 정보에 없는 내용은 추측하지 말고 모른다고 하거나, 주어진 정보 내에서 유추할 수 있는 선까지만 답변하세요.
 
 [프로젝트 정보]
 {project_context}
+
+[참조 파일]
+{project_files_text or "(없음)"}
 """
     messages.append(SystemMessage(content=system_prompt))
     

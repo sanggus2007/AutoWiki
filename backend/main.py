@@ -1,10 +1,11 @@
 import os
+import datetime
 import re
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
-from typing import List
+from typing import List, Optional
 from database import engine, Base, get_db
 from models import schema
 from services.langchain_service import extract_proposals, execute_batch_knowledge_generation, execute_section_patch, apply_section_patches, plan_knowledge_extraction, get_llm, slugify, execute_project_chat
@@ -31,6 +32,7 @@ def init_db():
 제공된 텍스트를 분석하여 어떤 문서(Node)들을 생성해야 할지, 문서들 간의 관계(Edge)는 어떠한지 구조를 기획하세요. (내용 생성은 금지)
 
 [이미 프로젝트에 존재하는 문서들]
+(아래 목록에는 각 문서의 타입과 요약 내용이 포함되어 있습니다. 새로운 내용이 기존 문서의 정보와 겹치는지, 또는 기존 문서를 보완해야 할지 판단할 때 참고하세요.)
 <<<EXISTING_ENTITIES>>>
 
 [프로젝트 전체 카테고리 목록]
@@ -39,23 +41,30 @@ def init_db():
 [사용자가 첨부한 참고 파일 목록]
 <<<PROJECT_FILES>>>
 
+[기존 지식 그래프 관계도 (참조용)]
+<<<PROJECT_GRAPH>>>
+
 사용자의 특별 지시사항: <<<CUSTOM_PROMPT>>>
 
 절대 규칙:
 - 모든 필드의 텍스트는 한국어(Korean)로 작성하세요. (단, id는 영어 슬러그)
-- type과 categories는 한국어 명사형으로 작성하세요.
+- type은 가급적 핵심 6대 분류(`개념`, `인물`, `단체`, `장소`, `사건`, `사물`) 내에서 지정하되, 도저히 속하지 않는 특수한 성격의 문서인 경우에만 새로운 명사형으로 자유롭게 만드세요.
+- categories는 `[프로젝트 전체 카테고리 목록]`에 있는 기존 분류를 최대한 재사용하여, '조직/기관/기업/단체' 처럼 의미가 비슷한 카테고리가 파편화되어 우후죽순 생기지 않도록 전체적인 분류 체계를 통일성 있게 기획해 적용하세요.
 - **edges의 label은 "[출발노드]가 [도착노드]를 [서술어]" 형태로 대상이 명확히 드러나는 완전한 문장으로 작성하세요. (예: "닉퓨리가 어벤져스를 창설함")**
 - **Return ONLY the raw JSON object. Do NOT include Markdown code blocks, backticks, or any explanatory text. The response must start with { and end with }.**
-- 이미 존재하는 문서는 nodes에 포함하지 마세요. 새롭게 추가될 문서만 포함합니다.
-- 이미 존재하는 문서 중에서 새 텍스트에 의해 보완/수정이 필요한 것이 있다면 patches 배열에 포함하세요. patches가 없으면 빈 배열([])로 두세요.
-- 만약 확신이 서지 않더라도, 문서 내에서 가장 핵심적인 주요 개체(Primary Entities)라도 반드시 추출하려고 시도하십시오.
+- 추출할 문서 중 가장 중심이 되는 단 하나의 핵심 주제를 선정하고, 해당 노드의 `is_root` 값을 `true`로 지정하세요. 그리고 다른 핵심 문서들은 가급적 이 중심 노드와 직접 연결(edge)되도록 설계하세요. (단 1개의 노드만 is_root가 true여야 합니다)
+- [중복 생성 방지] 이미 존재하는 문서와 동일하거나 매우 유사한 주제의 문서는 절대로 `nodes`에 새롭게 생성하지 마세요. 대신 **공급된 [이미 프로젝트에 존재하는 문서들]의 요약 내용을 보고,** 기존 문서의 정보를 갱신하거나 덧붙여야 할 경우 해당 내용을 `patches` 배열에 추가하세요.
+- [문서 삭제 권한] 만약 새로운 정보로 인해 기존 문서의 내용이 완전히 쓸모 없어지거나, 오개념으로 밝혀져 완전히 제거되어야 할 경우 해당 문서를 `deletions` 배열에 포함하세요. (단절되거나 오래된 내용을 제거할 때도 사용합니다. 단, 일부만 수정할 거라면 patches를 쓰세요) deletions가 없으면 빈 배열([])로 둡니다.
+- [엄격한 정보 선별] 제공된 텍스트가 기존 문서들에 이미 충분히 반영되어 있거나, 추가적인 가치가 있는 새로운 정보가 없다면 억지로 추출하지 마세요. 이 경우 nodes와 patches를 빈 배열([])로 반환하는 것이 올바른 대응입니다.
+- 단순히 텍스트에 언급되었다고 해서 모두 추출하는 것이 아니라, 위키 문서로서 독자적인 가치를 지닐 만큼의 유의미한 정보가 포함된 경우에만 추출하세요.
 
 [관계(Edge) 생성 원칙 — 엄격히 준수]
 - **관계는 오직 텍스트에서 명시적으로 서술된 핵심 사실만 추출하세요.** 단순히 같은 분야이거나 시대적으로 비슷하다는 이유로 관계를 만들지 마세요.
 - **한 노드 쌍(A→B)에는 가장 중요한 관계 1개만 추출**하세요. 같은 두 노드 사이에 여러 개의 엣지를 만들지 마세요.
 - **약하거나 추론적인 관계는 모두 제외**하세요. "~와 관련 있음", "~와 동시대에 존재함", "~의 분야에 속함" 같은 막연한 연결은 금지입니다.
 - **전체 edges 수는 nodes 수를 초과하지 않도록** 절제하세요. edges가 nodes보다 많다면 가장 덜 중요한 것들부터 제거하세요.
-- 추가해도 될까 망설여진다면, **추가하지 마세요.**
+- 추가해도 될까 망설여진다면, **절대로 추가하지 마세요.** 양보다 질이 중요합니다.
+- 기존 문서의 내용을 단순히 반복하거나 요약하는 수준의 수정사항은 patches에 넣지 마세요.
 
 [Perfect JSON Example]
 당신이 출력해야 하는 정확하고 완벽한 포맷은 아래와 같습니다. 아래 예시 구조를 100% 동일하게 따르세요:
@@ -64,9 +73,12 @@ def init_db():
   "patches": [
     {"entity_slug": "computer-science", "entity_name": "컴퓨터 과학", "changes": "'인공지능과의 관계' 섹션에 앨런 튜링의 기여와 현대 AI 발전 내용을 추가해야 합니다."}
   ],
+  "deletions": [
+    {"entity_slug": "obsolete-theory", "entity_name": "폐기된 이론", "reason": "최신 연구결과에 의해 완전히 반박되어 삭제함"}
+  ],
   "nodes": [
-    {"id": "artificial-intelligence", "name": "인공지능", "type": "개념", "categories": ["과학", "컴퓨터 과학"]},
-    {"id": "alan-turing", "name": "앨런 튜링", "type": "인물", "categories": ["과학자", "인물"]}
+    {"id": "artificial-intelligence", "name": "인공지능", "type": "개념", "categories": ["과학", "컴퓨터 과학"], "is_root": true},
+    {"id": "alan-turing", "name": "앨런 튜링", "type": "인물", "categories": ["과학자", "인물"], "is_root": false}
   ],
   "edges": [
     {"source": "alan-turing", "target": "artificial-intelligence", "label": "앨런 튜링이 인공지능의 기초 형성에 기여함"}
@@ -83,6 +95,10 @@ def init_db():
 <<<TARGET_NODES_INFO>>>
 
 사용자의 특별 지시사항: <<<CUSTOM_PROMPT>>>
+93: 
+94: [프로젝트 전체 참고 파일]
+95: (작성 시 개체에 대해 더 자세한 정보가 필요하다면 아래 내용을 적극 참고하세요.)
+96: <<<PROJECT_FILES>>>
 
 ━━━ 절대 규칙 ━━━
 
@@ -215,6 +231,14 @@ def example():
 
 소스 텍스트 (참고):
 <<<SOURCE_TEXT>>>
+
+[프로젝트 전체 참고 파일]
+(개선 시 보완할 정보가 필요하다면 아래 내용을 참고하세요.)
+<<<PROJECT_FILES>>>
+
+[전체 지식 그래프 관계도]
+(다른 문서와의 관계를 고려하여 본문을 수정하거나 새 관계에 맞게 내용을 보충하세요.)
+<<<PROJECT_GRAPH>>>
 
 ━━━ 기존 문서의 섹션 목록 ━━━
 <<<SECTIONS_LIST>>>
@@ -420,6 +444,21 @@ def update_prompt(key: str, payload: PromptUpdate, db=Depends(get_db)):
 # Project Endpoints
 # ──────────────────────────────────────
 
+def get_project_graph_context(project_id: int, db) -> str:
+    """프로젝트의 모든 관계를 텍스트로 요약하여 AI에게 컨텍스트로 제공합니다."""
+    # Only collect relationships where both nodes exist
+    entities = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
+    entity_slugs = {e.slug for e in entities}
+    
+    relationships = db.query(schema.Relationship).all()
+    rel_texts = []
+    for r in relationships:
+        if r.source_entity_slug in entity_slugs and r.target_entity_slug in entity_slugs:
+            rel_texts.append(f"- {r.source_entity_slug} -> {r.target_entity_slug} ({r.context})")
+    
+    if not rel_texts:
+        return "(현재 등록된 관계 없음)"
+    return "\n".join(rel_texts)
 
 def get_storage_usage(user_id: int, db) -> int:
     projects = db.query(schema.Project).filter(schema.Project.user_id == user_id).all()
@@ -484,6 +523,8 @@ class TextAnalysisRequest(BaseModel):
     custom_prompt: str = ""
     model_name: str = ""
     api_key: str = ""
+    thinking_level: Optional[str] = None
+    reasoning_effort: Optional[str] = None
 
 @app.post("/api/projects/{project_id}/analyze-text")
 def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get_current_user), db=Depends(get_db)):
@@ -495,19 +536,44 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get
     system_prompt = prompt_record.content if prompt_record else ""
 
     existing = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
-    existing_entities = [e.name for e in existing]
+    # Provide more context to the planner: Name, Type, and a snippet of the current summary
+    existing_entities = []
+    for e in existing:
+        summary_snippet = (e.summary or "").replace("\n", " ")[:1000]
+        existing_entities.append(f"- **{e.name}** (slug: {e.slug}, 타입: {e.type}): {summary_snippet}...")
 
-    llm = get_llm(payload.model_name, payload.api_key)
+    # Collect all categories for global structure context
+    all_cat_records = db.query(schema.Category).all()
+    all_categories = [c.name for c in all_cat_records]
+
+    # Collect project graph context
+    project_graph = get_project_graph_context(project_id, db)
+
+    # Auto-load selected project reference files
+    selected_pf = db.query(schema.ProjectFile).filter(
+        schema.ProjectFile.project_id == project_id,
+        schema.ProjectFile.is_selected == True
+    ).all()
+    files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
+    project_files_text = "\n\n".join(files_text)
+
+    llm = get_llm(payload.model_name, payload.api_key, payload.thinking_level, payload.reasoning_effort)
     plan = plan_knowledge_extraction(
-        payload.text, payload.custom_prompt, llm, system_prompt, existing_entities
+        payload.text, payload.custom_prompt, llm, system_prompt, existing_entities, all_categories, project_files_text, project_graph=project_graph
     )
+
+    # Filter out hallucinations: deletions or patches for non-existent entities
+    existing_slugs = {e.slug for e in existing}
+    valid_patches = [p.dict() for p in plan.patches if p.entity_slug in existing_slugs]
+    valid_deletions = [d.dict() for d in plan.deletions if d.entity_slug in existing_slugs]
 
     return {
         "proposals": [{
             "filename": "(직접 입력)",
             "content_text": payload.text,
             "plan_summary": plan.plan_summary,
-            "patches": [p.dict() for p in plan.patches],
+            "patches": valid_patches,
+            "deletions": valid_deletions,
             "nodes": [n.dict() for n in plan.nodes],
             "edges": [e.dict() for e in plan.edges]
         }]
@@ -576,33 +642,52 @@ class ChatRequest(BaseModel):
     history: List[dict]
     model_name: str = ""
     api_key: str = ""
+    session_id: Optional[int] = None
+    thinking_level: Optional[str] = None
+    reasoning_effort: Optional[str] = None
 
 @app.post("/api/projects/{project_id}/chat")
 def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current_user), db=Depends(get_db)):
     project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-        
+
+    session = None
+    if payload.session_id:
+        session = db.query(schema.ChatSession).filter(schema.ChatSession.id == payload.session_id, schema.ChatSession.project_id == project_id).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="Chat session not found")
+    else:
+        title_text = payload.message[:30] + "..." if len(payload.message) > 30 else payload.message
+        session = schema.ChatSession(project_id=project_id, title=title_text)
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        if payload.history:
+            for h in payload.history:
+                db.add(schema.ChatMessage(session_id=session.id, role=h.get("role", "assistant"), content=h.get("content", "")))
+            db.commit()
+
+    db.add(schema.ChatMessage(session_id=session.id, role="user", content=payload.message))
+    db.commit()
+
     entities = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
     project_context = ""
     for e in entities:
         categories = ", ".join([c.name for c in e.categories])
-        project_context += f"- **{e.name}** ({e.type}, 분류: {categories})\n  {e.summary[:300]}...\n\n"
+        project_context += f"- **{e.name}** ({e.type}, 분류: {categories})\n  {e.summary[:1000]}...\n\n"
         
     if not project_context:
         project_context = "이 프로젝트에는 아직 등록된 문서/데이터가 없습니다."
 
-    # Auto-load selected project reference files
     selected_pf = db.query(schema.ProjectFile).filter(
         schema.ProjectFile.project_id == project_id,
         schema.ProjectFile.is_selected == True
     ).all()
     files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
     project_files_text = "\n\n".join(files_text)
-    if len(project_files_text) > 50000:
-        raise HTTPException(status_code=400, detail="선택된 참고 파일들의 텍스트 총합이 50,000자를 초과합니다. 참고 파일 관리에서 일부 파일의 체크를 해제하세요.")
 
-    llm = get_llm(payload.model_name, payload.api_key)
+    llm = get_llm(payload.model_name, payload.api_key, payload.thinking_level, payload.reasoning_effort)
     
     reply = execute_project_chat(
         message=payload.message,
@@ -612,7 +697,56 @@ def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current
         project_files_text=project_files_text
     )
     
-    return {"reply": reply}
+    db.add(schema.ChatMessage(session_id=session.id, role="assistant", content=reply))
+    session.updated_date = datetime.datetime.utcnow()
+    db.commit()
+    
+    return {"reply": reply, "session_id": session.id}
+
+@app.get("/api/projects/{project_id}/chat-sessions")
+def list_chat_sessions(project_id: int, user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    sessions = db.query(schema.ChatSession).filter(schema.ChatSession.project_id == project_id).order_by(schema.ChatSession.updated_date.desc()).all()
+    return [{
+        "id": s.id,
+        "title": s.title,
+        "updated_date": s.updated_date.isoformat()
+    } for s in sessions]
+
+@app.get("/api/projects/{project_id}/chat-sessions/{session_id}")
+def get_chat_session(project_id: int, session_id: int, user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    session = db.query(schema.ChatSession).filter(schema.ChatSession.id == session_id, schema.ChatSession.project_id == project_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+        
+    messages = db.query(schema.ChatMessage).filter(schema.ChatMessage.session_id == session_id).order_by(schema.ChatMessage.created_date.asc()).all()
+    
+    return {
+        "id": session.id,
+        "title": session.title,
+        "messages": [{"role": m.role, "content": m.content} for m in messages]
+    }
+
+@app.delete("/api/projects/{project_id}/chat-sessions/{session_id}")
+def delete_chat_session(project_id: int, session_id: int, user=Depends(get_current_user), db=Depends(get_db)):
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    session = db.query(schema.ChatSession).filter(schema.ChatSession.id == session_id, schema.ChatSession.project_id == project_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+        
+    db.delete(session)
+    db.commit()
+    return {"status": "deleted"}
 
 # ──────────────────────────────────────
 # Upload (Project-scoped)
@@ -626,6 +760,8 @@ async def upload_files(
     model_name: str = Form(""),
     sub_model_name: str = Form(""),
     api_key: str = Form(""),
+    thinking_level: str = Form(None),
+    reasoning_effort: str = Form(None),
     user=Depends(get_current_user),
     db=Depends(get_db)
 ):
@@ -639,13 +775,19 @@ async def upload_files(
     prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_extraction").first()
     system_prompt = prompt_record.content if prompt_record else ""
 
-    # Collect existing entity names in this project for context
+    # Collect existing entity context (Name, Type, Summary) to help planner avoid duplicates and plan patches
     existing = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
-    existing_entities = [e.name for e in existing]
+    existing_entities = []
+    for e in existing:
+        summary_snippet = (e.summary or "").replace("\n", " ")[:1000]
+        existing_entities.append(f"- **{e.name}** (slug: {e.slug}, 타입: {e.type}): {summary_snippet}...")
 
     # Collect all categories for global structure context
     all_cat_records = db.query(schema.Category).all()
     all_categories = [c.name for c in all_cat_records]
+
+    # Collect project graph context
+    project_graph = get_project_graph_context(project_id, db)
 
     # Auto-load selected project reference files
     selected_pf = db.query(schema.ProjectFile).filter(
@@ -654,16 +796,28 @@ async def upload_files(
     ).all()
     files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
     project_files_text = "\n\n".join(files_text)
-    if len(project_files_text) > 50000:
-        raise HTTPException(status_code=400, detail="선택된 참고 파일들의 텍스트 총합이 50,000자를 초과합니다. 참고 파일 관리에서 일부 파일의 체크를 해제하세요.")
 
     # Use sub_model for extraction (cheaper), fall back to main model if not set
     extraction_model = sub_model_name if sub_model_name else model_name
 
     results = []
+    from services.langchain_service import extract_text_from_file
     for file in files:
         try:
-            res = await extract_proposals(file, custom_prompt, extraction_model, api_key, system_prompt, existing_entities, all_categories, project_files_text)
+            full_text = await extract_text_from_file(file)
+            if not full_text.strip():
+                continue
+
+            # NOTE: ProjectFile is NOT saved here.
+            # It is only saved upon commit so that cancelling (going back) does not
+            # leave orphaned reference files in the project.
+            res = await extract_proposals(file.filename, full_text, custom_prompt, extraction_model, api_key, system_prompt, existing_entities, all_categories, project_files_text, thinking_level, reasoning_effort, project_graph=project_graph)
+            
+            # Filter out hallucinations: deletions or patches for non-existent entities
+            existing_slugs = {e.slug for e in existing}
+            res["patches"] = [p for p in res.get("patches", []) if p.get("entity_slug") in existing_slugs]
+            res["deletions"] = [d for d in res.get("deletions", []) if d.get("entity_slug") in existing_slugs]
+            
             results.append(res)
         except HTTPException:
             raise
@@ -691,12 +845,25 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
     model_name = payload_data.get("model_name", "")
     sub_model_name = payload_data.get("sub_model_name", "")
     api_key = payload_data.get("api_key", "")
+    thinking_level = payload_data.get("thinking_level")
+    reasoning_effort = payload_data.get("reasoning_effort")
     
     prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_generation").first()
     system_prompt = prompt_record.content if prompt_record else ""
     
+    # Auto-load selected project reference files
+    selected_pf = db.query(schema.ProjectFile).filter(
+        schema.ProjectFile.project_id == project_id,
+        schema.ProjectFile.is_selected == True
+    ).all()
+    files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
+    project_files_text = "\n\n".join(files_text)
+
+    # Collect project graph context
+    project_graph = get_project_graph_context(project_id, db)
+
     # Commit uses main model for generation (heavy writing task)
-    llm = get_llm(model_name, api_key)
+    llm = get_llm(model_name, api_key, thinking_level, reasoning_effort)
     # payload_data will contain a "proposals" array
     proposals = payload_data.get("proposals", [])
     
@@ -708,7 +875,23 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
         content_text = prop.get("content_text")
         nodes_data = prop.get("nodes", [])
         edges_data = prop.get("edges", [])
-        
+
+        # Save ProjectFile on commit (only if it came from an actual file, not text input)
+        if filename and filename != "(직접 입력)" and content_text:
+            existing_pf = db.query(schema.ProjectFile).filter(
+                schema.ProjectFile.project_id == project_id,
+                schema.ProjectFile.filename == filename
+            ).first()
+            if not existing_pf:
+                pf = schema.ProjectFile(
+                    project_id=project_id,
+                    filename=filename,
+                    content_text=content_text,
+                    is_selected=True
+                )
+                db.add(pf)
+                db.commit()
+
         # Save Document
         db_doc = schema.Document(filename=filename, content_text=content_text, project_id=project_id)
         db.add(db_doc)
@@ -733,7 +916,9 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
                 text=content_text,
                 custom_prompt=custom_prompt,
                 llm=llm,
-                system_prompt=system_prompt
+                system_prompt=system_prompt,
+                project_files_text=project_files_text,
+                project_graph=project_graph
             )
             
             # Parse the multiplexed string using Regex
@@ -765,6 +950,7 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
                     name=n["name"], 
                     type=n["type"], 
                     summary=generated_summary,
+                    is_root=n.get("is_root", False),
                     document_id=db_doc.id,
                     project_id=project_id
                 )
@@ -795,6 +981,28 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
             db.add(db_edge)
             edges_saved += 1
             
+    # ── Process approved deletions ──────────────────────────────────────────────
+    deletions_processed = 0
+    for prop in proposals:
+        deletions_data = prop.get("deletions", [])
+        for dl in deletions_data:
+            entity_slug = dl.get("entity_slug")
+            if not entity_slug:
+                continue
+
+            # Delete relationships connected to this entity
+            db.query(schema.Relationship).filter(
+                (schema.Relationship.source_entity_slug == entity_slug) |
+                (schema.Relationship.target_entity_slug == entity_slug)
+            ).delete(synchronize_session=False)
+
+            # Delete entity
+            db.query(schema.Entity).filter(
+                schema.Entity.slug == entity_slug,
+                schema.Entity.project_id == project_id
+            ).delete(synchronize_session=False)
+            deletions_processed += 1
+            
     # ── Process approved patches (modifications to existing documents) ──────────
     patch_prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_patch").first()
     patch_system_prompt = patch_prompt_record.content if patch_prompt_record else ""
@@ -818,7 +1026,9 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
                 patch_description=patch_desc,
                 source_text=content_text,
                 llm=llm,
-                system_prompt=patch_system_prompt
+                system_prompt=patch_system_prompt,
+                project_files_text=project_files_text,
+                project_graph=project_graph
             )
             existing_entity.summary = updated_summary
             patches_saved += 1
@@ -827,7 +1037,7 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
 
     return {
         "status": "success",
-        "message": f"Committed {nodes_saved} nodes, {edges_saved} edges, and {patches_saved} patches."
+        "message": f"Committed {nodes_saved} nodes, {edges_saved} edges, {patches_saved} patches, and {deletions_processed} deletions."
     }
 
 # ──────────────────────────────────────
@@ -982,7 +1192,8 @@ def get_graph_data(project_id: int = Query(None), db=Depends(get_db)):
             "name": e.name,
             "type": t,        # 분류 (프론트 색상 매핑에 필요)
             "val": 15,
-            "color": color
+            "color": color,
+            "is_root": e.is_root
         })
 
         

@@ -38,6 +38,7 @@ class Project(Base):
     documents = relationship("Document", back_populates="project", cascade="all, delete-orphan")
     entities = relationship("Entity", back_populates="project", cascade="all, delete-orphan")
     files = relationship("ProjectFile", back_populates="project", cascade="all, delete-orphan")
+    chat_sessions = relationship("ChatSession", back_populates="project", cascade="all, delete-orphan")
 
 class ProjectFile(Base):
     __tablename__ = "project_files"
@@ -47,7 +48,7 @@ class ProjectFile(Base):
     content_text = Column(Text)
     upload_date = Column(DateTime, default=datetime.datetime.utcnow)
     project_id = Column(Integer, ForeignKey("projects.id"))
-    is_selected = Column(Boolean, default=False)
+    is_selected = Column(Boolean, default=True)
 
     project = relationship("Project", back_populates="files")
 
@@ -72,6 +73,7 @@ class Entity(Base):
     name = Column(String, index=True)
     type = Column(String)
     summary = Column(Text)
+    is_root = Column(Boolean, default=False)
     document_id = Column(Integer, ForeignKey("documents.id"))
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
 
@@ -105,3 +107,26 @@ class SystemPrompt(Base):
     name = Column(String)
     content = Column(Text)
     description = Column(Text, default="")
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"))
+    title = Column(String, default="New Chat")
+    created_date = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    project = relationship("Project", back_populates="chat_sessions")
+    messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("chat_sessions.id"))
+    role = Column(String)  # 'user' or 'assistant'
+    content = Column(Text)
+    created_date = Column(DateTime, default=datetime.datetime.utcnow)
+
+    session = relationship("ChatSession", back_populates="messages")
