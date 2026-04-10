@@ -297,14 +297,11 @@ export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
       } else {
         setSearchResults([]);
         setShowResults(false);
-      }
-    }, 300);
-
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
   return (
-    <header className="h-14 border-b border-[#a2a9b1] bg-[#ffffff] flex items-center justify-between px-4 shrink-0 font-sans z-40 relative">
+    <header className="h-[calc(3.5rem+env(safe-area-inset-top))] bg-[#ffffff] border-b border-[#a2a9b1] flex items-center justify-between px-4 shrink-0 font-sans z-40 relative pt-[env(safe-area-inset-top)]">
       <div className="flex items-center space-x-2 lg:space-x-6 text-[#0645ad] text-sm">
         <button 
           onClick={onMenuClick}

@@ -33,7 +33,7 @@ export default function DashboardLayout({
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex flex-col flex-1 min-w-0 h-full">
         <Header onMenuClick={() => setIsSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto custom-scrollbar bg-white">
+        <main className="flex-1 overflow-y-auto custom-scrollbar bg-white pb-[env(safe-area-inset-bottom)]">
           {children}
         </main>
       </div>

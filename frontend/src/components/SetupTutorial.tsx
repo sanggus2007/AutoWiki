@@ -96,7 +96,7 @@ export function SetupTutorial({ onClose, onGoToSettings }: SetupTutorialProps) {
           ))}
         </div>
 
-        <button onClick={onClose} className="absolute top-7 right-7 p-3 text-slate-300 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-all z-10">
+        <button onClick={onClose} className="absolute top-[calc(1.75rem+env(safe-area-inset-top))] right-7 p-3 text-slate-300 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-all z-10 sm:top-7">
           <X size={22} />
         </button>
 
@@ -134,7 +134,7 @@ export function SetupTutorial({ onClose, onGoToSettings }: SetupTutorialProps) {
           )}
         </div>
 
-        <div className="p-10 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between backdrop-blur-sm">
+        <div className="p-10 bg-white border-t border-slate-100 flex items-center justify-between backdrop-blur-sm pb-[calc(2.5rem+env(safe-area-inset-bottom))] sm:pb-10">
           <button onClick={prevStep} disabled={step === 1} className={`flex items-center gap-2 text-sm font-black ${step === 1 ? "text-slate-300 pointer-events-none" : "text-slate-400 hover:text-slate-900"}`}>
             <ChevronLeft size={22} /> Back
           </button>
