@@ -18,6 +18,7 @@ html, body {
   background: #f8f9fa;
   overscroll-behavior-y: none;
   height: 100%;
+  height: -webkit-fill-available;
   margin: 0;
   padding: 0;
 }

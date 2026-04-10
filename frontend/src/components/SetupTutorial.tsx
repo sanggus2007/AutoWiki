@@ -86,8 +86,8 @@ export function SetupTutorial({ onClose, onGoToSettings }: SetupTutorialProps) {
   const currentStep = tutorialSteps[step - 1];
 
   return (
-    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-2xl z-[300] flex items-center justify-center p-4 transition-all">
-      <div className="bg-white max-w-xl w-full rounded-[3rem] shadow-[0_0_100px_rgba(30,58,138,0.5)] overflow-hidden flex flex-col relative animate-in fade-in zoom-in-95 duration-500">
+    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-2xl z-[300] flex items-center justify-center p-4 transition-all overflow-y-auto">
+      <div className="bg-white max-w-xl w-full rounded-[2rem] sm:rounded-[3rem] shadow-[0_0_100px_rgba(30,58,138,0.5)] flex flex-col relative animate-in fade-in zoom-in-95 duration-500 my-auto max-h-[90dvh] overflow-hidden">
         
         {/* Progress Dots */}
         <div className="absolute top-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
@@ -100,13 +100,13 @@ export function SetupTutorial({ onClose, onGoToSettings }: SetupTutorialProps) {
           <X size={22} />
         </button>
 
-        <div className="p-12 md:p-16 flex-1 flex flex-col items-center text-center">
-          <div className="mb-10 p-6 bg-slate-50 border border-slate-100 rounded-[2.5rem] shadow-inner transform -rotate-2">
+        <div className="p-6 pt-16 sm:p-12 md:p-16 flex-1 flex flex-col items-center text-center overflow-y-auto custom-scrollbar">
+          <div className="mb-4 sm:mb-10 p-4 sm:p-6 bg-slate-50 border border-slate-100 rounded-[2.5rem] shadow-inner transform -rotate-2">
             <div className="rotate-2">{currentStep.icon}</div>
           </div>
 
-          <h3 className="text-3xl font-black text-slate-900 mb-5 leading-tight tracking-tight">{currentStep.title}</h3>
-          <p className="text-slate-500 leading-relaxed text-base font-medium mb-10 whitespace-pre-line">{currentStep.desc}</p>
+          <h3 className="text-xl sm:text-3xl font-black text-slate-900 mb-3 sm:mb-5 leading-tight tracking-tight">{currentStep.title}</h3>
+          <p className="text-slate-500 leading-relaxed text-sm sm:text-base font-medium mb-6 sm:mb-10 whitespace-pre-line">{currentStep.desc}</p>
 
           {/* Details Section for Step 4 */}
           {currentStep.details && (
@@ -120,7 +120,7 @@ export function SetupTutorial({ onClose, onGoToSettings }: SetupTutorialProps) {
             </div>
           )}
 
-          <div className="w-full bg-blue-50/50 border border-blue-100 rounded-[2rem] p-6 text-left flex items-start gap-4 shadow-sm">
+          <div className="w-full bg-blue-50/50 border border-blue-100 rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 text-left flex items-start gap-4 shadow-sm">
             <div className="bg-white p-2 rounded-xl shadow-sm border border-blue-100">
                <CheckCircle className="text-blue-600 shrink-0" size={20} />
             </div>
@@ -134,7 +134,7 @@ export function SetupTutorial({ onClose, onGoToSettings }: SetupTutorialProps) {
           )}
         </div>
 
-        <div className="p-10 bg-white border-t border-slate-100 flex items-center justify-between backdrop-blur-sm pb-[calc(2.5rem+env(safe-area-inset-bottom))] sm:pb-10">
+        <div className="p-4 sm:p-10 bg-white border-t border-slate-100 flex items-center justify-between backdrop-blur-sm pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-10">
           <button onClick={prevStep} disabled={step === 1} className={`flex items-center gap-2 text-sm font-black ${step === 1 ? "text-slate-300 pointer-events-none" : "text-slate-400 hover:text-slate-900"}`}>
             <ChevronLeft size={22} /> Back
           </button>
