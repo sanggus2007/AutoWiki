@@ -52,7 +52,7 @@ export function SetupTutorial({ onClose, onGoToSettings }: SetupTutorialProps) {
     {
       title: "AutoWiki에 오신 것을 환영합니다!",
       desc: "본격적으로 AI 위키를 만들기 위해 사용자의 GitHub Copilot 권한을 연결하는 과정이 필요합니다.",
-      tip: "새로운 연결 방식 덕분에 30초면 설정이 끝납니다!",
+      tip: "빠르고 안전한 연결 환경을 제공합니다.",
       icon: <Sparkles className="text-amber-400" size={36} />
     },
     {
@@ -66,7 +66,7 @@ export function SetupTutorial({ onClose, onGoToSettings }: SetupTutorialProps) {
     {
       title: "간편한 계정 연결",
       desc: "설정 페이지에서 'GitHub Copilot 계정 연결하기' 버튼을 클릭하세요. 화면에 8자리의 인증 코드가 나타납니다.",
-      tip: "이제 복잡하게 토큰을 생성하고 복사할 필요가 없습니다.",
+      tip: "토큰을 직접 생성하거나 복사할 필요 없이 클릭만으로 시작할 수 있습니다.",
       icon: <MousePointer2 className="text-orange-500" size={36} />
     },
     {

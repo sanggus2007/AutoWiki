@@ -254,21 +254,21 @@ export default function SettingsPage() {
 
             <div className="space-y-4">
               {githubToken ? (
-                <div className="flex items-center justify-between bg-white border border-[#00af89]/30 rounded-lg p-3 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#00af89]/10 rounded-full flex items-center justify-center">
-                      <CheckCircle2 className="text-[#00af89]" size={20} />
+                <div className="flex items-center justify-between bg-white border border-[#00af89]/30 rounded-lg p-3 shadow-sm gap-2">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[#00af89]/10 rounded-full flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="text-[#00af89]" size={18} />
                     </div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="text-xs font-bold text-[#00af89]">연결됨</div>
-                      <div className="text-[11px] text-[#54595d] font-mono">
+                      <div className="text-[10px] sm:text-[11px] text-[#54595d] font-mono truncate">
                         {githubToken.substring(0, 8)}...{githubToken.substring(githubToken.length - 4)}
                       </div>
                     </div>
                   </div>
                   <button 
                     onClick={handleDisconnect}
-                    className="p-2 text-[#54595d] hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    className="p-2 text-[#54595d] hover:text-red-600 hover:bg-red-50 rounded-md transition-colors shrink-0"
                     title="연결 해제"
                   >
                     <LogOut size={16} />
@@ -282,7 +282,7 @@ export default function SettingsPage() {
                         <span className="text-[10px] font-black text-[#64748b] uppercase tracking-widest mb-1.5 px-3">인증 코드</span>
                         <div 
                           onClick={copyCode}
-                          className="text-4xl font-black text-[#0645ad] tracking-[0.2em] bg-[#f8fafc] px-8 py-5 rounded-2xl border-2 border-dashed border-[#0645ad]/20 cursor-pointer hover:border-[#0645ad]/40 transition-all flex items-center gap-3 group"
+                          className="text-2xl sm:text-4xl font-black text-[#0645ad] tracking-[0.1em] sm:tracking-[0.2em] bg-[#f8fafc] px-4 sm:px-8 py-4 sm:py-5 rounded-xl sm:rounded-2xl border-2 border-dashed border-[#0645ad]/20 cursor-pointer hover:border-[#0645ad]/40 transition-all flex items-center justify-center gap-2 sm:gap-3 group"
                         >
                           {deviceInfo.user_code}
                           <div className="bg-white p-1.5 rounded-lg shadow-sm border border-[#e2e8f0] opacity-0 group-hover:opacity-100 transition-opacity">
