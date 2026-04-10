@@ -38,7 +38,17 @@ export function SetupTutorial({ onClose, onGoToSettings }: SetupTutorialProps) {
   const nextStep = () => setStep(s => Math.min(s + 1, totalSteps));
   const prevStep = () => setStep(s => Math.max(s - 1, 1));
 
-  const tutorialSteps = [
+  interface TutorialStep {
+    title: string;
+    desc: string;
+    tip: string;
+    icon: React.ReactNode;
+    link?: string;
+    linkText?: string;
+    details?: { label: string; value: string; color: string }[];
+  }
+
+  const tutorialSteps: TutorialStep[] = [
     {
       title: "AutoWiki에 오신 것을 환영합니다!",
       desc: "본격적으로 AI 위키를 만들기 위해 사용자의 GitHub Copilot 권한을 연결하는 과정이 필요합니다.",
