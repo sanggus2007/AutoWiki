@@ -77,7 +77,7 @@ class Entity(Base):
     __tablename__ = "entities"
 
     id = Column(Integer, primary_key=True, index=True)
-    slug = Column(String, unique=True, index=True)
+    slug = Column(String, index=True)
     name = Column(String, index=True)
     type = Column(String)
     summary = Column(Text)

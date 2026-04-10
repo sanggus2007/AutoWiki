@@ -5,6 +5,7 @@ import { FolderOpen, ArrowRight, Share2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Network as NetworkIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { SetupTutorial } from "@/components/SetupTutorial";
 
 
 interface ProjectItem {
@@ -20,8 +21,15 @@ interface ProjectItem {
 export default function DashboardPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   useEffect(() => {
+    // 토큰이 없으면 튜토리얼 자동 표시 (한 번도 안 본 경우만)
+    const savedGithubToken = localStorage.getItem("autowiki_github_token");
+    const tutorialSeen = localStorage.getItem("autowiki_tutorial_seen");
+    if (!savedGithubToken && !tutorialSeen) {
+      setShowTutorial(true);
+    }
     apiFetch("/api/projects")
       .then(r => r.json())
       .then(data => setProjects(data))
@@ -106,6 +114,13 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {showTutorial && (
+        <SetupTutorial 
+          onClose={() => setShowTutorial(false)} 
+          onGoToSettings={() => router.push('/dashboard/settings')} 
+        />
+      )}
     </div>
   );
 }

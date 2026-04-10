@@ -32,8 +32,7 @@ _GITHUB_COPILOT_BASE_URL = "https://api.githubcopilot.com"
 _TOKEN_REFRESH_BUFFER_SECS: int = 60
 
 # GitHub token prefixes that can be exchanged for a short-lived Copilot token.
-# Copilot tokens themselves start with "tid=" and must NOT be re-exchanged.
-_EXCHANGEABLE_TOKEN_PREFIXES = ("gho_", "ghp_", "ghu_", "github_pat_")
+_EXCHANGEABLE_TOKEN_PREFIXES = ("gho_", "ghp_", "ghu_", "github_pat_", "tid=")
 
 
 def _is_exchangeable_github_token(token: str) -> bool:

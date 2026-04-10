@@ -236,24 +236,113 @@ const NavItem = ({ icon, label, active = false, href }: { icon: React.ReactNode;
 };
 
 export const Header = () => {
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{type: "project" | "entity", name: string, url: string}[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
+  const handleDummyClick = (menu: string) => {
+    const messages: Record<string, string> = {
+      "토론": "저희 사용자들의 수준이 너무 높아서 토론이 필요 없는 경지에 이르렀습니다... (실은 개발 중이에요! 🤫)",
+      "기여": "여러분의 소중한 기여를 담기엔 서버가 아직 너무 작습니다. 무럭무럭 키워올게요! 🌱",
+      "최근 바뀜": "방금 전 당신이 이 버튼을 누른 게 가장 최근의 변화입니다! (농담이에요, 곧 추가됩니다! 🚀)"
+    };
+    alert(messages[menu] || "곧 구현될 기능입니다!");
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (searchQuery.trim().length > 0) {
+        setIsSearching(true);
+        try {
+          const res = await apiFetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
+          if (res.ok) {
+            const data = await res.json();
+            setSearchResults(data);
+            setShowResults(true);
+          }
+        } catch (err) {
+          console.error("Search failed", err);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setSearchResults([]);
+        setShowResults(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   return (
-    <header className="h-12 border-b border-[#a2a9b1] bg-[#ffffff] flex items-center justify-between px-4 shrink-0 font-sans">
+    <header className="h-12 border-b border-[#a2a9b1] bg-[#ffffff] flex items-center justify-between px-4 shrink-0 font-sans z-40 relative">
       <div className="flex items-center space-x-6 text-[#0645ad] text-sm">
-        <span className="hover:underline cursor-pointer">토론</span>
-        <span className="hover:underline cursor-pointer">기여</span>
-        <span className="hover:underline cursor-pointer">최근 바뀜</span>
+        <span onClick={() => handleDummyClick("토론")} className="hover:underline cursor-pointer">토론</span>
+        <span onClick={() => handleDummyClick("기여")} className="hover:underline cursor-pointer">기여</span>
+        <span onClick={() => handleDummyClick("최근 바뀜")} className="hover:underline cursor-pointer">최근 바뀜</span>
       </div>
 
-      <div className="flex-1 max-w-sm ml-auto">
+      <div className="flex-1 max-w-sm ml-auto relative">
         <div className="relative group flex items-center">
           <input
             type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => searchQuery.trim() && setShowResults(true)}
             placeholder="AutoWiki AI 검색"
             className="w-full bg-[#ffffff] text-[#000000] border border-[#a2a9b1] pl-3 pr-8 py-1 text-sm focus:outline-none focus:border-[#0645ad] transition-all"
           />
-          <Search className="absolute right-2 text-[#54595d]" size={16} />
+          <Search className={`absolute right-2 ${isSearching ? 'animate-pulse text-[#0645ad]' : 'text-[#54595d]'}`} size={16} />
         </div>
+
+        {/* Search Results Dropdown */}
+        {showResults && (
+          <div className="absolute top-full right-0 w-full mt-1 bg-white border border-[#a2a9b1] shadow-xl rounded-sm overflow-hidden z-[100] max-h-80 overflow-y-auto">
+            {searchResults.length > 0 ? (
+              <div className="py-1">
+                {searchResults.map((result, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      router.push(result.url);
+                      setSearchQuery("");
+                      setShowResults(false);
+                    }}
+                    className="px-4 py-2 hover:bg-[#eaecf0] cursor-pointer flex items-center gap-2 border-b border-[#f0f0f0] last:border-0"
+                  >
+                    {result.type === "project" ? (
+                      <FolderOpen size={14} className="text-[#0645ad]" />
+                    ) : (
+                      <FileText size={14} className="text-[#54595d]" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-bold text-[#202122] truncate">{result.name}</div>
+                      <div className="text-[10px] text-[#54595d] uppercase tracking-tighter">{result.type === "project" ? "프로젝트" : "위키 문서"}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-xs text-[#54595d] italic">
+                검색 결과가 없습니다.
+              </div>
+            )}
+            <div 
+              className="p-1 px-4 text-right bg-[#f8f9fa] border-t border-[#f0f0f0]"
+              onClick={() => setShowResults(false)}
+            >
+              <span className="text-[10px] text-[#0645ad] cursor-pointer hover:underline font-bold">닫기</span>
+            </div>
+          </div>
+        )}
       </div>
+      
+      {/* Click outside to close results */}
+      {showResults && (
+        <div className="fixed inset-0 z-[90]" onClick={() => setShowResults(false)} />
+      )}
     </header>
   );
 };

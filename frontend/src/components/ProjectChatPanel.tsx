@@ -5,6 +5,7 @@ import { X, MessageSquare, Loader2, Bot, User, Plus, Trash2 } from "lucide-react
 import { TextInputUI } from "./TextInputUI";
 import { AuthOverlay } from "./AuthOverlay";
 import { apiFetch } from "@/lib/api";
+import { SetupTutorial } from "@/components/SetupTutorial";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -39,6 +40,7 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [showAuthOverlay, setShowAuthOverlay] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [pendingAction, setPendingAction] = useState<{text: string, useSubModel: boolean} | null>(null);
   
    const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -187,6 +189,7 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
 
       const thinkingLevel = (typeof window !== "undefined" && localStorage.getItem("autowiki_llm_thinking_level")) || "MEDIUM";
       const reasoningEffort = (typeof window !== "undefined" && localStorage.getItem("autowiki_llm_reasoning_effort")) || "medium";
+      const apiKey = (typeof window !== "undefined" && (localStorage.getItem("autowiki_github_token") || localStorage.getItem("autowiki_llm_api_key"))) || "";
 
       const res = await apiFetch(`/api/projects/${projectId}/chat`, {
         method: "POST",
@@ -197,7 +200,8 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
           model_name: activeModel,
           session_id: currentSessionId,
           thinking_level: thinkingLevel,
-          reasoning_effort: reasoningEffort
+          reasoning_effort: reasoningEffort,
+          api_key: apiKey
         }),
       });
 
@@ -206,7 +210,11 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
         if (is401(res.status, errText)) {
           setMessages(messages); // revert
           setPendingAction({ text, useSubModel });
-          setShowAuthOverlay(true);
+          if (errText.includes("GitHub") || errText.includes("Token")) {
+            setShowTutorial(true);
+          } else {
+            setShowAuthOverlay(true);
+          }
           return;
         }
         throw new Error("Chat request failed");
@@ -350,6 +358,16 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
       </div>
 
       {showAuthOverlay && <AuthOverlay onSuccess={handleAuthSuccess} />}
+      {showTutorial && (
+        <SetupTutorial 
+          onClose={() => setShowTutorial(false)} 
+          onGoToSettings={() => {
+            setShowTutorial(false);
+            onClose(); // Close chat panel to see settings better? or just go to settings
+            window.location.href = "/dashboard/settings"; 
+          }} 
+        />
+      )}
     </div>
   );
 };

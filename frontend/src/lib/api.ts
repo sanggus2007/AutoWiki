@@ -18,14 +18,7 @@ export async function apiFetch(input: string | URL | Request, init?: RequestInit
   try {
     const res = await fetch(url, { ...init, headers });
     
-    // 토큰 만료 시 자동 로그아웃 및 로그인 페이지로 리다이렉트
-    if (res.status === 401) {
-      logout();
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
-    }
-    
+    // 401 처리는 각 컴포넌트나 호출부에서 에러 메시지에 따라 개별 처리하도록 변경 (GitHub 토큰 만료와 서비스 로그아웃 구분 목적)
     return res;
   } catch (err) {
     throw err;

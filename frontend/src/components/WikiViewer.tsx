@@ -11,6 +11,7 @@ import { apiFetch } from "@/lib/api";
 
 interface WikiViewerProps {
   slug: string;
+  projectId?: string;
   initialTitle: string;
   initialTags: string[];
   initialContent: string;
@@ -127,7 +128,7 @@ const CollapseBlock: React.FC<{ title: string; body: string; components: any; pr
   };
 
 // ── Main WikiViewer ────────────────────────────────────────────────────────────
-export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, initialTitle, initialTags, initialContent, categories = [] }) => {
+export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initialTitle, initialTags, initialContent, categories = [] }) => {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(initialContent);
@@ -149,7 +150,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, initialTitle, init
     apiFetch("/api/wiki/bulk-resolve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ names }),
+      body: JSON.stringify({ names, project_id: projectId }),
     })
       .then((r) => r.json())
       .then((data: Record<string, string>) => setValidLinkMap(data))
@@ -250,7 +251,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, initialTitle, init
         // Entity exists → clickable wiki link
         return (
           <a
-            onClick={(e) => { e.preventDefault(); router.push(`/dashboard/wiki/${slug}`); }}
+            onClick={(e) => { e.preventDefault(); router.push(`/dashboard/wiki/${slug}${projectId ? `?projectId=${projectId}` : ""}`); }}
             className="text-[#0645ad] hover:text-[#0b0080] hover:underline cursor-pointer"
             {...props}
           >

@@ -2,9 +2,14 @@ import { WikiViewer } from "@/components/WikiViewer";
 import { apiFetch } from "@/lib/api";
 
 
-export default async function WikiPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function WikiPage(props: { 
+  params: Promise<{ slug: string }>,
+  searchParams: Promise<{ projectId?: string }>
+}) {
   const resolvedParams = await params;
   const slug = resolvedParams.slug;
+  const searchParams = await props.searchParams;
+  const projectId = searchParams.projectId;
 
   let wikiData: any = {
     title: "로딩 중...",
@@ -14,7 +19,8 @@ export default async function WikiPage({ params }: { params: Promise<{ slug: str
   };
 
   try {
-    const res = await apiFetch(`/api/wiki/${slug}`, { cache: "no-store" });
+    const url = projectId ? `/api/wiki/${slug}?project_id=${projectId}` : `/api/wiki/${slug}`;
+    const res = await apiFetch(url, { cache: "no-store" });
     if (res.ok) {
       wikiData = await res.json();
     } else {
@@ -38,6 +44,7 @@ export default async function WikiPage({ params }: { params: Promise<{ slug: str
     <div className="min-h-full flex flex-col">
       <WikiViewer
         slug={slug}
+        projectId={searchParams.projectId}
         initialTitle={wikiData.title}
         initialTags={wikiData.tags}
         initialContent={(wikiData.content || "").trim()}

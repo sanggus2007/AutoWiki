@@ -10,6 +10,7 @@ from langchain_githubcopilot_chat import ChatGithubCopilot
 from langchain_githubcopilot_chat.auth import load_tokens_from_cache, fetch_copilot_token, save_tokens_to_cache
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from typing import Optional
 
 class PlanNode(BaseModel):
     id: str = Field(description="Unique, lowercase short slug identifier for the node (English alphanumeric only)")
@@ -40,69 +41,70 @@ class KnowledgePlan(BaseModel):
     nodes: list[PlanNode]
     edges: list[PlanEdge]
 
-# KnowledgeExecution JSON output deprecated for Phase 12 batched multiplexing
+def invoke_with_auth_fallback(llm, base_prompt, github_token: str = None):
+    # Retrieve the PAT stored on the LLM object or in environment
+    actual_token = github_token or getattr(llm, '_github_token', None) or os.environ.get("GITHUB_TOKEN")
+    
+    try:
+        return llm.invoke(base_prompt)
+    except Exception as e:
+        err_str = str(e).lower()
+        # 401 Unauthorized, or library's rejected token message
+        is_auth_error = any(x in err_str for x in ["401", "unauthorized", "expired", "token rejected", "no exchangeable"])
+        
+        if is_auth_error:
+            print(f"\n[Auth Interceptor] ⚠️ Auth issue detected (likely token expiry).")
+            
+            if actual_token:
+                try:
+                    print(f"[Auth Interceptor] 🔄 Attempting recovery with stored token (prefix: {actual_token[:8]}...)...")
+                    # fetch_copilot_token now uses 'Bearer' which is required for tid= tokens
+                    copilot_token, expires_at = fetch_copilot_token(actual_token)
+                    if copilot_token:
+                        save_tokens_to_cache(actual_token, copilot_token, expires_at)
+                        os.environ["GITHUB_TOKEN"] = actual_token
+                        
+                        print("[Auth Interceptor] ✅ Recovery successful! Retrying operation...\n")
+                        target_model = getattr(llm, 'model', 'gpt-4o')
+                        temp = getattr(llm, 'temperature', 0.2)
+                        
+                        new_llm = ChatGithubCopilot(model=target_model, temperature=temp)
+                        setattr(new_llm, '_github_token', actual_token)
+                        return new_llm.invoke(base_prompt)
+                except Exception as refresh_err:
+                    print(f"[Auth Interceptor] ❌ Recovery failed: {refresh_err}")
+            
+            error_msg = "GitHub Copilot 인증에 실패했습니다."
+            if actual_token and "tid=" in actual_token:
+                error_msg += " OAuth 세션이 만료된 것 같습니다. 설정 페이지에서 'GitHub Copilot 계정 연결하기'를 다시 진행해 주세요."
+            else:
+                error_msg += " 설정된 PAT가 유효하지 않거나 만료되었습니다."
+                
+            raise HTTPException(
+                status_code=401, 
+                detail=f"{error_msg} ({err_str[:80]})"
+            )
+        raise HTTPException(status_code=500, detail=f"LLM AI Error: {str(e)}")
 
 def get_llm(model_name: str, api_key: str, thinking_level: str = None, reasoning_effort: str = None):
-    # If the user explicitly provided an API key in the UI, use it. Otherwise, rely on the global cache.
     tokens = load_tokens_from_cache()
     github_token = api_key if api_key else tokens.get("github_token", "")
     
     if github_token:
         os.environ["GITHUB_TOKEN"] = github_token
     elif not os.environ.get("GITHUB_TOKEN"):
-        # Explicitly raise a 401 to trigger the frontend's AuthOverlay instead of failing with 500 Pydantic ValidationError
-        raise HTTPException(status_code=401, detail="Token Expired. A GitHub token is required.")
+        raise HTTPException(status_code=401, detail="Token Required. Please configure GitHub Token in settings.")
         
     target_model = model_name if model_name else "gemini-3-flash"
     
-    # Construct advanced params — only pass what ChatGithubCopilot supports.
-    # - thinking_level is a Gemini-native concept and is NOT supported by ChatGithubCopilot.
-    # - reasoning_effort is supported only by o-series models (o1, o3, etc.).
     kwargs = {}
-    is_o_series = target_model.startswith("o1") or target_model.startswith("o3") or target_model.startswith("o4")
+    is_o_series = any(target_model.startswith(x) for x in ["o1", "o3", "o4"])
     if reasoning_effort and is_o_series:
         kwargs["reasoning_effort"] = reasoning_effort
         
-    return ChatGithubCopilot(model=target_model, temperature=0.2, **kwargs)
-
-def invoke_with_auth_fallback(llm, base_prompt):
-    try:
-        return llm.invoke(base_prompt)
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code == 401:
-            print("\n[Auth Interceptor] ⚠️ 401 Unauthorized detected! Attempting silent token refresh...")
-            tokens = load_tokens_from_cache()
-            github_token = tokens.get("github_token") or os.environ.get("GITHUB_TOKEN")
-            
-            if not github_token:
-                raise e
-                
-            copilot_token, expires_at = fetch_copilot_token(github_token)
-            if copilot_token:
-                save_tokens_to_cache(github_token, copilot_token, expires_at)
-                print("[Auth Interceptor] ✅ Silent refresh successful! Re-invoking LLM...\n")
-                target_model = getattr(llm, 'model', 'gpt-4o')
-                new_llm = type(llm)(model=target_model, temperature=llm.temperature)
-                return new_llm.invoke(base_prompt)
-            else:
-                print("[Auth Interceptor] ❌ Silent refresh failed. Master token might be expired.")
-                raise HTTPException(status_code=401, detail="Copilot Token refresh failed. Master token expired.")
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        if "401" in str(e):
-            print("\n[Auth Interceptor] ⚠️ 401 String Error detected! Attempting silent token refresh...")
-            tokens = load_tokens_from_cache()
-            github_token = tokens.get("github_token") or os.environ.get("GITHUB_TOKEN")
-            if github_token:
-                copilot_token, expires_at = fetch_copilot_token(github_token)
-                if copilot_token:
-                    save_tokens_to_cache(github_token, copilot_token, expires_at)
-                    print("[Auth Interceptor] ✅ Silent refresh successful! Re-invoking LLM...\n")
-                    target_model = getattr(llm, 'model', 'gpt-4o')
-                    new_llm = type(llm)(model=target_model, temperature=llm.temperature)
-                    return new_llm.invoke(base_prompt)
-            raise HTTPException(status_code=401, detail="Token Expired. Master token expired or refresh failed.")
-        raise HTTPException(status_code=500, detail=str(e))
+    llm = ChatGithubCopilot(model=target_model, temperature=0.2, **kwargs)
+    setattr(llm, '_github_token', github_token) 
+    return llm
 
 def plan_knowledge_extraction(text: str, custom_prompt: str, llm, system_prompt: str, existing_entities: list[str] | None = None, all_categories: list[str] | None = None, project_files_text: str | None = None, project_graph: str = "") -> KnowledgePlan:
     existing_block = "\n".join(existing_entities) if existing_entities else "(없음)"
@@ -118,30 +120,22 @@ def plan_knowledge_extraction(text: str, custom_prompt: str, llm, system_prompt:
     
     for attempt in range(3):
         try:
-            response = invoke_with_auth_fallback(llm, base_prompt)
+            response = invoke_with_auth_fallback(llm, base_prompt, github_token=getattr(llm, '_github_token', None))
             raw_text = response.content if hasattr(response, 'content') else str(response)
-            
-            print(f"\n[{attempt + 1}] DEBUG RAW AI RESPONSE (Planner):\n{raw_text}\n{'='*50}\n")
-            
-            # Hotfix: Clean up Markdown wrappers that might break parsing
             clean_text = raw_text.strip()
-            if clean_text.startswith("```json"):
+            if clean_text.startswith("`json"):
                 clean_text = clean_text[7:]
-            elif clean_text.startswith("```"):
+            elif clean_text.startswith("`"):
                 clean_text = clean_text[3:]
-            if clean_text.endswith("```"):
+            if clean_text.endswith("`"):
                 clean_text = clean_text[:-3]
-                
             clean_text = clean_text.strip()
             parsed_data = json.loads(clean_text)
             return KnowledgePlan(**parsed_data)
-        except HTTPException as he:
-            raise he
         except Exception as e:
-            print(f"[Plan Retry {attempt + 1}] JSON parsing failed: {e}")
+            if isinstance(e, HTTPException): raise e
             if attempt == 2:
-                # Do not fail silently. Throw exception visibly.
-                raise HTTPException(status_code=500, detail=f"LLM AI parsing totally failed. Last Error: {e}")
+                raise HTTPException(status_code=500, detail=f"LLM AI parsing totally failed: {e}")
 
 def execute_batch_knowledge_generation(nodes_batch: list[dict], text: str, custom_prompt: str, llm, system_prompt: str, project_files_text: str = "", project_graph: str = "") -> str:
     target_nodes_info = ""
@@ -157,61 +151,41 @@ def execute_batch_knowledge_generation(nodes_batch: list[dict], text: str, custo
     
     for attempt in range(3):
         try:
-            response = invoke_with_auth_fallback(llm, base_prompt)
+            response = invoke_with_auth_fallback(llm, base_prompt, github_token=getattr(llm, '_github_token', None))
             raw_text = response.content if hasattr(response, 'content') else str(response)
-            
-            print(f"\n[{attempt + 1}] DEBUG RAW AI RESPONSE (Executor):\n{raw_text}\n{'='*50}\n")
-            
             clean_text = raw_text.strip()
-            if clean_text.startswith("```markdown"):
+            if clean_text.startswith("`markdown"):
                 clean_text = clean_text[11:]
-            elif clean_text.startswith("```"):
+            elif clean_text.startswith("`"):
                 clean_text = clean_text[3:]
-            if clean_text.endswith("```"):
+            if clean_text.endswith("`"):
                 clean_text = clean_text[:-3]
-                
             return clean_text.strip()
-        except HTTPException as he:
-            raise he
         except Exception as e:
-            print(f"[Execution Retry {attempt + 1}] Generation failed: {e}")
+            if isinstance(e, HTTPException): raise e
             if attempt == 2:
-                # Failsafe dummy block
                 failsafe = ""
                 for n in nodes_batch:
-                    failsafe += f"\n=== DOCUMENT_SEPARATOR: {n['name']} ===\n문서 생성에 실패했습니다. 관리자에게 문의하세요.\n"
+                    failsafe += f"\n=== DOCUMENT_SEPARATOR: {n['name']} ===\n문서 생성에 실패했습니다.\n"
                 return failsafe
 
 def slugify(text: str) -> str:
-    slug = text.strip().lower().replace(" ", "-")
-    return slug
+    return text.strip().lower().replace(" ", "-")
 
 def _parse_sections(markdown: str) -> dict:
-    """기존 마크다운 문서를 H2(##) 섹션 단위로 파싱합니다.
-    반환: OrderedDict 형태의 {'__header__': 헤딩 전 내용, '섹션명': 내용, ...}
-    """
     import re as _re
     from collections import OrderedDict
-
     result = OrderedDict()
-    # H2 헤딩 기준으로 분리
     parts = _re.split(r'^(##\s+.+)$', markdown, flags=_re.MULTILINE)
-
-    # parts[0] = 헤딩 이전 내용 (인포박스, 목차 등)
     result['__header__'] = parts[0]
-
-    # 이후는 [헤딩, 내용, 헤딩, 내용, ...] 쌍
     for i in range(1, len(parts), 2):
-        heading_line = parts[i].strip()           # e.g. "## 개요"
+        heading_line = parts[i].strip()
         section_name = _re.sub(r'^##\s+', '', heading_line).strip()
         content = parts[i + 1] if i + 1 < len(parts) else ''
         result[section_name] = content
-
     return result
 
-
 def _sections_to_markdown(sections: dict) -> str:
-    """섹션 딕셔너리를 마크다운 문자열로 재조합합니다."""
     parts = []
     for key, content in sections.items():
         if key == '__header__':
@@ -220,62 +194,21 @@ def _sections_to_markdown(sections: dict) -> str:
             parts.append(f"## {key}\n{content}")
     return ''.join(parts).strip()
 
-
 def apply_section_patches(existing_summary: str, patch_output: str) -> str:
-    """AI가 반환한 PATCH_SECTION 블록들을 기존 문서에 적용합니다.
-    
-    - 기존에 있는 섹션이면 내용 교체
-    - 없는 섹션이면 문서 끝에 추가
-    - PATCH_SECTION 구분자가 없으면 patch_output 전체로 폴백
-    
-    Args:
-        existing_summary: 기존 마크다운 문서 전체
-        patch_output: AI가 반환한 패치 텍스트 (PATCH_SECTION 구분자 포함)
-    
-    Returns:
-        병합된 최종 마크다운 문서
-    """
     import re as _re
-
-    # AI 응답에서 PATCH_SECTION 블록 추출
     raw_patches = _re.split(r'===\s*PATCH_SECTION:\s*(.*?)\s*===', patch_output)
-
     if len(raw_patches) <= 1:
-        # PATCH_SECTION 구분자가 없으면 → 전체 교체 폴백
-        print("[apply_section_patches] No PATCH_SECTION markers found. Falling back to full replacement.")
         return patch_output.strip() if patch_output.strip() else existing_summary
-
-    # 기존 문서를 섹션 딕셔너리로 파싱
     sections = _parse_sections(existing_summary or '')
-
-    # raw_patches 구조: [preamble, section_name, content, section_name, content, ...]
-    patches_applied = 0
     for i in range(1, len(raw_patches), 2):
         section_name = raw_patches[i].strip()
         section_content = raw_patches[i + 1].strip() if i + 1 < len(raw_patches) else ''
-
-        if section_name in sections:
-            # 기존 섹션 교체: 앞뒤 줄바꿈 정규화
-            sections[section_name] = '\n' + section_content + '\n\n'
-            print(f"[apply_section_patches] ✅ Replaced section: '{section_name}'")
-        else:
-            # 새 섹션 추가
-            sections[section_name] = '\n' + section_content + '\n\n'
-            print(f"[apply_section_patches] ➕ Added new section: '{section_name}'")
-
-        patches_applied += 1
-
-    print(f"[apply_section_patches] Applied {patches_applied} section patch(es).")
+        sections[section_name] = '\n' + section_content + '\n\n'
     return _sections_to_markdown(sections)
-
 
 def execute_section_patch(existing_summary: str, entity_name: str, entity_type: str,
                           patch_description: str, source_text: str,
                           llm, system_prompt: str, project_files_text: str = "", project_graph: str = "") -> str:
-    """섹션 단위 Surgical Patch: AI가 변경된 섹션만 반환하고, 해당 섹션만 교체합니다."""
-    import re as _re
-
-    # 기존 문서의 섹션 목록을 AI에게 제공 (어떤 섹션이 있는지 맥락 제공)
     existing_sections = _parse_sections(existing_summary or '')
     section_names = [k for k in existing_sections.keys() if k != '__header__']
     sections_list = '\n'.join(f"- {s}" for s in section_names) if section_names else '(섹션 없음)'
@@ -292,38 +225,27 @@ def execute_section_patch(existing_summary: str, entity_name: str, entity_type: 
 
     for attempt in range(3):
         try:
-            response = invoke_with_auth_fallback(llm, base_prompt)
+            response = invoke_with_auth_fallback(llm, base_prompt, github_token=getattr(llm, '_github_token', None))
             raw_text = response.content if hasattr(response, 'content') else str(response)
-
-            print(f"\n[Patch {attempt + 1}] DEBUG RAW AI RESPONSE:\n{raw_text}\n{'='*50}\n")
-
             clean_text = raw_text.strip()
-            if clean_text.startswith("```markdown"):
+            if clean_text.startswith("`markdown"):
                 clean_text = clean_text[11:]
-            elif clean_text.startswith("```"):
+            elif clean_text.startswith("`"):
                 clean_text = clean_text[3:]
-            if clean_text.endswith("```"):
+            if clean_text.endswith("`"):
                 clean_text = clean_text[:-3]
-            clean_text = clean_text.strip()
-
-            # 섹션 단위 병합 적용
-            return apply_section_patches(existing_summary, clean_text)
-
-        except HTTPException as he:
-            raise he
+            return apply_section_patches(existing_summary, clean_text.strip())
         except Exception as e:
-            print(f"[Patch Retry {attempt + 1}] Section patch failed: {e}")
+            if isinstance(e, HTTPException): raise e
             if attempt == 2:
-                return existing_summary  # 모든 재시도 실패 시 원본 유지
+                return existing_summary
 
 async def extract_text_from_file(file: UploadFile) -> str:
     ext = file.filename.split('.')[-1].lower()
-    
     with NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
         content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
-
     try:
         if 'pdf' in ext:
             loader = PyPDFLoader(tmp_path)
@@ -334,19 +256,15 @@ async def extract_text_from_file(file: UploadFile) -> str:
         else:
             loader = TextLoader(tmp_path, encoding="utf-8")
             docs = loader.load()
-
-        full_text = "\n".join([doc.page_content for doc in docs if doc.page_content])
-        return full_text
+        return "\n".join([doc.page_content for doc in docs if doc.page_content])
     finally:
         os.unlink(tmp_path)
 
 async def extract_proposals(filename: str, full_text: str, custom_prompt: str, model_name: str, api_key: str, system_prompt: str, existing_entities: list[str] | None = None, all_categories: list[str] | None = None, project_files_text: str | None = None, thinking_level: str = None, reasoning_effort: str = None, project_graph: str = ""):
     if not full_text.strip():
-        raise HTTPException(status_code=400, detail="파일에서 텍스트를 추출할 수 없습니다. 파일이 비어 있거나 지원되지 않는 형식일 수 있습니다.")
-    
+        raise HTTPException(status_code=400, detail="텍스트를 추출할 수 없습니다.")
     llm = get_llm(model_name, api_key, thinking_level, reasoning_effort)
     plan = plan_knowledge_extraction(full_text, custom_prompt, llm, system_prompt, existing_entities, all_categories, project_files_text, project_graph=project_graph)
-    
     return {
         "filename": filename,
         "content_text": full_text,
@@ -357,42 +275,16 @@ async def extract_proposals(filename: str, full_text: str, custom_prompt: str, m
         "edges": [e.dict() for e in plan.edges]
     }
 
-
 def execute_project_chat(message: str, history: list[dict], project_context: str, llm, project_files_text: str = "") -> str:
-    """
-    프로젝트의 정보를 바탕으로 QA 채팅을 수행합니다.
-    """
-    messages = []
-    
-    # Add System Message
-    system_prompt = f"""당신은 이 프로젝트의 문서를 잘 알고 있는 친절한 AI 전문가입니다.
-사용자가 묻는 질문에 대해 아래에 제공된 [프로젝트 정보]와 [참조 파일]을 바탕으로 정확하게 답변해주세요.
-정보에 없는 내용은 추측하지 말고 모른다고 하거나, 주어진 정보 내에서 유추할 수 있는 선까지만 답변하세요.
-
-[프로젝트 정보]
-{project_context}
-
-[참조 파일]
-{project_files_text or "(없음)"}
-"""
-    messages.append(SystemMessage(content=system_prompt))
-    
-    # Add History
+    messages = [
+        SystemMessage(content=f"당신은 이 프로젝트의 문서를 잘 알고 있는 친절한 AI 전문가입니다.\n\n[프로젝트 정보]\n{project_context}\n\n[참조 파일]\n{project_files_text or '(없음)'}")
+    ]
     for msg in history:
-        if msg.get("role") == "user":
-            messages.append(HumanMessage(content=msg.get("content", "")))
-        else:
-            messages.append(AIMessage(content=msg.get("content", "")))
-    
-    # Add Current Message
+        messages.append(HumanMessage(content=msg["content"]) if msg["role"] == "user" else AIMessage(content=msg["content"]))
     messages.append(HumanMessage(content=message))
     
     for attempt in range(3):
         try:
-            response = invoke_with_auth_fallback(llm, messages)
-            return response.content if hasattr(response, 'content') else str(response)
+            return invoke_with_auth_fallback(llm, messages, github_token=getattr(llm, '_github_token', None)).content
         except Exception as e:
-            print(f"[Chat Retry {attempt + 1}] Chat failed: {e}")
-            if attempt == 2:
-                raise e
-
+            if attempt == 2: raise e

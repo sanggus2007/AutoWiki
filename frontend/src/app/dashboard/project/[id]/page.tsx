@@ -48,7 +48,10 @@ export default function ProjectPage() {
 
   useEffect(() => {
     apiFetch(`/api/projects/${projectId}`)
-      .then(r => r.json())
+      .then(async r => {
+        if (!r.ok) throw new Error("failed to fetch project");
+        return r.json();
+      })
       .then((data: ProjectDetail) => {
         setProject(data);
         // Do NOT auto-expand — start all collapsed
@@ -100,12 +103,12 @@ export default function ProjectPage() {
     if (!project) return [];
     const q = searchQuery.trim().toLowerCase();
     const filtered = q
-      ? project.entities.filter(e =>
+      ? (project.entities || []).filter(e =>
           e.name.toLowerCase().includes(q) ||
           e.type.toLowerCase().includes(q) ||
           e.categories.some(c => c.toLowerCase().includes(q))
         )
-      : project.entities;
+      : (project.entities || []);
 
     const map = new Map<string, EntityItem[]>();
     for (const e of filtered) {
@@ -296,7 +299,7 @@ export default function ProjectPage() {
                       <div
                         key={e.slug}
                         className="pl-8 pr-3 py-2.5 hover:bg-[#f8f9fa] cursor-pointer transition-colors flex items-start"
-                        onClick={() => router.push(`/dashboard/wiki/${e.slug}`)}
+                        onClick={() => router.push(`/dashboard/wiki/${e.slug}?projectId=${projectId}`)}
                       >
                         <FileText size={14} className="text-[#54595d] mr-2.5 mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">

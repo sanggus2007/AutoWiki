@@ -492,8 +492,14 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         raise HTTPException(status_code=401, detail="Invalid auth token. Please login again.")
     return user
 
+def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)), db=Depends(get_db)):
+    if not credentials:
+        return None
+    token = credentials.credentials
+    return db.query(schema.User).filter(schema.User.access_token == token).first()
+
 @app.post("/api/auth/poll")
-def poll_for_token(payload: PollPayload, db=Depends(get_db)):
+def poll_for_token(payload: PollPayload, db=Depends(get_db), current_user=Depends(get_optional_user)):
     try:
         res = httpx.post(
             "https://github.com/login/oauth/access_token",
@@ -506,57 +512,91 @@ def poll_for_token(payload: PollPayload, db=Depends(get_db)):
         ).json()
         
         if "access_token" in res:
-            access_token = res["access_token"]
-            from langchain_githubcopilot_chat.auth import COPILOT_DEFAULT_HEADERS
-            debug_hdrs = {"Authorization": f"token {access_token}", "Accept": "application/json", **COPILOT_DEFAULT_HEADERS}
-            with httpx.Client() as client:
-                dbg_res = client.get("https://api.github.com/copilot_internal/v2/token", headers=debug_hdrs)
-                if dbg_res.status_code == 200:
-                    data = dbg_res.json()
-                    copilot_token = data.get("token")
-                    expires_at = data.get("expires_at")
-                    if copilot_token:
-                        save_tokens_to_cache(access_token, copilot_token, expires_at)
-                        
-                        # Fetch GitHub User info
-                        user_res = client.get("https://api.github.com/user", headers={"Authorization": f"Bearer {access_token}"})
-                        if user_res.status_code == 200:
-                            user_data = user_res.json()
-                            github_id = str(user_data.get("id"))
-                            username = user_data.get("login")
-                            avatar_url = user_data.get("avatar_url")
-                            
-                            # Create or Update User in DB
-                            user = db.query(schema.User).filter(schema.User.github_id == github_id).first()
-                            if not user:
-                                user = schema.User(github_id=github_id, username=username, avatar_url=avatar_url, access_token=access_token)
-                                db.add(user)
-                            else:
-                                user.username = username
-                                user.avatar_url = avatar_url
-                                user.access_token = access_token
-                            db.commit()
-                            db.refresh(user)
-                            
-                            return {
-                                "status": "success", 
-                                "message": "Authenticated successfully",
-                                "access_token": access_token,
-                                "user": {
-                                    "id": user.id,
-                                    "username": user.username,
-                                    "avatar_url": user.avatar_url
-                                }
-                            }
-                        else:
-                            raise HTTPException(status_code=401, detail="Failed to fetch GitHub user info")
+            github_access_token = res["access_token"]
+            
+            # Exchange the standard access token for a Copilot internal token
+            copilot_token, expires_at = fetch_copilot_token(github_access_token)
+            
+            if copilot_token:
+                save_tokens_to_cache(github_access_token, copilot_token, expires_at)
                 
-                error_detail = f"Copilot Token API Error: {dbg_res.status_code} - Body: {dbg_res.text}"
-                print(f"[AUTH ERROR] {error_detail}")
-                raise HTTPException(status_code=401, detail=error_detail)
+                with httpx.Client() as client:
+                    # Fetch GitHub User info
+                    user_res = client.get("https://api.github.com/user", headers={"Authorization": f"Bearer {github_access_token}"})
+                    if user_res.status_code == 200:
+                        user_data = user_res.json()
+                        github_id = str(user_data.get("id"))
+                        username = user_data.get("login")
+                        avatar_url = user_data.get("avatar_url")
+                        
+                        # Logic Fix: Account Linking vs Login
+                        target_user = None
+                        is_linking_only = False
+                        
+                        # Check if another user already owns this GitHub ID
+                        existing_github_user = db.query(schema.User).filter(schema.User.github_id == github_id).first()
+                        
+                        if current_user:
+                            # User is ALREADY logged in (Local/Google Account)
+                            if existing_github_user and existing_github_user.id != current_user.id:
+                                # Conflict Handle: "Steal" the GitHub ID for the current logged-in user
+                                print(f"[AUTH MIGRATION] Moving github_id {github_id} from user {existing_github_user.id} to user {current_user.id}")
+                                existing_github_user.github_id = None
+                                db.commit()
+                            
+                            target_user = current_user
+                            is_linking_only = True
+                        else:
+                            # Login flow (not logged in yet)
+                            target_user = existing_github_user
+                        
+                        # Generate or preserve session token
+                        final_session_token = current_user.access_token if current_user else generate_session_token()
+                        
+                        if not target_user:
+                            # Create new user for fresh GitHub login
+                            target_user = schema.User(
+                                github_id=github_id, 
+                                username=username, 
+                                avatar_url=avatar_url, 
+                                access_token=final_session_token,
+                                auth_provider="github"
+                            )
+                            db.add(target_user)
+                        else:
+                            # Update existing user (link or sync)
+                            target_user.github_id = github_id
+                            if not target_user.avatar_url:
+                                target_user.avatar_url = avatar_url
+                            
+                            if not is_linking_only:
+                                # Refresh session token for login flows
+                                target_user.access_token = final_session_token
+                                target_user.auth_provider = "github"
+                        
+                        db.commit()
+                        db.refresh(target_user)
+                        
+                        return {
+                            "status": "success", 
+                            "message": "Authenticated successfully",
+                            "access_token": final_session_token,
+                            "github_token": github_access_token,
+                            "user": {
+                                "id": target_user.id,
+                                "username": target_user.username,
+                                "avatar_url": target_user.avatar_url
+                            }
+                        }
+            
+            error_detail = "Copilot 토큰 획득에 실패했습니다. 유료 구독 상태를 확인해 주세요."
+            print(f"[AUTH ERROR] {error_detail}")
+            raise HTTPException(status_code=401, detail=error_detail)
+        
         elif res.get("error") in ["authorization_pending", "slow_down"]:
-            print(f"[AUTH POLL DEBUG] Still pending. GitHub response: {res}")
             return {"status": "pending"}
+        elif res.get("error") == "expired_token":
+             raise HTTPException(status_code=400, detail="인증 코드가 만료되었습니다. 다시 시도해 주세요.")
         else:
             print(f"[AUTH OAUTH ERROR] GitHub responded with: {res}")
             raise HTTPException(status_code=400, detail=f"Auth error: {res.get('error_description', res)}")
@@ -573,6 +613,18 @@ def get_auth_status():
     if tokens.get("copilot_token") or tokens.get("github_token"):
         return {"status": "active"}
     return {"status": "expired"}
+
+@app.post("/api/auth/disconnect")
+def disconnect_auth():
+    """Clear server-side token cache file."""
+    from langchain_githubcopilot_chat.auth import CACHE_PATH
+    if os.path.exists(CACHE_PATH):
+        try:
+            os.remove(CACHE_PATH)
+            return {"status": "success", "message": "Server cache cleared"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to clear cache: {e}")
+    return {"status": "success", "message": "No cache found to clear"}
 
 
 # ──────────────────────────────────────
@@ -672,6 +724,48 @@ def list_projects(user=Depends(get_current_user), db=Depends(get_db)):
             "created_date": p.created_date.strftime("%Y-%m-%d %H:%M") if p.created_date else ""
         })
     return result
+
+@app.get("/api/search")
+def global_search(q: str = Query(...), user=Depends(get_current_user), db=Depends(get_db)):
+    if not q.strip():
+        return []
+    
+    # 1. Search Projects
+    projects = db.query(schema.Project).filter(
+        schema.Project.user_id == user.id,
+        schema.Project.name.ilike(f"%{q}%")
+    ).limit(5).all()
+    
+    # 2. Search Entities (JOIN with Projects to ensure user ownership)
+    entities = db.query(schema.Entity).join(
+        schema.Project, schema.Entity.project_id == schema.Project.id
+    ).filter(
+        schema.Project.user_id == user.id,
+        schema.Entity.name.ilike(f"%{q}%")
+    ).limit(10).all()
+    
+    results = []
+    # Add Projects to results
+    for p in projects:
+        results.append({
+            "type": "project", 
+            "name": p.name, 
+            "id": p.id, 
+            "slug": p.slug,
+            "url": f"/dashboard/project/{p.id}"
+        })
+    
+    # Add Entities to results
+    for e in entities:
+        results.append({
+            "type": "entity", 
+            "name": e.name, 
+            "slug": e.slug, 
+            "project_id": e.project_id,
+            "url": f"/dashboard/wiki/{e.slug}"
+        })
+        
+    return results
 
 # Text-only analysis (no file required)
 class TextAnalysisRequest(BaseModel):
@@ -1057,7 +1151,10 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
         # Save Nodes
         nodes_to_generate = []
         for n in nodes_data:
-            existing = db.query(schema.Entity).filter(schema.Entity.slug == n["id"]).first()
+            existing = db.query(schema.Entity).filter(
+                schema.Entity.slug == n["id"],
+                schema.Entity.project_id == project_id
+            ).first()
             if not existing:
                 nodes_to_generate.append(n)
                 
@@ -1201,17 +1298,21 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
 # ──────────────────────────────────────
 
 @app.get("/api/wiki/resolve")
-def resolve_wiki_name(name: str, db=Depends(get_db)):
+def resolve_wiki_name(name: str, project_id: Optional[int] = Query(None), db=Depends(get_db)):
     """Resolve a Korean display name to its correct English slug."""
     # Exact name match first
-    entity = db.query(schema.Entity).filter(
-        schema.Entity.name == name
-    ).first()
+    query = db.query(schema.Entity).filter(schema.Entity.name == name)
+    if project_id:
+        query = query.filter(schema.Entity.project_id == project_id)
+    entity = query.first()
     
     # Fuzzy: normalise spaces/hyphens for comparison
     if not entity:
         normalised = name.strip().replace("-", " ").lower()
-        all_entities = db.query(schema.Entity).all()
+        query = db.query(schema.Entity)
+        if project_id:
+            query = query.filter(schema.Entity.project_id == project_id)
+        all_entities = query.all()
         for e in all_entities:
             if e.name.strip().replace("-", " ").lower() == normalised:
                 entity = e
@@ -1224,6 +1325,7 @@ def resolve_wiki_name(name: str, db=Depends(get_db)):
 
 class BulkResolveRequest(BaseModel):
     names: List[str]
+    project_id: Optional[int] = None
 
 @app.post("/api/wiki/bulk-resolve")
 def bulk_resolve_wiki_names(payload: BulkResolveRequest, db=Depends(get_db)):
@@ -1231,7 +1333,10 @@ def bulk_resolve_wiki_names(payload: BulkResolveRequest, db=Depends(get_db)):
     주어진 이름 목록 중 실제로 존재하는 엔티티만 반환합니다.
     반환 형식: { "name": "slug" } 매핑
     """
-    all_entities = db.query(schema.Entity).all()
+    query = db.query(schema.Entity)
+    if payload.project_id:
+        query = query.filter(schema.Entity.project_id == payload.project_id)
+    all_entities = query.all()
     name_to_slug: dict[str, str] = {}
     for e in all_entities:
         name_to_slug[e.name.strip()] = e.slug
@@ -1252,15 +1357,19 @@ def bulk_resolve_wiki_names(payload: BulkResolveRequest, db=Depends(get_db)):
     return result
 
 @app.get("/api/wiki/{slug}")
-def get_wiki_page(slug: str, db=Depends(get_db)):
-    entity = db.query(schema.Entity).filter(schema.Entity.slug == slug).first()
+def get_wiki_page(slug: str, project_id: Optional[int] = Query(None), db=Depends(get_db)):
+    query = db.query(schema.Entity).filter(schema.Entity.slug == slug)
+    if project_id:
+        query = query.filter(schema.Entity.project_id == project_id)
+    entity = query.first()
     
     # Fallback: try to find by name (slug might be Korean-derived)
     if not entity:
         name_from_slug = slug.replace("-", " ")
-        entity = db.query(schema.Entity).filter(
-            schema.Entity.name == name_from_slug
-        ).first()
+        query = db.query(schema.Entity).filter(schema.Entity.name == name_from_slug)
+        if project_id:
+            query = query.filter(schema.Entity.project_id == project_id)
+        entity = query.first()
     
     if not entity:
         raise HTTPException(status_code=404, detail="Wiki page not found")
@@ -1276,8 +1385,11 @@ def get_wiki_page(slug: str, db=Depends(get_db)):
     }
 
 @app.delete("/api/wiki/{slug}")
-def delete_wiki_page(slug: str, db=Depends(get_db)):
-    entity = db.query(schema.Entity).filter(schema.Entity.slug == slug).first()
+def delete_wiki_page(slug: str, project_id: Optional[int] = Query(None), db=Depends(get_db)):
+    query = db.query(schema.Entity).filter(schema.Entity.slug == slug)
+    if project_id:
+        query = query.filter(schema.Entity.project_id == project_id)
+    entity = query.first()
     if not entity:
         raise HTTPException(status_code=404, detail="Wiki page not found")
     
@@ -1619,6 +1731,7 @@ def export_project(project_id: int, db=Depends(get_db)):
 async def import_project(
     file: UploadFile = File(...),
     overwrite: bool = Query(False),
+    user=Depends(get_current_user),
     db=Depends(get_db),
 ):
     """
@@ -1677,6 +1790,7 @@ async def import_project(
             name=project_name,
             slug=final_slug,
             description=project_data.get("description", ""),
+            user_id=user.id,
         )
         db.add(project)
         db.commit()

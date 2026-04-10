@@ -20,7 +20,7 @@ function GoogleIcon() {
   );
 }
 
-// ── Local Auth Flow ──────────────────────────────────────────────────
+// ── Local Auth Flow (TEMPORARILY UNUSED BUT PRESERVED) ────────────────
 function LocalFlow({ onSuccess, onBack }: { onSuccess: () => void, onBack: () => void }) {
   const setAuth = useAuthStore(state => state.setAuth);
   const [mode, setMode] = useState<LocalMode>("login");
@@ -37,11 +37,7 @@ function LocalFlow({ onSuccess, onBack }: { onSuccess: () => void, onBack: () =>
     const url = mode === "login" ? "/api/auth/local/login" : "/api/auth/local/register";
     const body = mode === "login" ? { email, password } : { email, password, username };
     try {
-      const res = await apiFetch(url, { 
-        method: "POST", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify(body) 
-      });
+      const res = await apiFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) { setError(data.detail || "오류가 발생했습니다."); return; }
       setAuth(data.access_token, data.user);
@@ -50,7 +46,7 @@ function LocalFlow({ onSuccess, onBack }: { onSuccess: () => void, onBack: () =>
   };
 
   return (
-    <form onSubmit={handleSubmit} className="py-2 space-y-3">
+    <form onSubmit={handleSubmit} className="py-2 space-y-3 animate-in slide-in-from-right-2 duration-300">
       {mode === "register" && (
         <input value={username} onChange={e => setUsername(e.target.value)} required placeholder="닉네임" className="w-full border border-[#d0d7de] rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#0645ad]"/>
       )}
@@ -67,7 +63,7 @@ function LocalFlow({ onSuccess, onBack }: { onSuccess: () => void, onBack: () =>
         {mode === "login" ? "로그인" : "회원가입"}
       </button>
       <div className="flex justify-between items-center text-[12px]">
-        <button type="button" onClick={onBack} className="text-[#54595d] hover:underline">← 뒤로가기</button>
+        <button type="button" onClick={onBack} className="text-[#54595d] hover:underline">← 다른 방법 선택</button>
         <button type="button" onClick={() => { setMode(m => m === "login" ? "register" : "login"); setError(""); }} className="text-[#0645ad] font-semibold underline">
           {mode === "login" ? "회원가입" : "로그인"}
         </button>
@@ -86,37 +82,47 @@ export function AuthOverlay({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <div className="bg-white max-w-sm w-full p-8 shadow-2xl border border-[#a2a9b1] rounded-2xl relative">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-[#0645ad] rounded-t-2xl"/>
-        <div className="text-center mb-8 pt-2">
-          <div className="w-12 h-12 bg-[#f0f4ff] rounded-full flex items-center justify-center mx-auto mb-4">
-            <Key size={22} className="text-[#0645ad]"/>
+      <div className="bg-white max-w-sm w-full p-10 shadow-2xl border border-[#a2a9b1] rounded-3xl relative overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* Accent Bar */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#0645ad] to-[#3b82f6]"/>
+        
+        {/* Header */}
+        <div className="text-center mb-10 pt-2">
+          <div className="w-16 h-16 bg-[#f0f7ff] rounded-2xl flex items-center justify-center mx-auto mb-5 rotate-3 shadow-sm border border-[#0645ad]/10">
+            <Key size={30} className="text-[#0645ad] -rotate-3"/>
           </div>
-          <h2 className="text-2xl font-bold text-[#1a1a1a]">AutoWiki 로그인</h2>
-          <p className="text-sm text-[#54595d] mt-2">간편하게 시작하고 지식을 정리하세요</p>
+          <h2 className="text-2xl font-black text-[#1a1a1a] tracking-tight">AutoWiki 로그인</h2>
+          <p className="text-sm text-[#64748b] mt-2 font-medium">안전하게 시작하고 지식을 연결하세요</p>
         </div>
 
         {provider === "select" ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <button 
               onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center gap-3 py-3 border border-[#d0d7de] rounded-md font-semibold text-sm hover:bg-[#f6f8fa] transition-colors"
+              className="w-full flex items-center justify-center gap-3 py-3.5 border-2 border-[#f1f5f9] rounded-xl font-bold text-[15px] hover:bg-[#f8fafc] hover:border-[#e2e8f0] transition-all active:scale-[0.98]"
             >
-              <GoogleIcon/> Google로 시작하기
+              <GoogleIcon/> Google 계정으로 계속하기
             </button>
-            <button 
-              onClick={() => setProvider("local")}
-              className="w-full flex items-center justify-center gap-3 py-3 bg-[#24292f] text-white rounded-md font-semibold text-sm hover:bg-black transition-colors"
-            >
-              <Mail size={18}/> 이메일로 시작하기
-            </button>
+
+            {/* 로컬호스트(개발 환경)에서만 이메일 로그인 노출 */}
+            {typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
+              <button 
+                onClick={() => setProvider("local")}
+                className="w-full flex items-center justify-center gap-3 py-3.5 bg-[#f8fafc] text-[#64748b] border border-dashed border-[#cbd5e1] rounded-xl font-bold text-[15px] hover:bg-[#f1f5f9] transition-all"
+              >
+                <Mail size={18}/> [테스트용] 이메일로 계속하기
+              </button>
+            )}
           </div>
         ) : (
           <LocalFlow onSuccess={onSuccess} onBack={() => setProvider("select")}/>
         )}
 
-        <div className="mt-8 pt-4 border-t border-[#f0f0f0] text-center">
-          <p className="text-[11px] text-[#a2a9b1]">로그인 시 서비스 이용 약관에 동의하게 됩니다.</p>
+        <div className="mt-10 pt-6 border-t border-[#f1f5f9] text-center">
+          <p className="text-[11px] text-[#94a3b8] leading-relaxed">
+            로그인 시 AutoWiki의 <span className="underline cursor-pointer">이용 약관</span> 및 <br/>
+            <span className="underline cursor-pointer">개인정보 처리방침</span>에 동의하게 됩니다.
+          </p>
         </div>
       </div>
     </div>

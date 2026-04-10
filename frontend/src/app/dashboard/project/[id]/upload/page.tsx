@@ -9,6 +9,7 @@ import { ReviewUI, Proposal } from "@/components/ReviewUI";
 import { AuthOverlay } from "@/components/AuthOverlay";
 import { ArrowLeft, Loader2, Paperclip, MessageSquareText } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { SetupTutorial } from "@/components/SetupTutorial";
 
 
 type AppState = "UPLOAD" | "LOADING" | "REVIEW" | "COMMITTING";
@@ -49,6 +50,7 @@ export default function ProjectUploadPage() {
   const [userPrompt, setUserPrompt] = useState<string>("");
   const [savedFiles, setSavedFiles] = useState<File[]>([]);
   const [showAuthOverlay, setShowAuthOverlay] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
   const getModelKeys = () => ({
@@ -56,7 +58,7 @@ export default function ProjectUploadPage() {
     subModel: localStorage.getItem("autowiki_llm_sub_model") || "gemini-3-flash-preview",
     thinkingLevel: localStorage.getItem("autowiki_llm_thinking_level") || "HIGH",
     reasoningEffort: localStorage.getItem("autowiki_llm_reasoning_effort") || "high",
-    key: localStorage.getItem("autowiki_llm_api_key") || "",
+    key: localStorage.getItem("autowiki_github_token") || localStorage.getItem("autowiki_llm_api_key") || "",
   });
 
   // ── File upload analysis ────────────────────────────────────────────────────
@@ -82,7 +84,11 @@ export default function ProjectUploadPage() {
         const errText = await res.text();
         if (is401(res.status, errText)) {
           setPendingAction({ action: "upload", files, customPrompt });
-          setShowAuthOverlay(true);
+          if (errText.includes("GitHub") || errText.includes("Token")) {
+            setShowTutorial(true);
+          } else {
+            setShowAuthOverlay(true);
+          }
           return;
         }
         console.error("Upload failed", errText);
@@ -281,6 +287,12 @@ export default function ProjectUploadPage() {
       )}
 
       {showAuthOverlay && <AuthOverlay onSuccess={handleAuthSuccess} />}
+      {showTutorial && (
+        <SetupTutorial 
+          onClose={() => setShowTutorial(false)} 
+          onGoToSettings={() => router.push('/dashboard/settings')} 
+        />
+      )}
     </div>
   );
 }

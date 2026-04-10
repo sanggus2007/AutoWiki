@@ -93,6 +93,7 @@ def fetch_copilot_token(github_token: str) -> Tuple[Optional[str], Optional[floa
     Returns:
         Tuple of (token, expires_at_timestamp). expires_at is None if not provided.
     """
+    # For Device Flow tokens (tid=), 'token' prefix is typically required by GitHub Internal API
     headers = {
         "Authorization": f"token {github_token}",
         "Accept": "application/json",
@@ -106,10 +107,10 @@ def fetch_copilot_token(github_token: str) -> Tuple[Optional[str], Optional[floa
         if res.status_code == 200:
             data = res.json()
             token = data.get("token")
-            # Copilot tokens typically expire in a few hours
-            # The API may return 'expires_at' as a Unix timestamp
             expires_at = data.get("expires_at")
             return token, expires_at
+        else:
+            logger.error(f"Failed to fetch Copilot token: {res.status_code} {res.text}")
     return None, None
 
 
@@ -136,6 +137,8 @@ async def afetch_copilot_token(
             token = data.get("token")
             expires_at = data.get("expires_at")
             return token, expires_at
+        else:
+            logger.error(f"Failed to fetch Copilot token (async): {res.status_code} {res.text}")
     return None, None
 
 
