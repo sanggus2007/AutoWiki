@@ -6,10 +6,11 @@ export default async function WikiPage(props: {
   params: Promise<{ slug: string }>,
   searchParams: Promise<{ projectId?: string }>
 }) {
+  const { params, searchParams } = props;
   const resolvedParams = await params;
   const slug = resolvedParams.slug;
-  const searchParams = await props.searchParams;
-  const projectId = searchParams.projectId;
+  const resolvedSearchParams = await searchParams;
+  const projectId = resolvedSearchParams.projectId;
 
   let wikiData: any = {
     title: "로딩 중...",
@@ -44,7 +45,7 @@ export default async function WikiPage(props: {
     <div className="min-h-full flex flex-col">
       <WikiViewer
         slug={slug}
-        projectId={searchParams.projectId}
+        projectId={resolvedSearchParams.projectId}
         initialTitle={wikiData.title}
         initialTags={wikiData.tags}
         initialContent={(wikiData.content || "").trim()}
