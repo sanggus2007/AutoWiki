@@ -29,7 +29,7 @@ export default function DashboardLayout({
   if (!token) return null;
 
   return (
-    <div className="flex h-[100dvh] bg-[#f8f9fa] text-[#202122] overflow-hidden relative">
+    <div className="fixed inset-0 flex bg-[#f8f9fa] text-[#202122] overflow-hidden">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex flex-col flex-1 min-w-0 h-full">
         <Header onMenuClick={() => setIsSidebarOpen(true)} />
