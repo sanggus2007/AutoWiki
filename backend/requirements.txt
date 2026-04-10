@@ -8,7 +8,13 @@ python-multipart
 python-dotenv
 bcrypt
 httpx
+
+# AI & LangChain (Critical compatibility)
+numpy==1.26.4
 langchain
+langchain-core
+langchain-community
+langchain-text-splitters
 langchain-openai
 langchain-google-genai
 langchain-anthropic
@@ -17,7 +23,6 @@ langchain-anthropic
 alembic
 
 # Utilities
-numpy==1.26.4
 aiofiles
 jinja2
 python-docx
