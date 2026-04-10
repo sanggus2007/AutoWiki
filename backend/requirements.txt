@@ -13,9 +13,6 @@ langchain-openai
 langchain-google-genai
 langchain-anthropic
 
-# Custom Copilot Chat Library (CRITICAL)
-git+https://github.com/sanggus2007/langchain-githubcopilot-chat.git
-
 # Database Migration
 alembic
 
