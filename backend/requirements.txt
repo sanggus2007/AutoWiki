@@ -8,18 +8,19 @@ python-multipart
 python-dotenv
 bcrypt
 httpx
-
-# Database Migration
-alembic
-
-# AI & LangChain (Critical compatibility)
-numpy==1.26.4
 langchain
 langchain-openai
 langchain-google-genai
 langchain-anthropic
 
+# Custom Copilot Chat Library (CRITICAL)
+git+https://github.com/sanggus2007/langchain-githubcopilot-chat.git
+
+# Database Migration
+alembic
+
 # Utilities
+numpy==1.26.4
 aiofiles
 jinja2
 python-docx
@@ -27,3 +28,5 @@ pandas
 pillow
 rich
 tqdm
+lxml
+tiktoken
