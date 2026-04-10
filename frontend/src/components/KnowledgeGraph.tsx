@@ -822,6 +822,7 @@ export const KnowledgeGraph = ({
           nodeColor={(n: any) => n.color}
           nodeRelSize={6}
           /* ── Links ── */
+          // @ts-ignore
           linkStrength={(link: any) => isTreeEdge(link) ? 1.0 : 0.02}
           linkColor={(link: any) => {
             if (isLinkHighlighted(link)) return 'rgba(251,191,36,0.95)';
