@@ -136,7 +136,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           )}
         </nav>
 
-        <div className="p-3 border-t border-[#a2a9b1]">
+        <div className="p-3 border-t border-[#a2a9b1] pb-[calc(12px+env(safe-area-inset-bottom))]">
           {/* Storage Details */}
           <div className="mt-3 px-2 mb-3">
              <div className="flex items-center justify-between mb-1">

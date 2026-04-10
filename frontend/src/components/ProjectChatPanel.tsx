@@ -355,7 +355,7 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
         </div>
 
         {/* Input */}
-        <div className="p-3 bg-[#f8f9fa] border-t border-[#a2a9b1]">
+        <div className="p-3 bg-[#f8f9fa] border-t border-[#a2a9b1] pb-[calc(12px+env(safe-area-inset-bottom))]">
           <TextInputUI
             onSubmit={handleSubmit}
             title=""
