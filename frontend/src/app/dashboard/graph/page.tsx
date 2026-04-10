@@ -97,6 +97,19 @@ function SettingsPanel({
 
       <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5 scrollbar-thin">
 
+        {/* Dimension */}
+        <section>
+          <div className="text-[10px] text-[#555] uppercase tracking-widest mb-3 font-bold">차원 (Dimension)</div>
+          <div className="flex gap-2">
+            <ToggleBtn active={settings.dimension === '2d'} onClick={() => set({ dimension: '2d' })}>
+              2D (평면)
+            </ToggleBtn>
+            <ToggleBtn active={settings.dimension === '3d'} onClick={() => set({ dimension: '3d' })}>
+              3D (공간)
+            </ToggleBtn>
+          </div>
+        </section>
+
         {/* Layout */}
         <section>
           <div className="text-[10px] text-[#555] uppercase tracking-widest mb-3 font-bold">레이아웃</div>
@@ -283,6 +296,8 @@ function GraphPageInner() {
     setError('');
   }, []);
 
+  const resetLayout = () => window.dispatchEvent(new Event('graph:reset'));
+
   const handleProjectChange = (id: number) => {
     setSelectedProjectId(id);
     router.replace(`/dashboard/graph?projectId=${id}`);
@@ -463,6 +478,16 @@ function GraphPageInner() {
           >
             <Settings2 size={13} />
             설정
+          </button>
+
+          {/* Reset button */}
+          <button
+            onClick={resetLayout}
+            title="배치 초기화 (핀 해제)"
+            className="flex items-center gap-1.5 bg-[#111]/90 border border-[#333] text-[#aaa] hover:border-[#555] hover:text-white text-xs font-semibold rounded-md px-3 py-2 transition-all shadow-lg"
+          >
+            <RotateCcw size={13} />
+            배치 초기화
           </button>
 
           {/* Edit mode toggle */}

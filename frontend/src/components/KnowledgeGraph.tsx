@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { typeToColor, assignTypeColors, TYPE_COLOR_NONE } from '@/lib/typeColor';
 import { apiFetch } from "@/lib/api";
+import * as THREE from 'three';
 
 
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
@@ -16,9 +17,19 @@ const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
   ),
 });
 
+const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center text-[#555] text-sm">
+      3D 신경망 초기화 중...
+    </div>
+  ),
+});
+
 // ─── Public Types ──────────────────────────────────────────────────────────────
 
 export interface GraphSettings {
+  dimension: '2d' | '3d';
   layout: 'radial' | 'force';
   nodeSizeMode: 'dynamic' | 'uniform';
   labelMode: 'always' | 'hover' | 'hidden';
@@ -31,6 +42,7 @@ export interface GraphSettings {
 }
 
 export const DEFAULT_SETTINGS: GraphSettings = {
+  dimension: '2d',
   layout: 'radial',
   nodeSizeMode: 'dynamic',
   labelMode: 'always',
@@ -422,23 +434,65 @@ export const KnowledgeGraph = ({
   const [hoveredLink, setHoveredLink] = useState<any>(null);
   // 황금각 기반 색상 맵 — 타입 목록이 확정된 후 한 번에 배정
   const [colorMap, setColorMap] = useState<Map<string, string>>(new Map());
+  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
+  const [showCoreLinks, setShowCoreLinks] = useState(true);
+  const [showSubLinks, setShowSubLinks] = useState(true);
 
   const theme = THEMES[settings.theme];
 
+  // ── 3D Label Texture Cache ──────────────────────────────
+  const textureCache = useRef<Map<string, THREE.Texture>>(new Map());
+  
+  // Clear cache if theme changes
+  useEffect(() => {
+    textureCache.current.forEach(t => t.dispose());
+    textureCache.current.clear();
+  }, [settings.theme]);
+
+  const getOrCreateTexture = useCallback((node: any) => {
+    const key = `${node.name || node.id}_${settings.theme}`;
+    if (textureCache.current.has(key)) return textureCache.current.get(key)!;
+
+    const label = node.name || node.id;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const fontSize = 64;
+    ctx!.font = `bold ${fontSize}px sans-serif`;
+    const textWidth = ctx!.measureText(label).width;
+    canvas.width = textWidth + 80;
+    canvas.height = fontSize + 40;
+    
+    ctx!.fillStyle = theme.labelBg;
+    ctx!.beginPath();
+    ctx!.roundRect?.(0, 0, canvas.width, canvas.height, 20);
+    ctx!.fill();
+    
+    ctx!.fillStyle = theme.labelText;
+    ctx!.font = `bold ${fontSize}px sans-serif`;
+    ctx!.textAlign = 'center';
+    ctx!.textBaseline = 'middle';
+    ctx!.fillText(label, canvas.width / 2, canvas.height / 2);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    textureCache.current.set(key, texture);
+    return texture;
+  }, [theme, settings.theme]);
+
   // ── Fetch ────────────────────────────────────────────────
-  const fetchGraph = useCallback(() => {
-    const url = projectId
-      ? `/api/graph?project_id=${projectId}`
-      : `/api/graph`;
+  const fetchGraph = useCallback((isCurrent: { val: boolean } = { val: true }) => {
+    if (projectId === null) {
+      setGraphData({ nodes: [], links: [] });
+      return;
+    }
+    const url = `/api/graph?project_id=${projectId}`;
     apiFetch(url)
       .then(r => r.json())
       .then(data => {
+        if (!isCurrent.val) return;
         const nodes: any[] = data.nodes || [];
-        // 1) 전체 타입 목록 추출 후 황금각 색상 배정 (겹침 없음)
         const allTypes = [...new Set(nodes.map((n: any) => (n.type || '').trim()).filter(Boolean))];
         const cm = assignTypeColors(allTypes);
         setColorMap(cm);
-        // 2) 각 노드 색상 적용
         const enriched = {
           ...data,
           nodes: nodes.map((n: any) => ({
@@ -448,16 +502,34 @@ export const KnowledgeGraph = ({
         };
         setGraphData(enriched);
       })
-      .catch(console.error);
+      .catch(err => {
+        if (isCurrent.val) console.error(err);
+      });
   }, [projectId]);
 
-  useEffect(() => { fetchGraph(); }, [fetchGraph]);
+  useEffect(() => {
+    const isCurrent = { val: true };
+    fetchGraph(isCurrent);
+    return () => { isCurrent.val = false; };
+  }, [fetchGraph]);
 
   useEffect(() => {
     const h = () => fetchGraph();
     window.addEventListener('graph:refresh', h);
-    return () => window.removeEventListener('graph:refresh', h);
-  }, [fetchGraph]);
+    const r = () => {
+      graphData.nodes.forEach((n: any) => { n.fx = undefined; n.fy = undefined; });
+      if (settings.layout === 'radial' && metrics) {
+        applyRadialLayout(graphData.nodes, metrics, settings.ringSpacing);
+      }
+      graphRef.current?.d3ReheatSimulation();
+      setTimeout(() => graphRef.current?.zoomToFit(800, 80), 100);
+    };
+    window.addEventListener('graph:reset', r);
+    return () => {
+      window.removeEventListener('graph:refresh', h);
+      window.removeEventListener('graph:reset', r);
+    };
+  }, [fetchGraph, graphData.nodes, settings.layout, settings.ringSpacing, metrics]);
 
   // ── Metrics ──────────────────────────────────────────────
   useEffect(() => {
@@ -501,58 +573,24 @@ export const KnowledgeGraph = ({
       applyRadialLayout(graphData.nodes, metrics, settings.ringSpacing);
     } else {
       // 자유 배치: 루트 핀 해제
-      graphData.nodes.forEach((n: any) => { n.fx = undefined; n.fy = undefined; });
+      graphData.nodes.forEach((n: any) => {
+        n.fx = undefined; n.fy = undefined; n.fz = undefined;
+      });
+    }
+
+    // 3D -> 2D 전환 시 Z축 잔상 제거
+    if (settings.dimension === '2d') {
+      graphData.nodes.forEach((n: any) => {
+        delete n.z;
+        delete n.vz;
+        delete n.fz;
+      });
     }
 
     graphData.nodes.forEach((node: any) => {
       node.val = Math.max(4, getRadius(node) ** 2 / 14);
     });
-  }, [metrics, settings.layout, settings.ringSpacing, getRadius]);
-
-  // ── Apply D3 forces ──────────────────────────────────────
-  useEffect(() => {
-    if (!graphRef.current || !metrics) return;
-
-    const g = graphRef.current;
-    g.d3Force('charge').strength(settings.chargeStrength);
-    g.d3Force('link')?.distance(settings.linkDistance);
-
-    // Remove old radial force
-    g.d3Force('radial', null);
-
-    if (settings.layout === 'radial' && metrics.rootId) {
-      const ringSpacing = settings.ringSpacing;
-      const depthMap = metrics.depth;
-
-      // Custom radial force function (d3-force compatible API)
-      const radialForce = function(alpha: number) {
-        graphData.nodes.forEach((node: any) => {
-          if (node.id === metrics.rootId) return; // root is fixed
-          const depth = depthMap[node.id] ?? 1;
-          const targetR = depth * ringSpacing;
-          const nx = node.x || 0.001;
-          const ny = node.y || 0.001;
-          const currentR = Math.sqrt(nx * nx + ny * ny);
-          if (currentR < 0.5) return;
-          const err = (targetR - currentR) / currentR;
-          const strength = 0.4 * alpha;
-          node.vx = (node.vx || 0) + nx * err * strength;
-          node.vy = (node.vy || 0) + ny * err * strength;
-        });
-      };
-      g.d3Force('radial', radialForce);
-    }
-
-    g.d3ReheatSimulation();
-    setTimeout(() => g.zoomToFit(700, 80), 1000);
-  }, [settings.layout, settings.chargeStrength, settings.linkDistance, settings.ringSpacing, metrics]);
-
-  // ── Initial zoom ─────────────────────────────────────────
-  useEffect(() => {
-    if (graphRef.current && graphData.nodes.length > 0) {
-      setTimeout(() => graphRef.current?.zoomToFit(900, 80), 1400);
-    }
-  }, [graphData]);
+  }, [metrics, settings.layout, settings.ringSpacing, getRadius, settings.dimension]); // Added dimension dependency
 
   const isTreeEdge = useCallback((link: any): boolean => {
     if (!metrics) return false;
@@ -560,6 +598,85 @@ export const KnowledgeGraph = ({
     const tgt = typeof link.target === 'object' ? link.target.id : link.target;
     return metrics.treeEdges.has(`${src}|${tgt}`);
   }, [metrics]);
+
+  // ── Apply D3 forces ──────────────────────────────────────
+  useEffect(() => {
+    if (!graphRef.current || !metrics) return;
+
+    // Delay force updates to prevent "reading 'tick'" errors that occur
+    // when ForceGraph3D's internal state.layout is not fully initialized.
+    const timeoutId = setTimeout(() => {
+      const g = graphRef.current;
+      if (!g || typeof g.d3Force !== 'function') return;
+
+      try {
+        const chargeForce = g.d3Force('charge');
+        if (chargeForce && typeof chargeForce.strength === 'function') {
+          chargeForce.strength(settings.chargeStrength);
+        }
+
+        const linkForce = g.d3Force('link');
+        if (linkForce && typeof linkForce.distance === 'function') {
+          linkForce.distance(settings.linkDistance)
+            .strength((l: any) => isTreeEdge(l) ? 1.0 : 0.02);
+        }
+
+        if (g.d3Force('radial')) {
+          g.d3Force('radial', null);
+        }
+
+        if (settings.layout === 'radial' && metrics.rootId) {
+          const ringSpacing = settings.ringSpacing;
+          const depthMap = metrics.depth;
+
+          const radialForce = function (alpha: number) {
+            graphData.nodes.forEach((node: any) => {
+              if (node.id === metrics.rootId) return; // root is fixed
+              const depth = depthMap[node.id] ?? 1;
+              const targetR = depth * ringSpacing;
+              const nx = node.x || 0.001;
+              const ny = node.y || 0.001;
+              const currentR = Math.sqrt(nx * nx + ny * ny);
+              if (currentR < 0.5) return;
+              const err = (targetR - currentR) / currentR;
+              const strength = 0.4 * alpha;
+              node.vx = (node.vx || 0) + nx * err * strength;
+              node.vy = (node.vy || 0) + ny * err * strength;
+              if (settings.dimension === '3d') {
+                const nz = node.z || 0.001;
+                const currentR3D = Math.sqrt(nx * nx + ny * ny + nz * nz);
+                const err3D = (targetR - currentR3D) / currentR3D;
+                node.vx = (node.vx || 0) + nx * err3D * strength;
+                node.vy = (node.vy || 0) + ny * err3D * strength;
+                node.vz = (node.vz || 0) + nz * err3D * strength;
+              }
+            });
+          };
+          g.d3Force('radial', radialForce);
+        }
+
+        if (typeof g.d3ReheatSimulation === 'function') {
+          g.d3ReheatSimulation();
+        }
+        setTimeout(() => {
+          if (graphRef.current && typeof graphRef.current.zoomToFit === 'function') {
+            graphRef.current.zoomToFit(700, 80);
+          }
+        }, 800);
+      } catch (err) {
+        console.warn("Physics sync transiently failed:", err);
+      }
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [settings.layout, settings.chargeStrength, settings.linkDistance, settings.ringSpacing, metrics, isTreeEdge, settings.dimension]); // Added dimension dependency
+
+  // ── Initial zoom ─────────────────────────────────────────
+  useEffect(() => {
+    if (graphRef.current && graphData.nodes.length > 0) {
+      setTimeout(() => graphRef.current?.zoomToFit(900, 80), 1400);
+    }
+  }, [graphData]);
 
   const isLinkHighlighted = useCallback((link: any) => {
     return (editMode && link.id === selectedLinkId) || (!editMode && hoveredLink && link.id === hoveredLink.id);
@@ -575,13 +692,15 @@ export const KnowledgeGraph = ({
       style={{ background: theme.bg }}
     >
       {/* Grid texture */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.18]"
-        style={{
-          backgroundImage: `radial-gradient(${theme.gridDot} 1px, transparent 1px)`,
-          backgroundSize: '22px 22px',
-        }}
-      />
+      {settings.dimension !== '3d' && (
+        <div
+          className="absolute inset-0 pointer-events-none opacity-[0.18]"
+          style={{
+            backgroundImage: `radial-gradient(${theme.gridDot} 1px, transparent 1px)`,
+            backgroundSize: '22px 22px',
+          }}
+        />
+      )}
 
       {/* Empty state */}
       {graphData.nodes.length === 0 && (
@@ -594,215 +713,383 @@ export const KnowledgeGraph = ({
         </div>
       )}
 
-      <ForceGraph2D
-        ref={graphRef}
-        width={dimensions.width}
-        height={dimensions.height}
-        graphData={graphData}
-        nodeLabel=""
-        nodeColor={(n: any) => n.color}
-        nodeRelSize={6}
-        /* ── Links ── */
-        linkColor={(link: any) => {
-          if (isLinkHighlighted(link)) return 'rgba(251,191,36,0.95)';
-          return isTreeEdge(link) ? theme.linkTree : theme.linkDefault.replace(/[\.\d]+\)$/, '0.45)');
-        }}
-        linkWidth={(link: any) => {
-          if (isLinkHighlighted(link)) return 3.5;
-          return isTreeEdge(link) ? 2 : 1.2;
-        }}
-        linkLineDash={(link: any) => (isTreeEdge(link) ? null : [4, 6])}
-        linkDirectionalArrowLength={(link: any) => {
-          if (isLinkHighlighted(link)) return 8;
-          return isTreeEdge(link) ? 7 : 4;
-        }}
-        linkDirectionalArrowRelPos={0.88}
-        linkDirectionalArrowColor={(link: any) => {
-          if (isLinkHighlighted(link)) return 'rgba(251,191,36,0.95)';
-          return isTreeEdge(link) ? theme.linkTree : theme.linkDefault.replace(/[\.\d]+\)$/, '0.65)');
-        }}
-        linkDirectionalParticles={(link: any) => {
-          if (!settings.showParticles) return 0;
-          return isTreeEdge(link) ? 3 : 0;
-        }}
-        linkDirectionalParticleSpeed={0.004}
-        linkDirectionalParticleWidth={2.2}
-        linkDirectionalParticleColor={() => theme.particleColor}
-        /* ── Link labels ── */
-        linkCanvasObjectMode={() => 'after'}
-        linkCanvasObject={(link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-          if (!settings.showLinkLabels) return;
-          const label = link.label as string;
-          if (!label || globalScale < 0.35) return;
-          const src = link.source;
-          const tgt = link.target;
-          if (!src?.x || !tgt?.x) return;
-          const midX = (src.x + tgt.x) / 2;
-          const midY = (src.y + tgt.y) / 2;
-          // Fix: Grow with zoom, but stay readable when zoomed out
-          const fs = Math.max(10, 7 / globalScale);
-          ctx.font = `${fs}px 'Noto Sans KR', sans-serif`;
-          const tw = ctx.measureText(label).width;
-          const pad = 2.5 / globalScale;
-          ctx.fillStyle = theme.labelBg;
-          ctx.fillRect(midX - tw / 2 - pad, midY - fs / 2 - pad, tw + pad * 2, fs + pad * 2);
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = theme.linkLabelText;
-          ctx.globalAlpha = 0.85;
-          ctx.fillText(label, midX, midY);
-          ctx.globalAlpha = 1;
-        }}
-        /* ── Misc ── */
-        backgroundColor={theme.bg}
-        minZoom={0.04}
-        maxZoom={12}
-        /* ── Events ── */
-        onNodeClick={(node: any) => {
-          setHoveredLink(null);
-          if (editMode) { onNodeSelect?.(node); return; }
-          graphRef.current?.centerAt(node.x, node.y, 800);
-          graphRef.current?.zoom(3, 800);
-          if (node.id) setTimeout(() => router.push(`/dashboard/wiki/${node.id}`), 600);
-        }}
-        onLinkClick={(link: any) => { 
-          if (editMode) {
-            onLinkSelect?.(link); 
-          }
-        }}
-        onBackgroundClick={() => { 
-          setHoveredLink(null);
-          if (editMode) onDeselect?.(); 
-        }}
-        onNodeHover={(node: any) => setHoveredNodeId(node?.id ?? null)}
-        onLinkHover={(link: any) => {
-          if (!editMode) setHoveredLink(link);
-        }}
-        /* ── Node canvas ── */
-        nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-          const radius = getRadius(node);
-          const isRoot = node.id === metrics?.rootId;
-          const isSelected = editMode && node.id === selectedNodeId;
-          const isHovered = node.id === hoveredNodeId;
-          const isDimmed = editMode && !!selectedNodeId && !isSelected;
+      {settings.dimension === '3d' ? (
+        <ForceGraph3D
+          ref={graphRef}
+          width={dimensions.width}
+          height={dimensions.height}
+          graphData={graphData}
+          nodeLabel={(n: any) => n.name}
+          nodeVisibility={(n: any) => !hiddenTypes.has((n.type || '').trim())}
+          linkVisibility={(l: any) => {
+            const isTree = isTreeEdge(l);
+            if (isTree && !showCoreLinks) return false;
+            if (!isTree && !showSubLinks) return false;
+            const sVisible = !hiddenTypes.has((l.source?.type || '').trim());
+            const tVisible = !hiddenTypes.has((l.target?.type || '').trim());
+            return sVisible && tVisible;
+          }}
+          nodeColor={(n: any) => n.color}
+          nodeRelSize={6}
+          /* ── 3D Label Rendering ── */
+          nodeThreeObject={(node: any) => {
+            const showLabel = settings.labelMode === 'always' || (settings.labelMode === 'hover' && node.id === hoveredNodeId);
+            if (!showLabel) return null;
 
-          ctx.globalAlpha = isDimmed ? 0.3 : 1.0;
+            const texture = getOrCreateTexture(node);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: true, transparent: true });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            
+            const scale = 0.12; 
+            sprite.scale.set(texture.image.width * scale, texture.image.height * scale, 1);
 
-          /* Root outer pulse ring */
-          if (isRoot) {
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, radius + 9, 0, 2 * Math.PI);
-            ctx.strokeStyle = `${node.color}40`;
-            ctx.lineWidth = 4;
-            ctx.stroke();
-          }
-
-          /* Hover / selection ring */
-          if (isSelected) {
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, radius + 6, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'rgba(251,191,36,0.95)';
-            ctx.lineWidth = 2.5;
-            ctx.stroke();
-          } else if (isHovered && !editMode) {
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, radius + 4, 0, 2 * Math.PI);
-            ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-          }
-
-          /* Node fill w/ glow */
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
-          ctx.fillStyle = node.color;
-          ctx.shadowColor = node.color;
-          ctx.shadowBlur = isRoot ? 24 : isHovered ? 16 : 9;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-
-          /* Depth ring inside root node */
-          if (isRoot) {
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, radius * 0.55, 0, 2 * Math.PI);
-            ctx.fillStyle = 'rgba(255,255,255,0.15)';
-            ctx.fill();
-          }
-
-          /* Label */
-          const showLabel =
-            settings.labelMode === 'always' ||
-            (settings.labelMode === 'hover' && isHovered);
-
-          if (showLabel) {
-            const label = node.name as string;
-            const basePx = isRoot ? 14 : 12;
-            const fs = Math.max(basePx, 8 / globalScale);
-            ctx.font = `${isRoot ? 'bold' : ''} ${fs}px 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif`;
+            const _vec = new THREE.Vector3();
+            const _up = new THREE.Vector3();
+            sprite.onBeforeRender = (renderer, scene, camera) => {
+              if (!sprite.parent) return;
+              _vec.copy(camera.position).sub(sprite.parent.position).normalize();
+              _up.copy(camera.up).normalize();
+              sprite.position.copy(_up).multiplyScalar(16).add(_vec.multiplyScalar(8));
+            };
+            
+            return sprite;
+          }}
+          nodeThreeObjectExtend={true}
+          linkStrength={(link: any) => isTreeEdge(link) ? 1.0 : 0.02}
+          linkColor={(link: any) => {
+            if (isLinkHighlighted(link)) return 'rgba(251,191,36,0.95)';
+            return isTreeEdge(link) ? theme.linkTree : theme.linkDefault.replace(/[\.\d]+\)$/, '0.45)');
+          }}
+          linkWidth={(link: any) => {
+            if (isLinkHighlighted(link)) return 3.5;
+            return isTreeEdge(link) ? 2 : 1.2;
+          }}
+          linkDirectionalArrowLength={(link: any) => {
+            if (isLinkHighlighted(link)) return 8;
+            return isTreeEdge(link) ? 7 : 4;
+          }}
+          linkDirectionalArrowRelPos={0.88}
+          linkDirectionalArrowColor={(link: any) => {
+            if (isLinkHighlighted(link)) return 'rgba(251,191,36,0.95)';
+            return isTreeEdge(link) ? theme.linkTree : theme.linkDefault.replace(/[\.\d]+\)$/, '0.65)');
+          }}
+          linkDirectionalParticles={(link: any) => {
+            if (!settings.showParticles) return 0;
+            return isTreeEdge(link) ? 3 : 0;
+          }}
+          linkDirectionalParticleSpeed={0.004}
+          linkDirectionalParticleWidth={2.2}
+          linkDirectionalParticleColor={() => theme.particleColor}
+          backgroundColor={theme.bg}
+          onNodeClick={(node: any) => {
+            setHoveredLink(null);
+            if (editMode) { onNodeSelect?.(node); return; }
+            if (node.id) setTimeout(() => router.push(`/dashboard/wiki/${node.id}`), 600);
+          }}
+          onLinkClick={(link: any) => {
+            if (editMode) {
+              onLinkSelect?.(link);
+            }
+          }}
+          onBackgroundClick={() => {
+            setHoveredLink(null);
+            if (editMode) onDeselect?.();
+          }}
+          onNodeHover={(node: any) => setHoveredNodeId(node?.id ?? null)}
+          onLinkHover={(link: any) => {
+            if (!editMode) setHoveredLink(link);
+          }}
+        />
+      ) : (
+        <ForceGraph2D
+          ref={graphRef}
+          width={dimensions.width}
+          height={dimensions.height}
+          graphData={graphData}
+          nodeLabel=""
+          nodeVisibility={(n: any) => !hiddenTypes.has((n.type || '').trim())}
+          linkVisibility={(l: any) => {
+            const isTree = isTreeEdge(l);
+            if (isTree && !showCoreLinks) return false;
+            if (!isTree && !showSubLinks) return false;
+            // source/target are objects during simulation
+            const sVisible = !hiddenTypes.has((l.source?.type || '').trim());
+            const tVisible = !hiddenTypes.has((l.target?.type || '').trim());
+            return sVisible && tVisible;
+          }}
+          nodeColor={(n: any) => n.color}
+          nodeRelSize={6}
+          /* ── Links ── */
+          linkStrength={(link: any) => isTreeEdge(link) ? 1.0 : 0.02}
+          linkColor={(link: any) => {
+            if (isLinkHighlighted(link)) return 'rgba(251,191,36,0.95)';
+            return isTreeEdge(link) ? theme.linkTree : theme.linkDefault.replace(/[\.\d]+\)$/, '0.45)');
+          }}
+          linkWidth={(link: any) => {
+            if (isLinkHighlighted(link)) return 3.5;
+            return isTreeEdge(link) ? 2 : 1.2;
+          }}
+          linkLineDash={(link: any) => (isTreeEdge(link) ? null : [4, 6])}
+          linkDirectionalArrowLength={(link: any) => {
+            if (isLinkHighlighted(link)) return 8;
+            return isTreeEdge(link) ? 7 : 4;
+          }}
+          linkDirectionalArrowRelPos={0.88}
+          linkDirectionalArrowColor={(link: any) => {
+            if (isLinkHighlighted(link)) return 'rgba(251,191,36,0.95)';
+            return isTreeEdge(link) ? theme.linkTree : theme.linkDefault.replace(/[\.\d]+\)$/, '0.65)');
+          }}
+          linkDirectionalParticles={(link: any) => {
+            if (!settings.showParticles) return 0;
+            return isTreeEdge(link) ? 3 : 0;
+          }}
+          linkDirectionalParticleSpeed={0.004}
+          linkDirectionalParticleWidth={2.2}
+          linkDirectionalParticleColor={() => theme.particleColor}
+          /* ── Link labels ── */
+          linkCanvasObjectMode={() => 'after'}
+          linkCanvasObject={(link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+            if (!settings.showLinkLabels) return;
+            const label = link.label as string;
+            if (!label || globalScale < 0.35) return;
+            const src = link.source;
+            const tgt = link.target;
+            if (!src?.x || !tgt?.x) return;
+            const midX = (src.x + tgt.x) / 2;
+            const midY = (src.y + tgt.y) / 2;
+            // Fix: Grow with zoom, but stay readable when zoomed out
+            const fs = Math.max(10, 7 / globalScale);
+            ctx.font = `${fs}px 'Noto Sans KR', sans-serif`;
             const tw = ctx.measureText(label).width;
-            const pad = 3.5 / globalScale;
-            const bx = node.x - tw / 2 - pad;
-            const by = node.y + radius + 4 / globalScale;
-            const bw = tw + pad * 2;
-            const bh = fs + pad * 2;
-            const rr = bh / 3.5;
-
-            /* Pill background */
-            ctx.fillStyle = isSelected ? 'rgba(251,191,36,0.18)' : theme.labelBg;
-            ctx.beginPath();
-            ctx.moveTo(bx + rr, by);
-            ctx.lineTo(bx + bw - rr, by);
-            ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + rr);
-            ctx.lineTo(bx + bw, by + bh - rr);
-            ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - rr, by + bh);
-            ctx.lineTo(bx + rr, by + bh);
-            ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - rr);
-            ctx.lineTo(bx, by + rr);
-            ctx.quadraticCurveTo(bx, by, bx + rr, by);
-            ctx.closePath();
-            ctx.fill();
-
+            const pad = 2.5 / globalScale;
+            ctx.fillStyle = theme.labelBg;
+            ctx.fillRect(midX - tw / 2 - pad, midY - fs / 2 - pad, tw + pad * 2, fs + pad * 2);
             ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            ctx.fillStyle = isSelected ? '#fbbf24' : theme.labelText;
-            ctx.fillText(label, node.x, by + pad);
-          }
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = theme.linkLabelText;
+            ctx.globalAlpha = 0.85;
+            ctx.fillText(label, midX, midY);
+            ctx.globalAlpha = 1;
+          }}
+          /* ── Misc ── */
+          backgroundColor={theme.bg}
+          minZoom={0.04}
+          maxZoom={12}
+          /* ── Events ── */
+          onNodeClick={(node: any) => {
+            setHoveredLink(null);
+            if (editMode) { onNodeSelect?.(node); return; }
+            graphRef.current?.centerAt(node.x, node.y, 800);
+            graphRef.current?.zoom(3, 800);
+            if (node.id) setTimeout(() => router.push(`/dashboard/wiki/${node.id}`), 600);
+          }}
+          onLinkClick={(link: any) => {
+            if (editMode) {
+              onLinkSelect?.(link);
+            }
+          }}
+          onBackgroundClick={() => {
+            setHoveredLink(null);
+            if (editMode) onDeselect?.();
+          }}
+          onNodeHover={(node: any) => setHoveredNodeId(node?.id ?? null)}
+          onLinkHover={(link: any) => {
+            if (!editMode) setHoveredLink(link);
+          }}
+          /* ── Node canvas ── */
+          nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+            const radius = getRadius(node);
+            const isRoot = node.id === metrics?.rootId;
+            const isSelected = editMode && node.id === selectedNodeId;
+            const isHovered = node.id === hoveredNodeId;
+            const isDimmed = editMode && !!selectedNodeId && !isSelected;
 
-          ctx.globalAlpha = 1;
-        }}
-        nodeCanvasObjectMode={() => 'replace'}
-      />
+            ctx.globalAlpha = isDimmed ? 0.3 : 1.0;
 
-      {/* 분류 패널 — 실제 프로젝트 분류 목록 + 색상 */}
-      <div className="absolute bottom-6 right-6 pointer-events-none">
+            /* Root outer pulse ring */
+            if (isRoot) {
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, radius + 9, 0, 2 * Math.PI);
+              ctx.strokeStyle = `${node.color}40`;
+              ctx.lineWidth = 4;
+              ctx.stroke();
+            }
+
+            /* Hover / selection ring */
+            if (isSelected) {
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, radius + 6, 0, 2 * Math.PI);
+              ctx.strokeStyle = 'rgba(251,191,36,0.95)';
+              ctx.lineWidth = 2.5;
+              ctx.stroke();
+            } else if (isHovered && !editMode) {
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, radius + 4, 0, 2 * Math.PI);
+              ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+              ctx.lineWidth = 1.5;
+              ctx.stroke();
+            }
+
+            /* Node fill w/ glow */
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = node.color;
+            ctx.shadowColor = node.color;
+            ctx.shadowBlur = isRoot ? 24 : isHovered ? 16 : 9;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            /* Depth ring inside root node */
+            if (isRoot) {
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, radius * 0.55, 0, 2 * Math.PI);
+              ctx.fillStyle = 'rgba(255,255,255,0.15)';
+              ctx.fill();
+            }
+
+            /* Label */
+            const showLabel =
+              settings.labelMode === 'always' ||
+              (settings.labelMode === 'hover' && isHovered);
+
+            if (showLabel) {
+              const label = node.name as string;
+              const basePx = isRoot ? 14 : 12;
+              const fs = Math.max(basePx, 8 / globalScale);
+              ctx.font = `${isRoot ? 'bold' : ''} ${fs}px 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif`;
+              const tw = ctx.measureText(label).width;
+              const pad = 3.5 / globalScale;
+              const bw = tw + pad * 2;
+              const bh = fs + pad * 2;
+              const rr = bh / 3.5;
+
+              // ── Dynamic Outward Positioning ──
+              // 중심(0,0)으로부터의 각도를 계산하여 레이블을 바깥쪽으로 배치
+              const angle = Math.atan2(node.y || 0, node.x || 0);
+              const dist = radius + 6 / globalScale;
+              const nx = Math.cos(angle);
+              const ny = Math.sin(angle);
+
+              // 레이블 상자의 중심 좌표 (lx, ly)
+              // 상자 크기를 고려하여 노드와 겹치지 않게 오프셋 조정
+              const lx = node.x + nx * (dist + (bw / 2) * Math.abs(nx));
+              const ly = node.y + ny * (dist + (bh / 2) * Math.abs(ny));
+
+              const bx = lx - bw / 2;
+              const by = ly - bh / 2;
+
+              /* Pill background */
+              ctx.fillStyle = isSelected ? 'rgba(251,191,36,0.18)' : theme.labelBg;
+              ctx.beginPath();
+              ctx.moveTo(bx + rr, by);
+              ctx.lineTo(bx + bw - rr, by);
+              ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + rr);
+              ctx.lineTo(bx + bw, by + bh - rr);
+              ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - rr, by + bh);
+              ctx.lineTo(bx + rr, by + bh);
+              ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - rr);
+              ctx.lineTo(bx, by + rr);
+              ctx.quadraticCurveTo(bx, by, bx + rr, by);
+              ctx.closePath();
+              ctx.fill();
+
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillStyle = isSelected ? '#fbbf24' : theme.labelText;
+              ctx.fillText(label, lx, ly);
+            }
+
+            ctx.globalAlpha = 1;
+          }}
+          nodeCanvasObjectMode={() => 'replace'}
+        />
+      )}
+
+      {/* 분류 패널 — 실제 프로젝트 분류 목록 + 필터 */}
+      <div className="absolute bottom-6 right-6 z-20 select-none">
         <div
-          className="border border-[#2e2e2e] px-4 py-3 rounded-md shadow-xl backdrop-blur-sm min-w-[130px]"
-          style={{ background: `${theme.bg}e8` }}
+          className="border border-[#2e2e2e] px-4 py-3 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur-md min-w-[150px] transition-all"
+          style={{ background: `${theme.bg}cc` }}
         >
-          <div className="text-[10px] text-[#555] font-bold uppercase tracking-widest mb-2.5">분류</div>
-          {(Array.from(colorMap.entries()) as [string, string][])
-            .sort(([a], [b]) => a.localeCompare(b, 'ko'))
-            .map(([type, color]) => (
-              <div key={type} className="flex items-center gap-2 mb-1.5 last:mb-0">
-                <span
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ background: color, boxShadow: `0 0 6px ${color}88` }}
-                />
-                <span className="text-[12px] font-medium" style={{ color: theme.labelText + 'cc' }}>{type}</span>
-              </div>
-            ))
-          }
-          {graphData.nodes.length === 0 && (
-            <div className="text-[10px] text-[#444]">노드 없음</div>
-          )}
-          <div className="mt-2.5 pt-2 border-t border-[#1e1e1e] space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="w-5 h-[2px] flex-shrink-0 rounded" style={{ background: theme.linkTree }} />
-              <span className="text-[10px] text-[#555]">핵심 연결</span>
+          <div className="flex items-center justify-between gap-4 mb-3 pb-2 border-b border-white/5">
+            <div className="text-[10px] text-[#888] font-bold uppercase tracking-widest">지식 필터</div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setHiddenTypes(new Set())}
+                className="text-[9px] text-[#555] hover:text-[#aaa] transition-colors"
+              >
+                모두 켜기
+              </button>
+              <button
+                onClick={() => setHiddenTypes(new Set(colorMap.keys()))}
+                className="text-[9px] text-[#555] hover:text-[#aaa] transition-colors"
+              >
+                모두 끄기
+              </button>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="w-4 border-t border-dashed border-[#444] flex-shrink-0" />
-              <span className="text-[10px] text-[#444]">부가 연결</span>
+          </div>
+
+          <div className="max-h-[280px] overflow-y-auto scrollbar-none pr-1">
+            {/* Types */}
+            <div className="space-y-1.5 mb-3.5">
+              {(Array.from(colorMap.entries()) as [string, string][])
+                .sort(([a], [b]) => a.localeCompare(b, 'ko'))
+                .map(([type, color]) => {
+                  const isHidden = hiddenTypes.has(type);
+                  return (
+                    <div
+                      key={type}
+                      onClick={() => {
+                        setHiddenTypes(prev => {
+                          const next = new Set(prev);
+                          if (isHidden) next.delete(type);
+                          else next.add(type);
+                          return next;
+                        });
+                      }}
+                      className={`flex items-center gap-2.5 cursor-pointer group transition-opacity ${isHidden ? 'opacity-30' : 'opacity-100'}`}
+                    >
+                      <div className="relative">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full block flex-shrink-0 transition-transform group-hover:scale-110"
+                          style={{ background: color, boxShadow: isHidden ? 'none' : `0 0 8px ${color}` }}
+                        />
+                      </div>
+                      <span className="text-[12px] font-medium flex-1" style={{ color: theme.labelText }}>{type}</span>
+                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${isHidden ? 'border-[#444]' : 'border-white/20 bg-white/5'}`}>
+                        {!isHidden && <div className="w-1.5 h-1.5 bg-white rounded-px" />}
+                      </div>
+                    </div>
+                  );
+                })
+              }
+              {graphData.nodes.length === 0 && (
+                <div className="text-[10px] text-[#444]">노드 없음</div>
+              )}
+            </div>
+
+            {/* Connections */}
+            <div className="mt-3 pt-3 border-t border-white/5 space-y-2">
+              <div
+                onClick={() => setShowCoreLinks(!showCoreLinks)}
+                className={`flex items-center gap-2.5 cursor-pointer transition-opacity ${!showCoreLinks ? 'opacity-30' : 'opacity-100'}`}
+              >
+                <div className="w-5 h-[2.5px] rounded-full" style={{ background: theme.linkTree }} />
+                <span className="text-[10px] text-[#aaa] flex-1">핵심 연결</span>
+                <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${!showCoreLinks ? 'border-[#444]' : 'border-white/20 bg-white/5'}`}>
+                  {showCoreLinks && <div className="w-1.5 h-1.5 bg-white rounded-px" />}
+                </div>
+              </div>
+              <div
+                onClick={() => setShowSubLinks(!showSubLinks)}
+                className={`flex items-center gap-2.5 cursor-pointer transition-opacity ${!showSubLinks ? 'opacity-30' : 'opacity-100'}`}
+              >
+                <div className="w-5 h-[2px] border-t border-dashed border-[#666]" />
+                <span className="text-[10px] text-[#999] flex-1">부가 연결</span>
+                <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${!showSubLinks ? 'border-[#444]' : 'border-white/20 bg-white/5'}`}>
+                  {showSubLinks && <div className="w-1.5 h-1.5 bg-white rounded-px" />}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -819,10 +1106,10 @@ export const KnowledgeGraph = ({
 
       {/* Hovered Link Info Box (View Mode) */}
       {!editMode && hoveredLink && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 pointer-events-none animate-in fade-in slide-in-from-top-4 duration-300">
-          <div 
-            className="flex flex-col items-center border border-[#3e3e3e]/60 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.4)] px-5 py-3 backdrop-blur-md"
-            style={{ background: 'rgba(20,20,20,0.85)' }}
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex justify-center w-full">
+          <div
+            className="flex flex-col items-center border border-[#3e3e3e]/60 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.6)] px-6 py-3.5 backdrop-blur-xl animate-in fade-in duration-300"
+            style={{ background: 'rgba(12,12,12,0.92)' }}
           >
             <div className="text-[10px] text-[#aaa] font-bold tracking-widest uppercase mb-1.5">관계 정보</div>
             <div className="flex items-center gap-4 text-sm">
@@ -834,7 +1121,7 @@ export const KnowledgeGraph = ({
                   {hoveredLink.label || '연결됨'}
                 </span>
                 <svg width="40" height="8" viewBox="0 0 40 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M0 4H38M38 4L34 1M38 4L34 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M0 4H38M38 4L34 1M38 4L34 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
               <span className="font-semibold px-2.5 py-1 bg-white/5 border border-white/10 rounded-md" style={{ color: theme.labelText }}>

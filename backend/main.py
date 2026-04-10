@@ -293,10 +293,13 @@ def example():
         db.close()
 
 
-# Allow CORS for local frontend
+# Allow CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://autowikiai.xyz"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1159,11 +1162,17 @@ def get_recent_wikis(project_id: int = Query(None), db=Depends(get_db)):
 
 @app.get("/api/graph")
 def get_graph_data(project_id: int = Query(None), db=Depends(get_db)):
-    query = db.query(schema.Entity)
     if project_id:
-        query = query.filter(schema.Entity.project_id == project_id)
-    entities = query.all()
-    relationships = db.query(schema.Relationship).all()
+        entities = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
+        entity_slugs = {e.slug for e in entities}
+        # Optimize: Only fetch relationships that belong to this project's entities
+        relationships = db.query(schema.Relationship).filter(
+            schema.Relationship.source_entity_slug.in_(entity_slugs),
+            schema.Relationship.target_entity_slug.in_(entity_slugs)
+        ).all()
+    else:
+        entities = db.query(schema.Entity).all()
+        relationships = db.query(schema.Relationship).all()
     
     color_map = {
         # ── 표준 6가지 타입 (현행 프롬프트 기준) ──
@@ -1181,8 +1190,6 @@ def get_graph_data(project_id: int = Query(None), db=Depends(get_db)):
         "방법론": "#8b5cf6",
     }
     
-    entity_slugs = {e.slug for e in entities}
-    
     nodes = []
     for e in entities:
         t = (e.type or "").strip()
@@ -1196,16 +1203,14 @@ def get_graph_data(project_id: int = Query(None), db=Depends(get_db)):
             "is_root": e.is_root
         })
 
-        
     links = []
     for r in relationships:
-        if r.source_entity_slug in entity_slugs and r.target_entity_slug in entity_slugs:
-            links.append({
-                "id": r.id,
-                "source": r.source_entity_slug,
-                "target": r.target_entity_slug,
-                "label": r.context
-            })
+        links.append({
+            "id": r.id,
+            "source": r.source_entity_slug,
+            "target": r.target_entity_slug,
+            "label": r.context
+        })
         
     return {"nodes": nodes, "links": links}
 
