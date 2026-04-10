@@ -7,10 +7,10 @@ import { apiFetch } from "@/lib/api";
 
 
 export default function SettingsPage() {
-  const [model, setModel] = useState("gemini-1.5-pro");
-  const [subModel, setSubModel] = useState("gpt-4o-mini");
-  const [thinkingLevel, setThinkingLevel] = useState("MEDIUM");
-  const [reasoningEffort, setReasoningEffort] = useState("medium");
+  const [model, setModel] = useState("gemini-3.1-pro-preview");
+  const [subModel, setSubModel] = useState("gemini-3-flash-preview");
+  const [thinkingLevel, setThinkingLevel] = useState("HIGH");
+  const [reasoningEffort, setReasoningEffort] = useState("high");
   const [apiKey, setApiKey] = useState("");
   const [saved, setSaved] = useState(false);
   const [prompts, setPrompts] = useState<{key: string, name: string, content: string, description: string}[]>([]);
