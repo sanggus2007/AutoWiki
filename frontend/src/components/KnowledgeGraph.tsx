@@ -734,7 +734,7 @@ export const KnowledgeGraph = ({
           /* ── 3D Label Rendering ── */
           nodeThreeObject={(node: any) => {
             const showLabel = settings.labelMode === 'always' || (settings.labelMode === 'hover' && node.id === hoveredNodeId);
-            if (!showLabel) return null;
+            if (!showLabel) return new THREE.Object3D();
 
             const texture = getOrCreateTexture(node);
             const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: true, transparent: true });
