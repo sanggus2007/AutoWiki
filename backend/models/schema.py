@@ -15,11 +15,19 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    github_id = Column(String, unique=True, index=True)
+    # 공통
     username = Column(String)
-    avatar_url = Column(String)
-    access_token = Column(String)
+    avatar_url = Column(String, nullable=True)
+    access_token = Column(String, nullable=True)  # AutoWiki session token
     created_date = Column(DateTime, default=datetime.datetime.utcnow)
+    auth_provider = Column(String, default="github")  # 'github' | 'google' | 'local'
+    # GitHub
+    github_id = Column(String, unique=True, index=True, nullable=True)
+    # Google
+    google_id = Column(String, unique=True, index=True, nullable=True)
+    # Local
+    email = Column(String, unique=True, index=True, nullable=True)
+    password_hash = Column(String, nullable=True)
 
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
 

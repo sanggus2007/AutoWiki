@@ -318,6 +318,138 @@ def read_root():
 # Auth Endpoints
 # ──────────────────────────────────────
 
+import secrets
+import hashlib
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "https://autowikiai.xyz/api/auth/google/callback")
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def verify_password(password: str, hashed: str) -> bool:
+    return hashlib.sha256(password.encode()).hexdigest() == hashed
+
+def generate_session_token() -> str:
+    return secrets.token_hex(32)
+
+# ── Local Auth ──────────────────────────────────────────────────────────────
+
+class LocalRegisterPayload(BaseModel):
+    email: str
+    password: str
+    username: str
+
+class LocalLoginPayload(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/auth/local/register")
+def local_register(payload: LocalRegisterPayload, db=Depends(get_db)):
+    existing = db.query(schema.User).filter(schema.User.email == payload.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="이미 사용 중인 이메일입니다.")
+    if len(payload.password) < 6:
+        raise HTTPException(status_code=400, detail="비밀번호는 6자 이상이어야 합니다.")
+    token = generate_session_token()
+    user = schema.User(
+        email=payload.email,
+        username=payload.username,
+        password_hash=hash_password(payload.password),
+        access_token=token,
+        auth_provider="local",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {
+        "status": "success",
+        "access_token": token,
+        "user": {"id": user.id, "username": user.username, "avatar_url": user.avatar_url}
+    }
+
+@app.post("/api/auth/local/login")
+def local_login(payload: LocalLoginPayload, db=Depends(get_db)):
+    user = db.query(schema.User).filter(schema.User.email == payload.email).first()
+    if not user or not user.password_hash:
+        raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
+    if not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
+    token = generate_session_token()
+    user.access_token = token
+    db.commit()
+    return {
+        "status": "success",
+        "access_token": token,
+        "user": {"id": user.id, "username": user.username, "avatar_url": user.avatar_url}
+    }
+
+# ── Google Auth ─────────────────────────────────────────────────────────────
+
+@app.get("/api/auth/google")
+def google_login_redirect():
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=500, detail="Google OAuth가 설정되지 않았습니다.")
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+    }
+    from urllib.parse import urlencode
+    url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url)
+
+@app.get("/api/auth/google/callback")
+def google_callback(code: str, db=Depends(get_db)):
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(status_code=500, detail="Google OAuth가 설정되지 않았습니다.")
+    # Exchange code for token
+    token_res = httpx.post("https://oauth2.googleapis.com/token", data={
+        "code": code,
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "grant_type": "authorization_code",
+    }).json()
+    if "error" in token_res:
+        raise HTTPException(status_code=400, detail=token_res.get("error_description", "Google 인증 실패"))
+    id_token_str = token_res.get("id_token", "")
+    # Decode JWT payload (no verification for simplicity - production should verify)
+    import base64, json as _json
+    try:
+        payload_b64 = id_token_str.split(".")[1]
+        payload_b64 += "=" * (4 - len(payload_b64) % 4)
+        user_info = _json.loads(base64.urlsafe_b64decode(payload_b64))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Google 토큰 파싱 실패")
+    google_id = user_info.get("sub")
+    email = user_info.get("email")
+    username = user_info.get("name") or email.split("@")[0]
+    avatar_url = user_info.get("picture")
+    user = db.query(schema.User).filter(schema.User.google_id == google_id).first()
+    if not user and email:
+        user = db.query(schema.User).filter(schema.User.email == email).first()
+    if not user:
+        user = schema.User(google_id=google_id, email=email, username=username, avatar_url=avatar_url, auth_provider="google")
+        db.add(user)
+    else:
+        user.google_id = google_id
+        user.avatar_url = avatar_url
+    token = generate_session_token()
+    user.access_token = token
+    db.commit()
+    db.refresh(user)
+    # 프론트엔드로 토큰 전달 (URL 파라미터)
+    from fastapi.responses import RedirectResponse
+    frontend_url = os.getenv("FRONTEND_URL", "https://autowikiai.xyz")
+    return RedirectResponse(f"{frontend_url}/login?token={token}&user_id={user.id}&username={user.username}&avatar={avatar_url or ''}")
+
+# ── GitHub Device Flow ───────────────────────────────────────────────────────
+
 class PollPayload(BaseModel):
     device_code: str
 
