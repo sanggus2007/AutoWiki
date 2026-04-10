@@ -52,10 +52,10 @@ export default function ProjectUploadPage() {
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
   const getModelKeys = () => ({
-    model: localStorage.getItem("autowiki_llm_model") || "gemini-3-flash",
-    subModel: localStorage.getItem("autowiki_llm_sub_model") || "gemini-3-flash",
-    thinkingLevel: localStorage.getItem("autowiki_llm_thinking_level") || "MEDIUM",
-    reasoningEffort: localStorage.getItem("autowiki_llm_reasoning_effort") || "medium",
+    model: localStorage.getItem("autowiki_llm_model") || "gemini-3.1-pro-preview",
+    subModel: localStorage.getItem("autowiki_llm_sub_model") || "gemini-3-flash-preview",
+    thinkingLevel: localStorage.getItem("autowiki_llm_thinking_level") || "HIGH",
+    reasoningEffort: localStorage.getItem("autowiki_llm_reasoning_effort") || "high",
     key: localStorage.getItem("autowiki_llm_api_key") || "",
   });
 

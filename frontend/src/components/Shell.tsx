@@ -35,7 +35,13 @@ export const Sidebar = () => {
   useEffect(() => {
     apiFetch("/api/projects")
       .then(r => r.json())
-      .then(data => setProjects(data))
+      .then(data => {
+        if (Array.isArray(data)) {
+          setProjects(data);
+        } else {
+          console.error("Projects data is not an array:", data);
+        }
+      })
       .catch(err => console.error(err));
   }, [pathname]);
 
