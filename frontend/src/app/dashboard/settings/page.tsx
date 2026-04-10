@@ -345,7 +345,7 @@ export default function SettingsPage() {
               value={model}
               onChange={(e) => setModel(e.target.value)}
               placeholder="예: gpt-5.5-preview, claude-5-ultra"
-              className="w-full bg-white border border-[#a2a9b1] text-[#202122] rounded-sm px-3 py-2 cursor-text focus:outline-none focus:border-[#0645ad] transition-all font-mono text-sm shadow-inner"
+              className="w-full bg-white border border-[#a2a9b1] text-[#202122] rounded-sm px-3 py-2 cursor-text focus:outline-none focus:border-[#0645ad] transition-all font-mono text-[16px] sm:text-sm shadow-inner"
             />
           </div>
 
@@ -361,7 +361,7 @@ export default function SettingsPage() {
               value={subModel}
               onChange={(e) => setSubModel(e.target.value)}
               placeholder="예: gpt-4o-mini, claude-3-haiku"
-              className="w-full bg-white border border-[#a2a9b1] text-[#202122] rounded-sm px-3 py-2 cursor-text focus:outline-none focus:border-[#0645ad] transition-all font-mono text-sm shadow-inner"
+              className="w-full bg-white border border-[#a2a9b1] text-[#202122] rounded-sm px-3 py-2 cursor-text focus:outline-none focus:border-[#0645ad] transition-all font-mono text-[16px] sm:text-sm shadow-inner"
             />
           </div>
 
@@ -376,7 +376,7 @@ export default function SettingsPage() {
               <select
                 value={thinkingLevel}
                 onChange={(e) => setThinkingLevel(e.target.value)}
-                className="w-full bg-white border border-[#a2a9b1] text-[#202122] rounded-sm px-2 py-1.5 focus:outline-none focus:border-[#0645ad] text-sm"
+                className="w-full bg-white border border-[#a2a9b1] text-[#202122] rounded-sm px-2 py-1.5 focus:outline-none focus:border-[#0645ad] text-[16px] sm:text-sm"
               >
                 <option value="MINIMAL">MINIMAL</option>
                 <option value="LOW">LOW</option>
@@ -392,7 +392,7 @@ export default function SettingsPage() {
               <select
                 value={reasoningEffort}
                 onChange={(e) => setReasoningEffort(e.target.value)}
-                className="w-full bg-white border border-[#a2a9b1] text-[#202122] rounded-sm px-2 py-1.5 focus:outline-none focus:border-[#0645ad] text-sm"
+                className="w-full bg-white border border-[#a2a9b1] text-[#202122] rounded-sm px-2 py-1.5 focus:outline-none focus:border-[#0645ad] text-[16px] sm:text-sm"
               >
                 <option value="low">low</option>
                 <option value="medium">medium</option>
@@ -458,7 +458,7 @@ export default function SettingsPage() {
                 <textarea
                   value={prompt.content}
                   onChange={(e) => handlePromptChange(prompt.key, e.target.value)}
-                  className="w-full bg-white border border-[#a2a9b1] text-[#202122] rounded-sm px-3 py-2 cursor-text focus:outline-none focus:border-[#0645ad] transition-all font-mono text-[13px] shadow-inner font-mono h-64 resize-y"
+                  className="w-full bg-white border border-[#a2a9b1] text-[#202122] rounded-sm px-3 py-2 cursor-text focus:outline-none focus:border-[#0645ad] transition-all font-mono text-[16px] sm:text-[13px] shadow-inner h-64 resize-y"
                   spellCheck="false"
                 />
               </div>

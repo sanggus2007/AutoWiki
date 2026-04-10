@@ -325,7 +325,7 @@ export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => searchQuery.trim() && setShowResults(true)}
             placeholder="AutoWiki AI 검색"
-            className="w-full bg-[#ffffff] text-[#000000] border border-[#a2a9b1] pl-3 pr-8 py-1 text-sm focus:outline-none focus:border-[#0645ad] transition-all"
+            className="w-full bg-[#ffffff] text-[#000000] border border-[#a2a9b1] pl-3 pr-8 py-1.5 text-[16px] sm:text-sm focus:outline-none focus:border-[#0645ad] transition-all"
           />
           <Search className={`absolute right-2 ${isSearching ? 'animate-pulse text-[#0645ad]' : 'text-[#54595d]'}`} size={16} />
         </div>

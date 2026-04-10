@@ -74,7 +74,7 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
           onKeyDown={handleKeyDown}
           rows={hideHeader ? 3 : 8}
           placeholder={placeholder || defaultPlaceholder}
-          className="w-full px-4 py-3 text-[13px] text-[#202122] resize-none focus:outline-none leading-relaxed"
+          className="w-full px-4 py-3 text-[16px] sm:text-[13px] text-[#202122] resize-none focus:outline-none leading-relaxed"
         />
 
         {/* Bottom bar inside textarea card */}
