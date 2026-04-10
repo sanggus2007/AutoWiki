@@ -18,7 +18,19 @@ export async function apiFetch(input: string | URL | Request, init?: RequestInit
   try {
     const res = await fetch(url, { ...init, headers });
     
-    // 401 처리는 각 컴포넌트나 호출부에서 에러 메시지에 따라 개별 처리하도록 변경 (GitHub 토큰 만료와 서비스 로그아웃 구분 목적)
+    // 401 처리: 세션 만료 시 로그인 페이지로 리다이렉트
+    if (res.status === 401) {
+      // GitHub 토큰 관련 에러인 경우에는 컴포넌트에서 처리하도록 예외 처리
+      const clone = res.clone();
+      const text = await clone.text();
+      if (!text.toLowerCase().includes("github") && !text.toLowerCase().includes("copilot")) {
+        logout();
+        if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+           window.location.href = "/login";
+        }
+      }
+    }
+    
     return res;
   } catch (err) {
     throw err;

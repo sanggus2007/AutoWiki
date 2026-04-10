@@ -593,7 +593,9 @@ def poll_for_token(payload: PollPayload, db=Depends(get_db), current_user=Depend
             print(f"[AUTH ERROR] {error_detail}")
             raise HTTPException(status_code=401, detail=error_detail)
         
-        elif res.get("error") in ["authorization_pending", "slow_down"]:
+        elif res.get("error") == "slow_down":
+            return {"status": "slow_down"}
+        elif res.get("error") == "authorization_pending":
             return {"status": "pending"}
         elif res.get("error") == "expired_token":
              raise HTTPException(status_code=400, detail="인증 코드가 만료되었습니다. 다시 시도해 주세요.")

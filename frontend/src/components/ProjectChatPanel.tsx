@@ -43,8 +43,9 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
   const [showTutorial, setShowTutorial] = useState(false);
   const [pendingAction, setPendingAction] = useState<{text: string, useSubModel: boolean} | null>(null);
   
-   const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Resizing state
   const [panelWidth, setPanelWidth] = useState(600);
@@ -248,17 +249,21 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
 
   return (
     <div 
-      className="fixed right-0 top-0 bottom-0 bg-white border-l border-[#a2a9b1] shadow-2xl flex z-50 font-sans transition-transform duration-300 transform translate-x-0"
-      style={{ width: `${panelWidth}px` }}
+      className={`fixed right-0 top-0 bottom-0 bg-white border-l border-[#a2a9b1] shadow-2xl flex z-50 font-sans transition-all duration-300 transform translate-x-0 overflow-hidden
+        ${window.innerWidth < 768 ? 'w-full left-0 inset-0' : ''}`}
+      style={window.innerWidth >= 768 ? { width: `${panelWidth}px` } : {}}
     >
-      {/* Resize Handle */}
+      {/* Resize Handle - desktop only */}
       <div
         onMouseDown={startResizing}
-        className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#0645ad]/20 transition-colors z-[60]"
+        className="hidden md:block absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#0645ad]/20 transition-colors z-[60]"
         title="드래그하여 크기 조절"
       />
       {/* Sidebar (Sessions) */}
-      <div className="w-[200px] bg-[#f8f9fa] border-r border-[#a2a9b1] flex flex-col">
+      <div className={`
+        ${isHistoryOpen || window.innerWidth >= 768 ? 'w-[200px] border-r' : 'w-0'} 
+        bg-[#f8f9fa] border-[#a2a9b1] flex flex-col transition-all duration-300 overflow-hidden shrink-0
+      `}>
         <div className="p-3 border-b border-[#a2a9b1]">
           <button 
             onClick={handleNewChat}
@@ -297,10 +302,16 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
       {/* Chat Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-[#a2a9b1] bg-[#f8f9fa]">
+        <div className="flex items-center justify-between px-4 py-3 sm:py-4 border-b border-[#a2a9b1] bg-[#f8f9fa] shrink-0">
           <div className="flex items-center gap-2">
-            <MessageSquare size={18} className="text-[#0645ad]" />
-            <h3 className="font-bold text-[#202122] text-[15px] font-serif">프로젝트 AI 채팅</h3>
+            <button 
+              onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+              className="md:hidden p-1 -ml-1 text-[#54595d] hover:bg-[#eaecf0] rounded-sm"
+              title="대화 기록 보기"
+            >
+              <MessageSquare size={18} />
+            </button>
+            <h3 className="font-bold text-[#202122] text-[14px] sm:text-[15px] font-serif truncate">AI 채팅</h3>
           </div>
           <button onClick={onClose} className="text-[#54595d] hover:text-[#cc0000] p-1 rounded-sm hover:bg-[#eaecf0] transition-colors">
             <X size={18} />
@@ -349,7 +360,7 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
             onSubmit={handleSubmit}
             title=""
             description=""
-            placeholder="이곳에 프로젝트 질문을 입력하세요...&#13;&#10;(Enter 줄바꿈, Ctrl+Enter 전송)"
+            placeholder="질문을 입력하세요... (모바일은 '전송' 버튼 / PC는 Ctrl+Enter)"
             buttonText="전송"
             hideHeader={true}
             clearOnSubmit={true}
@@ -360,8 +371,12 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
       {showAuthOverlay && <AuthOverlay onSuccess={handleAuthSuccess} />}
       {showTutorial && (
         <SetupTutorial 
-          onClose={() => setShowTutorial(false)} 
+          onClose={() => {
+            localStorage.setItem("autowiki_tutorial_seen", "true");
+            setShowTutorial(false);
+          }} 
           onGoToSettings={() => {
+            localStorage.setItem("autowiki_tutorial_seen", "true");
             setShowTutorial(false);
             onClose(); // Close chat panel to see settings better? or just go to settings
             window.location.href = "/dashboard/settings"; 

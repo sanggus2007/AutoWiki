@@ -53,7 +53,7 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
     </>
   );
 
-  const defaultPlaceholder = `예시:\n• '양자 컴퓨팅' 개념을 새로 추가해줘. 양자 컴퓨팅은 양자역학의 원리를 이용하여 정보를 처리하는 컴퓨터 기술이다.\n• '앨런 튜링' 문서의 소속 항목을 '블레츨리 파크'로 업데이트해줘.\n• '머신러닝'과 '딥러닝'의 관계선이 빠져 있어. 둘의 관계를 추가해줘.\n\n(Ctrl+Enter로 전송)`;
+  const defaultPlaceholder = `예시:\n• '양자 컴퓨팅' 개념을 새로 추가해줘.\n• '앨런 튜링' 문서의 소속 항목을 '블레츨리 파크'로 업데이트해줘.\n\n(모바일은 '전송' 버튼 클릭 / PC는 Ctrl+Enter)`;
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4">

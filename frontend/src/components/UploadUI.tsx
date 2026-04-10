@@ -77,13 +77,13 @@ export const UploadUI: React.FC<UploadUIProps> = ({ onStartIngestion }) => {
         <div className="text-[#0645ad] mb-3">
           <UploadCloud size={56} strokeWidth={1.5} />
         </div>
-        <p className="text-lg font-bold text-gray-800 mb-1">
-          이곳에 파일을 드래그 앤 드롭 하세요
+        <p className="text-lg font-bold text-gray-800 mb-1 px-4 text-center">
+          파일을 선택하거나 이곳으로 드래그하세요
         </p>
         <p className="text-sm text-gray-500 mb-5">
           지원 형식: PDF, DOCX, TXT, CSV (최대 50MB)
         </p>
-        <div className="px-5 py-2 rounded border border-[#cccccc] bg-[#f8f9fa] text-[#202122] font-medium text-sm pointer-events-none shadow-sm cursor-pointer">
+        <div className="px-5 py-2 rounded border border-[#cccccc] bg-[#f8f9fa] text-[#202122] font-medium text-sm pointer-events-none shadow-sm cursor-pointer hidden sm:block">
           또는 클릭하여 파일 찾기
         </div>
       </div>

@@ -289,8 +289,14 @@ export default function ProjectUploadPage() {
       {showAuthOverlay && <AuthOverlay onSuccess={handleAuthSuccess} />}
       {showTutorial && (
         <SetupTutorial 
-          onClose={() => setShowTutorial(false)} 
-          onGoToSettings={() => router.push('/dashboard/settings')} 
+          onClose={() => {
+            localStorage.setItem("autowiki_tutorial_seen", "true");
+            setShowTutorial(false);
+          }} 
+          onGoToSettings={() => {
+            localStorage.setItem("autowiki_tutorial_seen", "true");
+            router.push('/dashboard/settings');
+          }} 
         />
       )}
     </div>

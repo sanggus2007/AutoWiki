@@ -31,19 +31,32 @@ export default function DashboardPage() {
       setShowTutorial(true);
     }
     apiFetch("/api/projects")
-      .then(r => r.json())
-      .then(data => setProjects(data))
-      .catch(err => console.error(err));
+      .then(async r => {
+        if (!r.ok) {
+           if (r.status === 401) {
+              // Redirect handled by apiFetch or DashboardLayout
+           }
+           throw new Error("failed to fetch projects");
+        }
+        return r.json();
+      })
+      .then(data => {
+        setProjects(Array.isArray(data) ? data : []);
+      })
+      .catch(err => {
+        console.error(err);
+        setProjects([]);
+      });
   }, []);
 
   return (
-    <div className="p-6 max-w-5xl bg-white min-h-screen text-[#202122] font-sans">
+    <div className="p-4 sm:p-6 max-w-5xl bg-white min-h-screen text-[#202122] font-sans mx-auto">
       <div className="border-b border-[#a2a9b1] mb-4 pb-2">
         <h1 className="text-3xl font-serif font-medium mb-1">대문</h1>
         <p className="text-sm text-[#54595d]">AutoWiki AI — 자동 생성 개인 백과사전</p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 mt-4">
+      <div className="flex flex-col md:flex-row gap-6 mt-4">
         {/* Left Column */}
         <div className="flex-1">
           <div className="bg-[#f8f9fa] border border-[#a2a9b1] p-5 mb-5 rounded-sm">
@@ -81,7 +94,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Column - Projects */}
-        <div className="w-full lg:w-80 flex flex-col">
+        <div className="w-full md:w-80 flex flex-col">
           <div className="border border-[#a2a9b1] bg-[#ffffff] rounded-sm">
             <h3 className="bg-[#eaecf0] border-b border-[#a2a9b1] p-2 font-bold text-sm flex items-center justify-between">
               <span>프로젝트 목록</span>
@@ -117,8 +130,14 @@ export default function DashboardPage() {
 
       {showTutorial && (
         <SetupTutorial 
-          onClose={() => setShowTutorial(false)} 
-          onGoToSettings={() => router.push('/dashboard/settings')} 
+          onClose={() => {
+            localStorage.setItem("autowiki_tutorial_seen", "true");
+            setShowTutorial(false);
+          }} 
+          onGoToSettings={() => {
+            localStorage.setItem("autowiki_tutorial_seen", "true");
+            router.push('/dashboard/settings');
+          }} 
         />
       )}
     </div>

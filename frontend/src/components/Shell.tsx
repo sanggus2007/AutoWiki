@@ -1,14 +1,19 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Home, Book, FileText, Settings, Search, Edit3, FolderOpen, Plus, Network, Archive, LogOut, Database } from "lucide-react";
+import { Home, Book, FileText, Settings, Search, Edit3, FolderOpen, Plus, Network, Archive, LogOut, Database, Menu, X as CloseIcon } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import ExportImportPanel from "./ExportImportPanel";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 
 
-export const Sidebar = () => {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const pathname = usePathname();
   const router = useRouter();
   const [projects, setProjects] = useState<{id: number, name: string, slug: string}[]>([]);
@@ -34,15 +39,17 @@ export const Sidebar = () => {
 
   useEffect(() => {
     apiFetch("/api/projects")
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setProjects(data);
-        } else {
-          console.error("Projects data is not an array:", data);
-        }
+      .then(async r => {
+        if (!r.ok) throw new Error("failed to fetch projects");
+        return r.json();
       })
-      .catch(err => console.error(err));
+      .then(data => {
+        setProjects(Array.isArray(data) ? data : []);
+      })
+      .catch(err => {
+        console.error(err);
+        setProjects([]); // Fallback to empty array on error
+      });
   }, [pathname]);
 
   const handleCreateProject = async () => {
@@ -67,7 +74,27 @@ export const Sidebar = () => {
 
   return (
     <>
-      <aside className="w-56 bg-[#f6f6f6] border-r border-[#a2a9b1] flex flex-col h-full shrink-0 font-sans text-sm">
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 z-[60] lg:hidden" 
+          onClick={onClose}
+        />
+      )}
+
+      <aside className={`
+        fixed inset-y-0 left-0 z-[70] w-64 bg-[#f6f6f6] border-r border-[#a2a9b1] flex flex-col transition-transform duration-300 transform
+        lg:relative lg:translate-x-0 lg:w-56 lg:z-auto
+        ${isOpen ? "translate-x-0" : "-translate-x-full"}
+        shrink-0 font-sans text-sm
+      `}>
+        {/* Mobile Header in Sidebar */}
+        <div className="lg:hidden flex justify-end p-2 border-b border-[#a2a9b1]">
+          <button onClick={onClose} className="p-2 text-[#54595d]">
+            <CloseIcon size={20} />
+          </button>
+        </div>
+
         <div className="p-5 pb-3">
           <div className="flex flex-col items-center justify-center cursor-pointer mb-2" onClick={() => router.push("/dashboard")}>
             <Book size={40} className="text-[#000000] mb-1" strokeWidth={1} />
@@ -235,7 +262,7 @@ const NavItem = ({ icon, label, active = false, href }: { icon: React.ReactNode;
   );
 };
 
-export const Header = () => {
+export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<{type: "project" | "entity", name: string, url: string}[]>([]);
@@ -277,14 +304,20 @@ export const Header = () => {
   }, [searchQuery]);
 
   return (
-    <header className="h-12 border-b border-[#a2a9b1] bg-[#ffffff] flex items-center justify-between px-4 shrink-0 font-sans z-40 relative">
-      <div className="flex items-center space-x-6 text-[#0645ad] text-sm">
-        <span onClick={() => handleDummyClick("토론")} className="hover:underline cursor-pointer">토론</span>
-        <span onClick={() => handleDummyClick("기여")} className="hover:underline cursor-pointer">기여</span>
-        <span onClick={() => handleDummyClick("최근 바뀜")} className="hover:underline cursor-pointer">최근 바뀜</span>
+    <header className="h-14 border-b border-[#a2a9b1] bg-[#ffffff] flex items-center justify-between px-4 shrink-0 font-sans z-40 relative">
+      <div className="flex items-center space-x-2 lg:space-x-6 text-[#0645ad] text-sm">
+        <button 
+          onClick={onMenuClick}
+          className="lg:hidden p-1 -ml-1 text-[#54595d] hover:bg-[#eaecf0] rounded-sm"
+        >
+          <Menu size={20} />
+        </button>
+        <span onClick={() => handleDummyClick("토론")} className="hidden sm:inline hover:underline cursor-pointer">토론</span>
+        <span onClick={() => handleDummyClick("기여")} className="hidden sm:inline hover:underline cursor-pointer">기여</span>
+        <span onClick={() => handleDummyClick("최근 바뀜")} className="hidden md:inline hover:underline cursor-pointer">최근 바뀜</span>
       </div>
 
-      <div className="flex-1 max-w-sm ml-auto relative">
+      <div className="flex-1 max-w-[200px] sm:max-w-sm ml-auto relative">
         <div className="relative group flex items-center">
           <input
             type="text"

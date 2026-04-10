@@ -140,64 +140,73 @@ export default function ProjectPage() {
   return (
     <div className="p-6 max-w-5xl bg-white min-h-screen text-[#202122] font-sans">
       {/* Header */}
-      <div className="flex items-center justify-between mb-1">
-        <button onClick={() => router.push("/dashboard")} className="text-[#0645ad] hover:underline text-[13px] flex items-center">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <button onClick={() => router.push("/dashboard")} className="text-[#0645ad] hover:underline text-[13px] flex items-center self-start">
           <ArrowLeft size={14} className="mr-1" /> 대문으로 돌아가기
         </button>
-        <div className="flex items-center space-x-2">
+        
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Main Actions - visible on all screens */}
           <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="flex items-center px-3 py-1.5 rounded-sm font-bold text-[13px] border border-[#c8ccd1] bg-[#fff3f3] text-[#cc0000] hover:bg-[#fee7e6]"
+            onClick={() => router.push(`/dashboard/project/${projectId}/upload`)}
+            className="flex-1 sm:flex-none flex items-center justify-center px-3 py-1.5 rounded-sm font-bold text-[13px] border border-[#0645ad] bg-[#0645ad] text-white hover:bg-[#0b0080]"
           >
-            <Trash2 size={14} className="mr-1.5" /> 프로젝트 삭제
+            <Upload size={14} className="mr-1.5" /> 지식 추가
           </button>
-          <button
-            onClick={openEditModal}
-            title="프로젝트 정보 수정"
-            className="flex items-center px-3 py-1.5 rounded-sm font-bold text-[13px] border border-[#a2a9b1] bg-[#f8f9fa] text-[#54595d] hover:bg-[#eaecf0] hover:text-[#202122] transition-colors"
-          >
-            <Pencil size={14} className="mr-1.5" /> 정보 수정
-          </button>
-          <button
-            onClick={() => router.push(`/dashboard/graph?projectId=${projectId}`)}
-            className="flex items-center px-3 py-1.5 rounded-sm font-bold text-[13px] border border-[#a2a9b1] bg-[#f8f9fa] text-[#202122] hover:bg-[#eaecf0]"
-          >
-            <Share2 size={14} className="mr-1.5" /> 지식 구조도
-          </button>
+          
           <button
             onClick={() => setIsChatOpen(true)}
-            className="flex items-center px-3 py-1.5 rounded-sm font-bold text-[13px] border border-[#a2a9b1] bg-[#eef1ff] text-[#0645ad] hover:bg-[#d0daff] hover:border-[#0645ad] transition-colors"
+            className="flex-1 sm:flex-none flex items-center justify-center px-3 py-1.5 rounded-sm font-bold text-[13px] border border-[#0645ad]/20 bg-[#eef1ff] text-[#0645ad] hover:bg-[#d0daff] transition-colors"
           >
             <MessageSquare size={14} className="mr-1.5" /> AI 채팅
           </button>
-          <button
-            onClick={() => setShowFilesModal(true)}
-            className="flex items-center px-3 py-1.5 rounded-sm font-bold text-[13px] border border-[#a2a9b1] bg-[#f8f9fa] text-[#202122] hover:bg-[#eaecf0] transition-colors"
-          >
-            <FolderOpen size={14} className="mr-1.5" /> 전체 참고 파일 관리
-          </button>
-          <button
-            onClick={() => router.push(`/dashboard/project/${projectId}/upload`)}
-            className="flex items-center px-3 py-1.5 rounded-sm font-bold text-[13px] border border-[#0645ad] bg-[#0645ad] text-white hover:bg-[#0b0080]"
-          >
-            <Upload size={14} className="mr-1.5" /> 지식 추가 / 수정
-          </button>
+
+          {/* Secondary Actions - Grouped on mobile in real implementations, but here we can make them wrap nicely */}
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-1 sm:mt-0">
+             <button
+              onClick={() => router.push(`/dashboard/graph?projectId=${projectId}`)}
+              className="flex-1 sm:flex-none flex items-center justify-center px-3 py-1.5 rounded-sm font-bold text-[12px] border border-[#a2a9b1] bg-[#f8f9fa] text-[#202122] hover:bg-[#eaecf0]"
+            >
+              <Share2 size={13} className="mr-1.5" /> 구조도
+            </button>
+            <button
+              onClick={() => setShowFilesModal(true)}
+              className="flex-1 sm:flex-none flex items-center justify-center px-3 py-1.5 rounded-sm font-bold text-[12px] border border-[#a2a9b1] bg-[#f8f9fa] text-[#202122] hover:bg-[#eaecf0]"
+            >
+              <FolderOpen size={13} className="mr-1.5" /> 파일
+            </button>
+            <button
+              onClick={openEditModal}
+              className="flex items-center justify-center p-1.5 rounded-sm border border-[#a2a9b1] bg-[#f8f9fa] text-[#54595d] hover:bg-[#eaecf0]"
+              title="정보 수정"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center justify-center p-1.5 rounded-sm border border-[#c8ccd1] bg-[#fff3f3] text-[#cc0000] hover:bg-[#fee7e6]"
+              title="삭제"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Title */}
       <div className="border-b border-[#a2a9b1] mb-5 pb-2">
-        <h1 className="text-3xl font-serif text-[#000000] mb-1 flex items-center">
-          <FolderOpen size={28} className="mr-2 text-[#54595d] shrink-0" />
+        <h1 className="text-2xl sm:text-3xl font-serif text-[#000000] mb-1 flex items-center">
+          <FolderOpen size={24} className="mr-2 text-[#54595d] shrink-0 lg:w-[28px] lg:h-[28px]" />
           {project.name}
         </h1>
         {project.description && (
-          <p className="text-sm text-[#54595d] ml-9">{project.description}</p>
+          <p className="text-sm text-[#54595d] ml-8 sm:ml-9">{project.description}</p>
         )}
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between mb-3 gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-3">
         <div className="text-[13px] text-[#54595d]">
           <span className="font-bold text-[#202122]">{totalFiltered}</span>건
           {searchQuery && <span className="ml-1 text-[#0645ad]">(검색 결과)</span>}

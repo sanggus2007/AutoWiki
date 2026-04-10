@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Key, Bot, Save, AlertCircle, CheckCircle2, HelpCircle, Sparkles, LogOut, Loader2, ExternalLink, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/lib/api";
@@ -40,6 +40,13 @@ export default function SettingsPage() {
   const [deviceInfo, setDeviceInfo] = useState<{user_code: string, verification_uri: string, device_code: string, interval: number} | null>(null);
   const [pollError, setPollError] = useState("");
   const [copied, setCopied] = useState(false);
+  const pollCleanup = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollCleanup.current) pollCleanup.current();
+    }
+  }, []);
 
   useEffect(() => {
     // Load existing settings
@@ -128,26 +135,35 @@ export default function SettingsPage() {
       const data = await res.json();
       setDeviceInfo(data);
       
+      // Stop previous polling if any
+      if (pollCleanup.current) pollCleanup.current();
+      
       // Start Polling
-      startPolling(data.device_code, data.interval || 5);
+      pollCleanup.current = startPolling(data.device_code, data.interval || 5);
     } catch (err: any) {
       setPollError(err.message);
       setLinking(false);
     }
   };
 
-  const startPolling = async (deviceCode: string, interval: number) => {
-    const pollInterval = setInterval(async () => {
+  const startPolling = (deviceCode: string, intervalSeconds: number) => {
+    let stop = false;
+    let timerId: any = null;
+
+    const poll = async () => {
+      if (stop) return;
+      
       try {
         const res = await apiFetch("/api/auth/poll", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ device_code: deviceCode })
         });
+        
+        // Handle non-200 responses if necessary, but backend usually returns 200 with status: pending
         const data = await res.json();
         
         if (data.status === "success") {
-          clearInterval(pollInterval);
           // 1. LLM용 토큰 저장
           localStorage.setItem("autowiki_github_token", data.github_token);
           setGithubToken(data.github_token);
@@ -158,18 +174,32 @@ export default function SettingsPage() {
           setLinking(false);
           setSaved(true);
           setTimeout(() => setSaved(false), 3000);
+          stop = true;
         } else if (data.status === "pending") {
-          // Keep polling
+          timerId = setTimeout(poll, intervalSeconds * 1000);
+        } else if (data.status === "slow_down") {
+          // Increase interval by 5 seconds as per GitHub spec
+          intervalSeconds += 5;
+          timerId = setTimeout(poll, intervalSeconds * 1000);
         } else {
           throw new Error(data.detail || "인증 실패");
         }
       } catch (err: any) {
-        clearInterval(pollInterval);
         setPollError(err.message);
         setLinking(false);
         setDeviceInfo(null);
+        stop = true;
       }
-    }, interval * 1000);
+    };
+
+    // Initial poll after the interval
+    timerId = setTimeout(poll, intervalSeconds * 1000);
+
+    // Provide a way to stop polling if component unmounts or user cancels
+    return () => {
+      stop = true;
+      if (timerId) clearTimeout(timerId);
+    };
   };
 
   const handleDisconnect = () => {
@@ -461,8 +491,12 @@ export default function SettingsPage() {
       <AnimatePresence>
         {showTutorial && (
           <SetupTutorial 
-            onClose={() => setShowTutorial(false)} 
+            onClose={() => {
+              localStorage.setItem("autowiki_tutorial_seen", "true");
+              setShowTutorial(false);
+            }} 
             onGoToSettings={() => {
+              localStorage.setItem("autowiki_tutorial_seen", "true");
               setShowTutorial(false);
               document.getElementById("github-token-input")?.focus();
             }} 
