@@ -297,6 +297,9 @@ export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
       } else {
         setSearchResults([]);
         setShowResults(false);
+      }
+    }, 300);
+
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
