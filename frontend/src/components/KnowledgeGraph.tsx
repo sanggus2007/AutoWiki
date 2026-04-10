@@ -740,8 +740,9 @@ export const KnowledgeGraph = ({
             const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: true, transparent: true });
             const sprite = new THREE.Sprite(spriteMaterial);
             
-            const scale = 0.12; 
-            sprite.scale.set(texture.image.width * scale, texture.image.height * scale, 1);
+            const scale = 0.12;
+            const img = texture.image as HTMLImageElement;
+            sprite.scale.set(img.width * scale, img.height * scale, 1);
 
             const _vec = new THREE.Vector3();
             const _up = new THREE.Vector3();
