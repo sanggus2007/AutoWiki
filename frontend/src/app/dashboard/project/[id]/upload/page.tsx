@@ -43,20 +43,20 @@ export default function ProjectUploadPage() {
   const params = useParams();
   const projectId = params.id as string;
 
-  const [appState, setAppState]       = useState<AppState>("UPLOAD");
-  const [inputMode, setInputMode]     = useState<InputMode>("file");
-  const [proposals, setProposals]     = useState<Proposal[]>([]);
-  const [userPrompt, setUserPrompt]   = useState<string>("");
-  const [savedFiles, setSavedFiles]   = useState<File[]>([]);
+  const [appState, setAppState] = useState<AppState>("UPLOAD");
+  const [inputMode, setInputMode] = useState<InputMode>("file");
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [userPrompt, setUserPrompt] = useState<string>("");
+  const [savedFiles, setSavedFiles] = useState<File[]>([]);
   const [showAuthOverlay, setShowAuthOverlay] = useState(false);
-  const [pendingAction, setPendingAction]     = useState<PendingAction>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
   const getModelKeys = () => ({
-    model:             localStorage.getItem("autowiki_llm_model")            || "gemini-3-flash",
-    subModel:          localStorage.getItem("autowiki_llm_sub_model")        || "gemini-3-flash",
-    thinkingLevel:     localStorage.getItem("autowiki_llm_thinking_level")    || "MEDIUM",
-    reasoningEffort:   localStorage.getItem("autowiki_llm_reasoning_effort")  || "medium",
-    key:               localStorage.getItem("autowiki_llm_api_key")          || "",
+    model: localStorage.getItem("autowiki_llm_model") || "gemini-3-flash",
+    subModel: localStorage.getItem("autowiki_llm_sub_model") || "gemini-3-flash",
+    thinkingLevel: localStorage.getItem("autowiki_llm_thinking_level") || "MEDIUM",
+    reasoningEffort: localStorage.getItem("autowiki_llm_reasoning_effort") || "medium",
+    key: localStorage.getItem("autowiki_llm_api_key") || "",
   });
 
   // ── File upload analysis ────────────────────────────────────────────────────
@@ -66,12 +66,12 @@ export default function ProjectUploadPage() {
 
     const formData = new FormData();
     for (const file of files) formData.append("files", file);
-    formData.append("model_name",       model);
-    formData.append("sub_model_name",   subModel);
-    formData.append("thinking_level",   thinkingLevel);
+    formData.append("model_name", model);
+    formData.append("sub_model_name", subModel);
+    formData.append("thinking_level", thinkingLevel);
     formData.append("reasoning_effort", reasoningEffort);
-    formData.append("api_key",          key);
-    formData.append("custom_prompt",    customPrompt);
+    formData.append("api_key", key);
+    formData.append("custom_prompt", customPrompt);
 
     try {
       const res = await apiFetch(
@@ -110,9 +110,9 @@ export default function ProjectUploadPage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            text, 
-            model_name: chosenModel, 
+          body: JSON.stringify({
+            text,
+            model_name: chosenModel,
             thinking_level: thinkingLevel,
             reasoning_effort: reasoningEffort,
             api_key: key
@@ -203,7 +203,7 @@ export default function ProjectUploadPage() {
     setPendingAction(null);
     if (!saved) return;
     setTimeout(() => {
-      if (saved.action === "upload")  runUpload(saved.files, saved.customPrompt);
+      if (saved.action === "upload") runUpload(saved.files, saved.customPrompt);
       else if (saved.action === "text") runTextAnalysis(saved.text, saved.useSubModel);
       else runCommit(saved.finalProposals);
     }, 500);
@@ -229,21 +229,19 @@ export default function ProjectUploadPage() {
           <div className="flex border-b border-[#a2a9b1] mb-6">
             <button
               onClick={() => setInputMode("file")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-bold border-b-2 transition-colors ${
-                inputMode === "file"
+              className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-bold border-b-2 transition-colors ${inputMode === "file"
                   ? "border-[#0645ad] text-[#0645ad]"
                   : "border-transparent text-[#54595d] hover:text-[#202122]"
-              }`}
+                }`}
             >
               <Paperclip size={14} /> 파일 업로드
             </button>
             <button
               onClick={() => setInputMode("text")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-bold border-b-2 transition-colors ${
-                inputMode === "text"
+              className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-bold border-b-2 transition-colors ${inputMode === "text"
                   ? "border-[#0645ad] text-[#0645ad]"
                   : "border-transparent text-[#54595d] hover:text-[#202122]"
-              }`}
+                }`}
             >
               <MessageSquareText size={14} /> 텍스트로 직접 지시
             </button>
@@ -259,7 +257,7 @@ export default function ProjectUploadPage() {
       {/* ── Loading ───────────────────────────────────────────────────── */}
       {appState === "LOADING" && (
         <div className="flex items-center justify-center py-8">
-          <LoadingScreen onComplete={() => {}} />
+          <LoadingScreen onComplete={() => { }} />
         </div>
       )}
 
