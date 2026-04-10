@@ -323,7 +323,7 @@ import hashlib
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "https://autowikiai.xyz/api/auth/google/callback")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "https://autowiki-axl3.onrender.com/api/auth/google/callback")
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
