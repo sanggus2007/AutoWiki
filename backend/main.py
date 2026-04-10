@@ -298,7 +298,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://autowikiai.xyz"
+        "https://autowikiai.xyz",
+        "https://www.autowikiai.xyz",
+        "https://autowiki-frontend.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
