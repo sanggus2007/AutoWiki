@@ -230,8 +230,8 @@ export default function ProjectUploadPage() {
             <button
               onClick={() => setInputMode("file")}
               className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-bold border-b-2 transition-colors ${inputMode === "file"
-                  ? "border-[#0645ad] text-[#0645ad]"
-                  : "border-transparent text-[#54595d] hover:text-[#202122]"
+                ? "border-[#0645ad] text-[#0645ad]"
+                : "border-transparent text-[#54595d] hover:text-[#202122]"
                 }`}
             >
               <Paperclip size={14} /> 파일 업로드
@@ -239,8 +239,8 @@ export default function ProjectUploadPage() {
             <button
               onClick={() => setInputMode("text")}
               className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-bold border-b-2 transition-colors ${inputMode === "text"
-                  ? "border-[#0645ad] text-[#0645ad]"
-                  : "border-transparent text-[#54595d] hover:text-[#202122]"
+                ? "border-[#0645ad] text-[#0645ad]"
+                : "border-transparent text-[#54595d] hover:text-[#202122]"
                 }`}
             >
               <MessageSquareText size={14} /> 텍스트로 직접 지시
