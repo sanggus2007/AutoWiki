@@ -31,6 +31,17 @@ def init_db():
     from database import SessionLocal
     db = SessionLocal()
     
+    # --- Auto Migration: Ensure is_root exists ---
+    try:
+        from sqlalchemy import text
+        print("[Startup] Checking for is_root column in entities table...")
+        db.execute(text("ALTER TABLE entities ADD COLUMN IF NOT EXISTS is_root BOOLEAN DEFAULT FALSE"))
+        db.commit()
+        print("[Startup] DB Migration (is_root) check complete.")
+    except Exception as e:
+        print(f"[Startup] DB Migration Notice (might already exist): {e}")
+        db.rollback()
+    
     DEFAULT_EXTRACTION_PROMPT = """당신은 위키백과 수준의 백과사전을 기획하는 전문 AI 기획자입니다.
 제공된 텍스트를 분석하여 어떤 문서(Node)들을 생성해야 할지, 문서들 간의 관계(Edge)는 어떠한지 구조를 기획하세요. (내용 생성은 금지)
 
@@ -912,61 +923,73 @@ class TextAnalysisRequest(BaseModel):
 
 @app.post("/api/projects/{project_id}/analyze-text")
 def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get_current_user), db=Depends(get_db)):
-    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    print(f"[AnalyzeText] Start request for project {project_id}")
+    try:
+        project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+        if not project:
+            print(f"[AnalyzeText] Project {project_id} not found")
+            raise HTTPException(status_code=404, detail="Project not found")
 
-    prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_extraction").first()
-    system_prompt = prompt_record.content if prompt_record else ""
+        prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_extraction").first()
+        system_prompt = prompt_record.content if prompt_record else ""
 
-    existing = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
-    # Provide more context to the planner: Name, Type, and a snippet of the current summary
-    existing_entities = []
-    for e in existing:
-        summary_snippet = (e.summary or "").replace("\n", " ")[:1000]
-        existing_entities.append(f"- **{e.name}** (slug: {e.slug}, 타입: {e.type}): {summary_snippet}...")
+        existing = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
+        # Provide more context to the planner: Name, Type, and a snippet of the current summary
+        existing_entities = []
+        for e in existing:
+            summary_snippet = (e.summary or "").replace("\n", " ")[:1000]
+            existing_entities.append(f"- **{e.name}** (slug: {e.slug}, 타입: {e.type}): {summary_snippet}...")
 
-    # Collect all categories for global structure context
-    all_cat_records = db.query(schema.Category).all()
-    all_categories = [c.name for c in all_cat_records]
+        # Collect all categories for global structure context
+        all_cat_records = db.query(schema.Category).all()
+        all_categories = [c.name for c in all_cat_records]
 
-    # Collect project graph context
-    project_graph = get_project_graph_context(project_id, db)
+        # Collect project graph context
+        print("[AnalyzeText] Fetching graph context...")
+        project_graph = get_project_graph_context(project_id, db)
 
-    # Auto-load selected project reference files
-    selected_pf = db.query(schema.ProjectFile).filter(
-        schema.ProjectFile.project_id == project_id,
-        schema.ProjectFile.is_selected == True
-    ).all()
-    files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
-    project_files_text = "\n\n".join(files_text)
+        # Auto-load selected project reference files
+        selected_pf = db.query(schema.ProjectFile).filter(
+            schema.ProjectFile.project_id == project_id,
+            schema.ProjectFile.is_selected == True
+        ).all()
+        files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
+        project_files_text = "\n\n".join(files_text)
 
-    # Decrypt GitHub token if not provided in payload
-    gh_token = payload.api_key
-    if not gh_token and user.github_token_enc:
-        gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+        # Decrypt GitHub token if not provided in payload
+        gh_token = payload.api_key
+        if not gh_token and user.github_token_enc:
+            gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
 
-    llm = get_llm(payload.model_name, gh_token, payload.thinking_level, payload.reasoning_effort)
-    plan = plan_knowledge_extraction(
-        payload.text, payload.custom_prompt, llm, system_prompt, existing_entities, all_categories, project_files_text, project_graph=project_graph
-    )
+        print(f"[AnalyzeText] Running LLM planning with model: {payload.model_name}")
+        llm = get_llm(payload.model_name, gh_token, payload.thinking_level, payload.reasoning_effort)
+        plan = plan_knowledge_extraction(
+            payload.text, payload.custom_prompt, llm, system_prompt, existing_entities, all_categories, project_files_text, project_graph=project_graph
+        )
 
-    # Filter out hallucinations: deletions or patches for non-existent entities
-    existing_slugs = {e.slug for e in existing}
-    valid_patches = [p.model_dump() for p in plan.patches if p.entity_slug in existing_slugs]
-    valid_deletions = [d.model_dump() for d in plan.deletions if d.entity_slug in existing_slugs]
+        # Filter out hallucinations: deletions or patches for non-existent entities
+        existing_slugs = {e.slug for e in existing}
+        valid_patches = [p.model_dump() for p in plan.patches if p.entity_slug in existing_slugs]
+        valid_deletions = [d.model_dump() for d in plan.deletions if d.entity_slug in existing_slugs]
 
-    return {
-        "proposals": [{
-            "filename": "(직접 입력)",
-            "content_text": payload.text,
-            "plan_summary": plan.plan_summary,
-            "patches": valid_patches,
-            "deletions": valid_deletions,
-            "nodes": [n.model_dump() for n in plan.nodes],
-            "edges": [e.model_dump() for e in plan.edges]
-        }]
-    }
+        print(f"[AnalyzeText] Success. Generated {len(plan.nodes)} nodes.")
+        return {
+            "proposals": [{
+                "filename": "(직접 입력)",
+                "content_text": payload.text,
+                "plan_summary": plan.plan_summary,
+                "patches": valid_patches,
+                "deletions": valid_deletions,
+                "nodes": [n.model_dump() for n in plan.nodes],
+                "edges": [e.model_dump() for e in plan.edges]
+            }]
+        }
+    except Exception as e:
+        print(f"[AnalyzeText] ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail=f"AI 분석 중 오류가 발생했습니다: {str(e)}")
 
 @app.get("/api/projects/{project_id}")
 def get_project(project_id: int, user=Depends(get_current_user), db=Depends(get_db)):
