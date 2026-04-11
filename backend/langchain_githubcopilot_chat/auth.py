@@ -29,11 +29,8 @@ COPILOT_DEFAULT_HEADERS = {
     "User-Agent": COPILOT_USER_AGENT,
     "Editor-Version": COPILOT_EDITOR_VERSION,
     "Editor-Plugin-Version": COPILOT_PLUGIN_VERSION,
-    "editor-version": COPILOT_EDITOR_VERSION,
-    "editor-plugin-version": COPILOT_PLUGIN_VERSION,
-    "X-GitHub-Api-Version": "2023-01-01",
-    "Accept": "application/json",
 }
+
 
 # Locking for proactive token refresh
 _sync_token_refresh_lock = threading.Lock()
@@ -84,8 +81,11 @@ def fetch_copilot_token(github_token: str) -> Tuple[Optional[str], Optional[floa
     for auth_header in schemes:
         headers = {
             "Authorization": auth_header,
+            "X-GitHub-Api-Version": "2023-01-01",
+            "Accept": "application/json",
             **COPILOT_DEFAULT_HEADERS,
         }
+
         try:
             with httpx.Client(timeout=10.0) as client:
                 res = client.get(
@@ -124,8 +124,11 @@ async def afetch_copilot_token(
     for auth_header in schemes:
         headers = {
             "Authorization": auth_header,
+            "X-GitHub-Api-Version": "2023-01-01",
+            "Accept": "application/json",
             **COPILOT_DEFAULT_HEADERS,
         }
+
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.get(
