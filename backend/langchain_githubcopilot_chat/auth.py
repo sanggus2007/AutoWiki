@@ -35,6 +35,40 @@ COPILOT_DEFAULT_HEADERS = {
     "Accept": "application/json",
 }
 
+# Locking for proactive token refresh
+_sync_token_refresh_lock = threading.Lock()
+_async_token_refresh_lock: asyncio.Lock | None = None
+
+def _get_token_refresh_lock() -> asyncio.Lock:
+    global _async_token_refresh_lock
+    if _async_token_refresh_lock is None:
+        _async_token_refresh_lock = asyncio.Lock()
+    return _async_token_refresh_lock
+
+def load_tokens_from_cache() -> dict[str, str]:
+    """Load cached tokens from the file system."""
+    if not os.path.exists(CACHE_PATH):
+        return {}
+    try:
+        with open(CACHE_PATH, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_tokens_to_cache(github_token: str, copilot_token: str, expires_at: float | None) -> None:
+    """Save tokens to the cache file."""
+    data = {
+        "github_token": github_token,
+        "copilot_token": copilot_token,
+        "expires_at": expires_at,
+    }
+    try:
+        with open(CACHE_PATH, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        logger.warning(f"Failed to save tokens to cache: {e}")
+
+
 def fetch_copilot_token(github_token: str) -> Tuple[Optional[str], Optional[float]]:
     """Fetch copilot token and return it with expiration time."""
     github_token = github_token.strip() # Remove any accidental whitespace
