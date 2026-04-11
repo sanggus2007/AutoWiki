@@ -41,6 +41,7 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
   // ── export state ────────────────────────────────────────────────────────────
   const [selectedProjectId, setSelectedProjectId] = useState<number | "">("");
   const [exportLoading, setExportLoading] = useState(false);
+  const [includeFiles, setIncludeFiles] = useState(true);
 
   // ── import state ────────────────────────────────────────────────────────────
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -70,7 +71,7 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
     setExportLoading(true);
     try {
       const res = await apiFetch(
-        `/api/projects/${selectedProjectId}/export`
+        `/api/projects/${selectedProjectId}/export?include_files=${includeFiles}`
       );
       if (!res.ok) throw new Error("export failed");
 
@@ -127,7 +128,7 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
       const modeLabel = result.overwritten ? "덮어쓰기" : "새 프로젝트 생성";
       showToast(
         "success",
-        `「${result.project_name}」 복원 완료! (${modeLabel}, 개체 ${result.entities_imported}건)`
+        `「${result.project_name}」 복원 완료! (${modeLabel}, 개체 ${result.entities_imported}건, 파일 ${result.files_imported}건)`
       );
       setImportFile(null);
 
@@ -204,6 +205,19 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#54595d] pointer-events-none"
                   />
                 </div>
+              </div>
+              
+              <div className="flex items-center space-x-2 px-1">
+                <input
+                  type="checkbox"
+                  id="includeFiles"
+                  checked={includeFiles}
+                  onChange={(e) => setIncludeFiles(e.target.checked)}
+                  className="w-4 h-4 text-[#0645ad] border-[#a2a9b1] rounded-sm focus:ring-0 cursor-pointer"
+                />
+                <label htmlFor="includeFiles" className="text-[12px] text-[#202122] cursor-pointer">
+                  사용자 첨부 파일 포함 (원본 .txt 등)
+                </label>
               </div>
 
               <button

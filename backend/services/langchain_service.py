@@ -266,23 +266,55 @@ def execute_section_patch(existing_summary: str, entity_name: str, entity_type: 
 
 async def extract_text_from_file(file: UploadFile) -> str:
     ext = file.filename.split('.')[-1].lower()
-    with NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
-        content = await file.read()
-        tmp.write(content)
-        tmp_path = tmp.name
+    print(f"[Extract] Processing file: {file.filename}, ext: {ext}, type: {file.content_type}")
+    
+    import os
+    from tempfile import NamedTemporaryFile
+    
+    tmp_path = None
     try:
+        with NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
+            content = await file.read()
+            tmp.write(content)
+            tmp_path = tmp.name
+        
+        print(f"[Extract] Temp file created at: {tmp_path} (size: {os.path.getsize(tmp_path)} bytes)")
+        
+        docs = []
         if 'pdf' in ext:
+            print("[Extract] Using PyPDFLoader")
             loader = PyPDFLoader(tmp_path)
             docs = loader.load()
         elif 'docx' in ext:
-            loader = Docx2txtLoader(tmp_path)
-            docs = loader.load()
+            print("[Extract] Using Docx2txtLoader")
+            # This requires 'docx2txt' package
+            try:
+                loader = Docx2txtLoader(tmp_path)
+                docs = loader.load()
+            except Exception as docx_err:
+                print(f"[Extract] Docx2txtLoader failed: {docx_err}")
+                import traceback
+                traceback.print_exc()
+                raise HTTPException(status_code=500, detail=f"DOCX 파싱 실패: {str(docx_err)}")
         else:
+            print(f"[Extract] Using TextLoader for ext: {ext}")
             loader = TextLoader(tmp_path, encoding="utf-8")
             docs = loader.load()
-        return "\n".join([doc.page_content for doc in docs if doc.page_content])
+        
+        result_text = "\n".join([doc.page_content for doc in docs if doc.page_content])
+        print(f"[Extract] Extraction successful. Length: {len(result_text)} chars")
+        return result_text
+        
+    except Exception as e:
+        print(f"[Extract] CRITICAL ERROR during extraction: {e}")
+        import traceback
+        traceback.print_exc()
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail=f"파일 텍스트 추출 중 예외 발생: {str(e)}")
     finally:
-        os.unlink(tmp_path)
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+            print(f"[Extract] Temp file cleaned up: {tmp_path}")
 
 async def extract_proposals(filename: str, full_text: str, custom_prompt: str, model_name: str, api_key: str, system_prompt: str, existing_entities: list[str] | None = None, all_categories: list[str] | None = None, project_files_text: str | None = None, thinking_level: str = None, reasoning_effort: str = None, project_graph: str = ""):
     if not full_text.strip():

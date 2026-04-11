@@ -1696,23 +1696,39 @@ from services.langchain_service import extract_text_from_file
 
 @app.post("/api/projects/{project_id}/files")
 async def add_project_files(project_id: int, files: list[UploadFile] = File(...), user=Depends(get_current_user), db=Depends(get_db)):
+    print(f"[UploadRoute] Received {len(files)} files for project {project_id}")
     project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
     if not project:
+        print(f"[UploadRoute] Project {project_id} not found or unauthorized")
         raise HTTPException(status_code=404, detail="Project not found")
 
     if get_storage_usage(user.id, db) >= 10485760:
+        print(f"[UploadRoute] Storage limit exceeded for user {user.id}")
         raise HTTPException(status_code=413, detail="Storage limit (10MB) exceeded. Cannot upload more files.")
 
     results = []
     for f in files:
-        text = await extract_text_from_file(f)
-        if not text.strip():
-            continue
-        pf = schema.ProjectFile(project_id=project_id, filename=f.filename, content_text=text)
-        db.add(pf)
-        db.flush()
-        results.append({"id": pf.id, "filename": pf.filename})
+        print(f"[UploadRoute] Processing file: {f.filename}")
+        try:
+            text = await extract_text_from_file(f)
+            if not text.strip():
+                print(f"[UploadRoute] File {f.filename} produced empty text. Skipping.")
+                continue
+            
+            print(f"[UploadRoute] Saving {f.filename} to database (text length: {len(text)})")
+            pf = schema.ProjectFile(project_id=project_id, filename=f.filename, content_text=text)
+            db.add(pf)
+            db.flush()
+            results.append({"id": pf.id, "filename": pf.filename})
+            print(f"[UploadRoute] Successfully saved {f.filename} (ID: {pf.id})")
+        except Exception as e:
+            print(f"[UploadRoute] Error processing {f.filename}: {e}")
+            import traceback
+            traceback.print_exc()
+            if isinstance(e, HTTPException): raise e
+            raise HTTPException(status_code=500, detail=f"파일 처리 중 오류: {str(e)}")
     
+    print(f"[UploadRoute] All files processed. Committing {len(results)} items.")
     db.commit()
     return {"status": "success", "files": results}
 
@@ -1753,7 +1769,7 @@ import datetime as dt
 from fastapi.responses import JSONResponse
 
 @app.get("/api/projects/{project_id}/export")
-def export_project(project_id: int, db=Depends(get_db)):
+def export_project(project_id: int, include_files: bool = Query(True), db=Depends(get_db)):
     """프로젝트 전체 데이터를 .autowiki JSON 파일로 다운로드합니다."""
     project = db.query(schema.Project).filter(schema.Project.id == project_id).first()
     if not project:
@@ -1820,11 +1836,24 @@ def export_project(project_id: int, db=Depends(get_db)):
             "description": project.description or "",
             "created_date": project.created_date.isoformat() if project.created_date else None,
         },
+        "project_files": [], # Placeholder
         "documents": documents_data,
         "entities": entities_data,
         "relationships": relationships_data,
         "categories": categories_data,
     }
+
+    if include_files:
+        pfiles = db.query(schema.ProjectFile).filter(schema.ProjectFile.project_id == project_id).all()
+        payload["project_files"] = [
+            {
+                "filename": pf.filename,
+                "content_text": pf.content_text,
+                "is_selected": pf.is_selected,
+                "upload_date": pf.upload_date.isoformat() if pf.upload_date else None
+            }
+            for pf in pfiles
+        ]
 
     return JSONResponse(
         content=payload,
@@ -1857,6 +1886,7 @@ async def import_project(
     entities_data = data.get("entities", [])
     relationships_data = data.get("relationships", [])
     categories_data = data.get("categories", [])
+    project_files_data = data.get("project_files", [])
 
     base_slug = project_data.get("slug", "imported-project")
     project_name = project_data.get("name", "가져온 프로젝트")
@@ -1878,6 +1908,7 @@ async def import_project(
         # Delete entities & documents (cascade handles entity-category links)
         db.query(schema.Entity).filter(schema.Entity.project_id == existing_project.id).delete(synchronize_session=False)
         db.query(schema.Document).filter(schema.Document.project_id == existing_project.id).delete(synchronize_session=False)
+        db.query(schema.ProjectFile).filter(schema.ProjectFile.project_id == existing_project.id).delete(synchronize_session=False)
 
         # Update project meta
         existing_project.name = project_name
@@ -1923,6 +1954,17 @@ async def import_project(
             project_id=project.id,
         )
         db.add(db_doc)
+    db.commit()
+
+    # ── Restore Project Files ─────────────────────────────────────────────────
+    for pf in project_files_data:
+        db_pf = schema.ProjectFile(
+            filename=pf.get("filename", "imported_file"),
+            content_text=pf.get("content_text", ""),
+            is_selected=pf.get("is_selected", True),
+            project_id=project.id
+        )
+        db.add(db_pf)
     db.commit()
 
     # ── Restore Entities ──────────────────────────────────────────────────────
@@ -1977,5 +2019,6 @@ async def import_project(
         "project_slug": project.slug,
         "entities_imported": len(entities_data),
         "relationships_imported": len(relationships_data),
+        "files_imported": len(project_files_data),
         "overwritten": overwrite and existing_project is not None,
     }
