@@ -64,6 +64,7 @@ def init_db():
 
 1. **신규 생성 (nodes)**: 기존에 존재하지 않는 새로운 문서를 만들 때 사용하세요.
    - 필드명: `id` (영어 슬러그), `name` (한글명), `type`, `categories`, `is_root`
+   - **루트 설정**: 프로젝트의 중심이 되는 핵심 노드는 `is_root: true`로 설정하되, 이미 루트 노드가 충분하다면 억지로 늘리지 마세요.
 2. **수정 (patches)**: 기존 문서를 보완/수정할 때 사용하세요.
    - 필드명: **`entity_slug`** (기존 ID), **`entity_name`**, **`changes`** (수정 내용 설명), `new_type` (유형 변경 시), `new_is_root` (루트 여부 변경 시)
 3. **삭제 (deletions)**: 기존 문서를 폐기/병합할 때 사용하세요.
@@ -123,6 +124,8 @@ def init_db():
 6. 다른 개체를 참조할 때는 [[개체명]] 형식의 위키링크를 사용하세요.
 7. 최소 4개 이상의 H2(##) 섹션으로 풍성하게 작성하세요.
 8. 코드 블록(```)은 프로그래밍, 컴퓨터 과학 등 IT/기술 관련 문서에만 사용하세요. 일반 인물, 자작 캐릭터, 세계관 설정 문서에는 절대 코드 블록을 포함하지 마세요.
+9. **문서 본문에 'is_root: true'나 프론트매터(---), 시스템 메타데이터를 절대 포함하지 마세요.** 이는 시스템 속성이지 문서 내용이 아닙니다.
+10. **표, 헤더, 내용 등의 동일 서식을 반복해서 출력하며 루프에 빠지지 마세요.** 문서의 구조가 깔끔하고 논리적으로 이어지게 작성하세요.
 
 
 ━━━ 사용 가능한 서식 ━━━
@@ -831,7 +834,7 @@ def get_project_graph_context(project_id: int, db) -> str:
             if r.source_entity_slug in entity_slugs and r.target_entity_slug in entity_slugs:
                 rel_texts.append(f"- [ID: {r.id}] {r.source_entity_slug} -> {r.target_entity_slug} ({r.context})")
                 adj[r.source_entity_slug].append(r.target_entity_slug)
-                # Removed reverse edge to enforce directed reachability.
+                adj[r.target_entity_slug].append(r.source_entity_slug) # 무방향 연결성 지원
                 connection_counts[r.source_entity_slug] += 1
                 connection_counts[r.target_entity_slug] += 1
         
@@ -1566,23 +1569,46 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
         for patch in patches_data:
             entity_slug = patch.get("entity_slug")
             patch_desc  = patch.get("changes")
-            if not entity_slug or not patch_desc:
+            new_type = patch.get("new_type")
+            new_is_root = patch.get("new_is_root")
+
+            if not entity_slug:
                 continue
-            existing_entity = db.query(schema.Entity).filter(schema.Entity.slug == entity_slug).first()
-            if not existing_entity or not existing_entity.summary:
+
+            existing_entity = db.query(schema.Entity).filter(
+                schema.Entity.slug == entity_slug,
+                schema.Entity.project_id == project_id
+            ).first()
+            if not existing_entity:
                 continue
-            updated_summary = execute_section_patch(
-                existing_summary=existing_entity.summary,
-                entity_name=existing_entity.name,
-                entity_type=existing_entity.type,
-                patch_description=patch_desc,
-                source_text=content_text,
-                llm=llm,
-                system_prompt=patch_system_prompt,
-                project_files_text=project_files_text,
-                project_graph=project_graph
-            )
-            existing_entity.summary = updated_summary
+
+            # ── 1. Metadata Updates (Direct DB) ──
+            if new_type:
+                existing_entity.type = new_type
+            if new_is_root is not None:
+                existing_entity.is_root = new_is_root
+
+            # ── 2. Content Updates (Optional LLM Call) ──
+            # If the patch only changed metadata (like is_root), and doesn't genuinely need a content edit,
+            # we check if patch_desc is just a placeholder or system instruction.
+            content_needed = True
+            if not patch_desc or patch_desc.strip() in ["", "루트로 설정", "is_root 설정", "유형 변경", "Set as root", "Change type"]:
+                content_needed = False
+            
+            if content_needed and existing_entity.summary:
+                updated_summary = execute_section_patch(
+                    existing_summary=existing_entity.summary,
+                    entity_name=existing_entity.name,
+                    entity_type=existing_entity.type,
+                    patch_description=patch_desc,
+                    source_text=content_text,
+                    llm=llm,
+                    system_prompt=patch_system_prompt,
+                    project_files_text=project_files_text,
+                    project_graph=project_graph
+                )
+                existing_entity.summary = updated_summary
+            
             patches_saved += 1
 
     # ── Process approved edge modifications (patches and deletions) ──────────
@@ -1808,6 +1834,7 @@ def get_graph_data(project_id: int = Query(None), db=Depends(get_db)):
 class EntityUpdate(BaseModel):
     name: str
     type: str
+    is_root: Optional[bool] = None
 
 @app.patch("/api/entities/{slug}")
 def update_entity(slug: str, payload: EntityUpdate, db=Depends(get_db)):
@@ -1817,6 +1844,14 @@ def update_entity(slug: str, payload: EntityUpdate, db=Depends(get_db)):
         raise HTTPException(status_code=404, detail="Entity not found")
     entity.name = payload.name.strip()
     entity.type = payload.type.strip()
+    if payload.is_root is not None:
+        if payload.is_root is True:
+            # 해당 프로젝트의 다른 모든 노드의 is_root를 False로 초기화 (단일 루트 보장)
+            db.query(schema.Entity).filter(
+                schema.Entity.project_id == entity.project_id,
+                schema.Entity.id != entity.id
+            ).update({ "is_root": False }, synchronize_session=False)
+        entity.is_root = payload.is_root
     db.commit()
     db.refresh(entity)
     return {"slug": entity.slug, "name": entity.name, "type": entity.type}

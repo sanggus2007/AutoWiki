@@ -291,7 +291,7 @@ function GraphPageInner() {
   const [selectedLink, setSelectedLink] = useState<any>(null);
   const [editPanel, setEditPanel] = useState<'node' | 'link' | 'link-connect' | null>(null);
   const [nodeName, setNodeName] = useState('');
-  const [nodeType, setNodeType] = useState('');
+  const [nodeIsRoot, setNodeIsRoot] = useState(false);
   const [linkLabel, setLinkLabel] = useState('');
   const [connectingFrom, setConnectingFrom] = useState<any>(null);
   const [connectTarget, setConnectTarget] = useState<any>(null);
@@ -335,6 +335,7 @@ function GraphPageInner() {
   }, [settings]);
 
   const deselectAll = useCallback(() => {
+    lastSelectedNodeId.current = null;
     setSelectedNode(null);
     setSelectedLink(null);
     setEditPanel(null);
@@ -365,7 +366,7 @@ function GraphPageInner() {
     setDeleteConfirm(null);
     setSelectedNode(node);
     setNodeName(node.name);
-    setNodeType(node.type ?? '개념');
+    setNodeIsRoot(!!node.is_root);
     setEditPanel('node');
     setError('');
   };
@@ -379,22 +380,41 @@ function GraphPageInner() {
     setError('');
   };
 
-  // Node Save
-  const saveNode = async () => {
-    if (!selectedNode) return;
-    setSaving(true); setError('');
-    try {
-      const res = await apiFetch(`/api/entities/${selectedNode.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: nodeName, type: nodeType }),
-      });
-      if (!res.ok) throw new Error((await res.json()).detail ?? '저장 실패');
-      refreshGraph();
-      setSelectedNode((p: any) => ({ ...p, name: nodeName, type: nodeType }));
-    } catch (e: any) { setError(e.message); }
-    finally { setSaving(false); }
-  };
+  // Node Auto-save
+  const lastSelectedNodeId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedNode) {
+      lastSelectedNodeId.current = null;
+      return;
+    }
+    
+    // 처음 선택했을 때 바로 저장되는 것을 방지
+    if (lastSelectedNodeId.current !== selectedNode.id) {
+      lastSelectedNodeId.current = selectedNode.id;
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setSaving(true);
+      try {
+        const res = await apiFetch(`/api/entities/${selectedNode.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: nodeName, is_root: nodeIsRoot, type: selectedNode.type }),
+        });
+        if (res.ok) {
+          // 루트가 바뀌었거나 이름이 바뀌었으므로 그래프 갱신
+          refreshGraph();
+        }
+      } catch (e) {
+        console.error("Auto-save failed", e);
+      } finally {
+        setSaving(false);
+      }
+    }, 600); // 0.6초 디바운스
+
+    return () => clearTimeout(timer);
+  }, [nodeName, nodeIsRoot, selectedNode]);
 
   // Node Delete
   const deleteNode = async () => {
@@ -590,28 +610,31 @@ function GraphPageInner() {
                 value={nodeName}
                 onChange={e => setNodeName(e.target.value)}
                 className="w-full bg-[#161616] border border-[#2a2a2a] text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-[#444] transition-colors"
+                placeholder="노드 이름을 입력하세요..."
               />
             </div>
-            <div>
-              <label className="text-[10px] text-[#555] uppercase tracking-widest block mb-1.5">유형</label>
-              <select
-                value={nodeType}
-                onChange={e => setNodeType(e.target.value)}
-                className="w-full bg-[#161616] border border-[#2a2a2a] text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-[#444] transition-colors cursor-pointer"
-              >
-                {ENTITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+            
+            <div className="py-2 px-1">
+              <Toggle
+                label="루트 노드로 설정 (핵심 주제)"
+                value={nodeIsRoot}
+                onToggle={() => setNodeIsRoot(!nodeIsRoot)}
+              />
+              <p className="text-[10px] text-[#444] mt-1 italic">* 루트 노드 설정 시 다른 루트는 자동 해제됩니다.</p>
             </div>
+
+            <div className="flex items-center gap-2 px-1 mb-2">
+              <div className={`w-1.5 h-1.5 rounded-full ${saving ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <span className="text-[10px] text-[#555] font-medium">{saving ? '저장 중...' : '자동 저장됨'}</span>
+            </div>
+
             <ErrBox />
+            
             <div className="flex gap-2">
-              <button onClick={saveNode} disabled={saving}
-                className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-900/20 hover:bg-emerald-900/30 border border-emerald-800/40 text-emerald-400 text-xs font-bold py-2 rounded-md transition-all disabled:opacity-40">
-                <Check size={12} /> 저장
-              </button>
               <button onClick={startConnect}
-                className="flex items-center justify-center gap-1 bg-blue-900/20 hover:bg-blue-900/30 border border-blue-800/40 text-blue-400 text-xs font-bold px-3 py-2 rounded-md transition-all"
+                className="flex-1 flex items-center justify-center gap-2 bg-blue-900/20 hover:bg-blue-900/30 border border-blue-800/40 text-blue-400 text-xs font-bold py-2.5 rounded-md transition-all"
                 title="이 노드에서 엣지 연결">
-                <LinkIcon size={12} />
+                <LinkIcon size={12} /> 새 관계 연결
               </button>
             </div>
             {deleteConfirm === 'node'
