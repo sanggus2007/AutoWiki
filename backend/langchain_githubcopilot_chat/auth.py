@@ -73,6 +73,10 @@ def fetch_copilot_token(github_token: str) -> Tuple[Optional[str], Optional[floa
     """Fetch copilot token and return it with expiration time."""
     github_token = github_token.strip() # Remove any accidental whitespace
     
+    # If it's already a session token (tid=), don't try to exchange it again
+    if github_token.startswith("tid="):
+        return github_token, None
+
     # Try multiple auth schemes commonly used by GitHub Internal API
     schemes = [f"Bearer {github_token}", f"token {github_token}"]
     last_error = ""
@@ -109,6 +113,11 @@ async def afetch_copilot_token(
 ) -> Tuple[Optional[str], Optional[float]]:
     """Async fetch copilot token and return it with expiration time."""
     github_token = github_token.strip()
+
+    # If it's already a session token (tid=), don't try to exchange it again
+    if github_token.startswith("tid="):
+        return github_token, None
+
     schemes = [f"Bearer {github_token}", f"token {github_token}"]
     last_error = ""
 
