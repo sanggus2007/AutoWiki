@@ -9,13 +9,15 @@ from typing import List, Optional
 from database import engine, Base, get_db
 from models import schema
 from services.langchain_service import extract_proposals, execute_batch_knowledge_generation, execute_section_patch, apply_section_patches, plan_knowledge_extraction, get_llm, slugify, execute_project_chat
+from services.security import token_manager, is_cookie_secure, get_samesite_policy
+from services import session as session_service
+from services.auth_utils import hash_password, verify_password
 from langchain_githubcopilot_chat.auth import (
     CLIENT_ID,
     fetch_copilot_token,
-    save_tokens_to_cache,
-    load_tokens_from_cache,
 )
 import langchain_githubcopilot_chat.auth
+import config
 
 # Create DB tables
 Base.metadata.create_all(bind=engine)
@@ -299,16 +301,42 @@ def example():
 # Allow CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://autowikiai.xyz",
-        "https://www.autowikiai.xyz",
-        "https://autowiki-frontend.vercel.app"
-    ],
+    allow_origins=config.ALLOWED_ORIGINS,
+
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "X-CSRF-Token", "Content-Type"],
 )
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response, JSONResponse
+
+class CSRFMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.method in ["POST", "PUT", "DELETE", "PATCH"]:
+            # 1. Origin/Referer Check
+            origin = request.headers.get("origin")
+            referer = request.headers.get("referer")
+            
+            allowed_origins = config.ALLOWED_ORIGINS
+
+            
+            if origin and origin not in allowed_origins:
+                return JSONResponse(status_code=403, content={"detail": "CSRF: Invalid Origin"})
+            
+            # 2. Custom Header Check (X-CSRF-Token)
+            # Standard SPA protection: If the header is present, it's not a generic form submit
+            if not request.headers.get("x-csrf-token"):
+                # We skip this for auth endpoints like login/register if they don't have it yet,
+                # but for logged-in requests it should be mandatory.
+                # In this implementation, we'll enforce it for all state-changing API calls.
+                if not request.url.path.startswith("/api/auth/"):
+                     return JSONResponse(status_code=403, content={"detail": "CSRF: Missing X-CSRF-Token header"})
+
+        response = await call_next(request)
+        return response
+
+app.add_middleware(CSRFMiddleware)
 
 @app.get("/")
 def read_root():
@@ -321,18 +349,28 @@ def read_root():
 import secrets
 import hashlib
 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "https://autowiki-axl3.onrender.com/api/auth/google/callback")
-
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def verify_password(password: str, hashed: str) -> bool:
-    return hashlib.sha256(password.encode()).hexdigest() == hashed
-
 def generate_session_token() -> str:
     return secrets.token_hex(32)
+
+from fastapi import Request
+
+def set_auth_cookie(response: Response, session_id: str):
+    frontend_url = config.FRONTEND_URL
+
+    backend_host = "localhost:8000" # Should be dynamic in prod
+    
+    secure = is_cookie_secure(frontend_url)
+    samesite = get_samesite_policy(frontend_url, backend_host)
+    
+    response.set_cookie(
+        key="session_id",
+        value=session_id,
+        httponly=True,
+        secure=secure,
+        samesite=samesite,
+        max_age=30 * 24 * 60 * 60, # 30 days
+        path="/"
+    )
 
 # ── Local Auth ──────────────────────────────────────────────────────────────
 
@@ -346,54 +384,67 @@ class LocalLoginPayload(BaseModel):
     password: str
 
 @app.post("/api/auth/local/register")
-def local_register(payload: LocalRegisterPayload, db=Depends(get_db)):
+def local_register(payload: LocalRegisterPayload, request: Request, db=Depends(get_db)):
     existing = db.query(schema.User).filter(schema.User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="이미 사용 중인 이메일입니다.")
     if len(payload.password) < 6:
         raise HTTPException(status_code=400, detail="비밀번호는 6자 이상이어야 합니다.")
-    token = generate_session_token()
+    
     user = schema.User(
         email=payload.email,
         username=payload.username,
         password_hash=hash_password(payload.password),
-        access_token=token,
         auth_provider="local",
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {
+
+    session = session_service.create_user_session(
+        db, user.id, 
+        user_agent=request.headers.get("user-agent"),
+        ip_address=request.client.host if request.client else None
+    )
+    
+    response = JSONResponse(content={
         "status": "success",
-        "access_token": token,
         "user": {"id": user.id, "username": user.username, "avatar_url": user.avatar_url}
-    }
+    })
+    set_auth_cookie(response, session.id)
+    return response
 
 @app.post("/api/auth/local/login")
-def local_login(payload: LocalLoginPayload, db=Depends(get_db)):
+def local_login(payload: LocalLoginPayload, request: Request, db=Depends(get_db)):
     user = db.query(schema.User).filter(schema.User.email == payload.email).first()
     if not user or not user.password_hash:
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
     if not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
-    token = generate_session_token()
-    user.access_token = token
-    db.commit()
-    return {
+    
+    session = session_service.create_user_session(
+        db, user.id, 
+        user_agent=request.headers.get("user-agent"),
+        ip_address=request.client.host if request.client else None
+    )
+    
+    response = JSONResponse(content={
         "status": "success",
-        "access_token": token,
         "user": {"id": user.id, "username": user.username, "avatar_url": user.avatar_url}
-    }
+    })
+    set_auth_cookie(response, session.id)
+    return response
 
 # ── Google Auth ─────────────────────────────────────────────────────────────
 
 @app.get("/api/auth/google")
 def google_login_redirect():
-    if not GOOGLE_CLIENT_ID:
+    if not config.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Google OAuth가 설정되지 않았습니다.")
     params = {
-        "client_id": GOOGLE_CLIENT_ID,
-        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "client_id": config.GOOGLE_CLIENT_ID,
+        "redirect_uri": config.GOOGLE_REDIRECT_URI,
+
         "response_type": "code",
         "scope": "openid email profile",
         "access_type": "offline",
@@ -405,17 +456,14 @@ def google_login_redirect():
 
 @app.get("/api/auth/google/callback")
 def google_callback(code: str, db=Depends(get_db)):
-    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        raise HTTPException(status_code=500, detail="Google OAuth가 설정되지 않았습니다.")
-    
-    # Exchange code for token
     token_res = httpx.post("https://oauth2.googleapis.com/token", data={
         "code": code,
-        "client_id": GOOGLE_CLIENT_ID,
-        "client_secret": GOOGLE_CLIENT_SECRET,
-        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "client_id": config.GOOGLE_CLIENT_ID,
+        "client_secret": config.GOOGLE_CLIENT_SECRET,
+        "redirect_uri": config.GOOGLE_REDIRECT_URI,
         "grant_type": "authorization_code",
     }).json()
+
     
     if "error" in token_res:
         raise HTTPException(status_code=400, detail=token_res.get("error_description", "Google 인증 실패"))
@@ -458,9 +506,21 @@ def google_callback(code: str, db=Depends(get_db)):
     db.commit()
     db.refresh(user)
     
-    frontend_url = os.getenv("FRONTEND_URL", "https://autowikiai.xyz")
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(f"{frontend_url}/login?token={token}&user_id={user.id}&username={user.username}&avatar={avatar_url or ''}")
+    session = session_service.create_user_session(
+        db, user.id, 
+        user_agent="Google-OAuth-Callback" # Simplified
+    )
+    
+    frontend_url = config.FRONTEND_URL
+
+    # Instead of token in URL, we will redirect and rely on the cookie
+    # But for now, to avoid breaking frontend immediately during migration, 
+    # we might still need a way to let the frontend know login finished.
+    # However, the requirement is to REMOVE tokens from browser.
+    
+    response = RedirectResponse(f"{frontend_url}/login?auth=success")
+    set_auth_cookie(response, session.id)
+    return response
 
 
 
@@ -482,24 +542,36 @@ def request_device_code():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-security = HTTPBearer()
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db=Depends(get_db)):
-    token = credentials.credentials
-    user = db.query(schema.User).filter(schema.User.access_token == token).first()
+def get_current_user(request: Request, db=Depends(get_db)):
+    session_id = request.cookies.get("session_id")
+    if not session_id:
+        # Fallback to Authorization header for migration/cross-compat temporarily? 
+        # No, the goal is to remove it. 
+        raise HTTPException(status_code=401, detail="Authentication required. No session found.")
+    
+    session = session_service.get_session(db, session_id)
+    if not session:
+        raise HTTPException(status_code=401, detail="Session expired or invalid.")
+    
+    user = db.query(schema.User).filter(schema.User.id == session.user_id).first()
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid auth token. Please login again.")
+        raise HTTPException(status_code=401, detail="User not found.")
+    
+    # Attach session to request state if needed
+    request.state.session_id = session_id
     return user
 
-def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)), db=Depends(get_db)):
-    if not credentials:
+def get_optional_user(request: Request, db=Depends(get_db)):
+    session_id = request.cookies.get("session_id")
+    if not session_id:
         return None
-    token = credentials.credentials
-    return db.query(schema.User).filter(schema.User.access_token == token).first()
+    session = session_service.get_session(db, session_id)
+    if not session:
+        return None
+    return db.query(schema.User).filter(schema.User.id == session.user_id).first()
 
 @app.post("/api/auth/poll")
-def poll_for_token(payload: PollPayload, db=Depends(get_db), current_user=Depends(get_optional_user)):
+def poll_for_token(payload: PollPayload, request: Request, db=Depends(get_db), current_user=Depends(get_optional_user)):
     try:
         res = httpx.post(
             "https://github.com/login/oauth/access_token",
@@ -513,12 +585,14 @@ def poll_for_token(payload: PollPayload, db=Depends(get_db), current_user=Depend
         
         if "access_token" in res:
             github_access_token = res["access_token"]
+            github_refresh_token = res.get("refresh_token") # Might be present if scope 'offline_access' or similar (not currently in scope)
             
             # Exchange the standard access token for a Copilot internal token
             copilot_token, expires_at = fetch_copilot_token(github_access_token)
             
             if copilot_token:
-                save_tokens_to_cache(github_access_token, copilot_token, expires_at)
+                # We NO LONGER save to standard file cache here (shared cache).
+                # Instead, we save to the current user's DB record.
                 
                 with httpx.Client() as client:
                     # Fetch GitHub User info
@@ -529,7 +603,6 @@ def poll_for_token(payload: PollPayload, db=Depends(get_db), current_user=Depend
                         username = user_data.get("login")
                         avatar_url = user_data.get("avatar_url")
                         
-                        # Logic Fix: Account Linking vs Login
                         target_user = None
                         is_linking_only = False
                         
@@ -537,11 +610,11 @@ def poll_for_token(payload: PollPayload, db=Depends(get_db), current_user=Depend
                         existing_github_user = db.query(schema.User).filter(schema.User.github_id == github_id).first()
                         
                         if current_user:
-                            # User is ALREADY logged in (Local/Google Account)
+                            # User is ALREADY logged in: Link this GitHub account to the current user
                             if existing_github_user and existing_github_user.id != current_user.id:
-                                # Conflict Handle: "Steal" the GitHub ID for the current logged-in user
-                                print(f"[AUTH MIGRATION] Moving github_id {github_id} from user {existing_github_user.id} to user {current_user.id}")
+                                # Conflict: move the ID to the current user
                                 existing_github_user.github_id = None
+                                existing_github_user.github_token_enc = None
                                 db.commit()
                             
                             target_user = current_user
@@ -550,44 +623,51 @@ def poll_for_token(payload: PollPayload, db=Depends(get_db), current_user=Depend
                             # Login flow (not logged in yet)
                             target_user = existing_github_user
                         
-                        # Generate or preserve session token
-                        final_session_token = current_user.access_token if current_user else generate_session_token()
-                        
                         if not target_user:
                             # Create new user for fresh GitHub login
                             target_user = schema.User(
                                 github_id=github_id, 
                                 username=username, 
                                 avatar_url=avatar_url, 
-                                access_token=final_session_token,
                                 auth_provider="github"
                             )
                             db.add(target_user)
+                            db.commit()
+                            db.refresh(target_user)
                         else:
                             # Update existing user (link or sync)
                             target_user.github_id = github_id
                             if not target_user.avatar_url:
                                 target_user.avatar_url = avatar_url
-                            
                             if not is_linking_only:
-                                # Refresh session token for login flows
-                                target_user.access_token = final_session_token
                                 target_user.auth_provider = "github"
+                        
+                        # ENCRYPT AND SAVE TOKENS
+                        target_user.github_token_enc = token_manager.encrypt(github_access_token, target_user.encryption_key_version)
+                        if github_refresh_token:
+                            target_user.github_refresh_token_enc = token_manager.encrypt(github_refresh_token, target_user.encryption_key_version)
                         
                         db.commit()
                         db.refresh(target_user)
                         
-                        return {
+                        # Always create/rotate session on login or poll success
+                        session = session_service.create_user_session(
+                            db, target_user.id,
+                            user_agent=request.headers.get("user-agent"),
+                            ip_address=request.client.host if request.client else None
+                        )
+                        
+                        response = JSONResponse(content={
                             "status": "success", 
                             "message": "Authenticated successfully",
-                            "access_token": final_session_token,
-                            "github_token": github_access_token,
                             "user": {
                                 "id": target_user.id,
                                 "username": target_user.username,
                                 "avatar_url": target_user.avatar_url
                             }
-                        }
+                        })
+                        set_auth_cookie(response, session.id)
+                        return response
             
             error_detail = "Copilot 토큰 획득에 실패했습니다. 유료 구독 상태를 확인해 주세요."
             print(f"[AUTH ERROR] {error_detail}")
@@ -610,23 +690,31 @@ def poll_for_token(payload: PollPayload, db=Depends(get_db), current_user=Depend
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/auth/status")
-def get_auth_status():
-    tokens = load_tokens_from_cache()
-    if tokens.get("copilot_token") or tokens.get("github_token"):
-        return {"status": "active"}
-    return {"status": "expired"}
+def get_auth_status(user=Depends(get_optional_user), db=Depends(get_db)):
+    if not user or not user.github_token_enc:
+        return {"status": "expired"}
+    
+    # In a real app, we might check if the token is valid by making a tiny API call
+    return {"status": "active"}
 
-@app.post("/api/auth/disconnect")
-def disconnect_auth():
-    """Clear server-side token cache file."""
-    from langchain_githubcopilot_chat.auth import CACHE_PATH
-    if os.path.exists(CACHE_PATH):
-        try:
-            os.remove(CACHE_PATH)
-            return {"status": "success", "message": "Server cache cleared"}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to clear cache: {e}")
-    return {"status": "success", "message": "No cache found to clear"}
+@app.post("/api/auth/logout")
+def logout(request: Request, db=Depends(get_db)):
+    session_id = request.cookies.get("session_id")
+    if session_id:
+        session_service.delete_session(db, session_id)
+    
+    response = JSONResponse(content={"status": "success", "message": "Logged out"})
+    response.delete_cookie(key="session_id", path="/")
+    return response
+
+@app.post("/api/auth/github/disconnect")
+def disconnect_github(user=Depends(get_current_user), db=Depends(get_db)):
+    """Remove GitHub tokens from the current user account."""
+    user.github_id = None
+    user.github_token_enc = None
+    user.github_refresh_token_enc = None
+    db.commit()
+    return {"status": "success", "message": "GitHub account disconnected"}
 
 
 # ──────────────────────────────────────
@@ -690,6 +778,8 @@ def get_user_me(user=Depends(get_current_user), db=Depends(get_db)):
         "id": user.id,
         "username": user.username,
         "avatar_url": user.avatar_url,
+        "auth_provider": user.auth_provider,
+        "is_github_linked": user.github_token_enc is not None,
         "storage_used": usage,
         "storage_limit": 10485760
     }
@@ -809,7 +899,12 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get
     files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
     project_files_text = "\n\n".join(files_text)
 
-    llm = get_llm(payload.model_name, payload.api_key, payload.thinking_level, payload.reasoning_effort)
+    # Decrypt GitHub token if not provided in payload
+    gh_token = payload.api_key
+    if not gh_token and user.github_token_enc:
+        gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+
+    llm = get_llm(payload.model_name, gh_token, payload.thinking_level, payload.reasoning_effort)
     plan = plan_knowledge_extraction(
         payload.text, payload.custom_prompt, llm, system_prompt, existing_entities, all_categories, project_files_text, project_graph=project_graph
     )
@@ -939,7 +1034,12 @@ def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current
     files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
     project_files_text = "\n\n".join(files_text)
 
-    llm = get_llm(payload.model_name, payload.api_key, payload.thinking_level, payload.reasoning_effort)
+    # Decrypt GitHub token if not provided in payload
+    gh_token = payload.api_key
+    if not gh_token and user.github_token_enc:
+        gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+
+    llm = get_llm(payload.model_name, gh_token, payload.thinking_level, payload.reasoning_effort)
     
     reply = execute_project_chat(
         message=payload.message,
@@ -1115,7 +1215,11 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
     project_graph = get_project_graph_context(project_id, db)
 
     # Commit uses main model for generation (heavy writing task)
-    llm = get_llm(model_name, api_key, thinking_level, reasoning_effort)
+    gh_token = api_key
+    if not gh_token and user.github_token_enc:
+        gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+
+    llm = get_llm(model_name, gh_token, thinking_level, reasoning_effort)
     # payload_data will contain a "proposals" array
     proposals = payload_data.get("proposals", [])
     

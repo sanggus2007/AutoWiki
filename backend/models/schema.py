@@ -11,6 +11,19 @@ entity_category = Table(
     Column("category_id", Integer, ForeignKey("categories.id"), primary_key=True),
 )
 
+class Session(Base):
+    __tablename__ = "sessions"
+
+    id = Column(String, primary_key=True, index=True) # Session Token (UUID)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    expires_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    user_agent = Column(String, nullable=True)
+    ip_address = Column(String, nullable=True)
+    last_activity = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", back_populates="sessions")
+
 class User(Base):
     __tablename__ = "users"
 
@@ -18,11 +31,14 @@ class User(Base):
     # 공통
     username = Column(String)
     avatar_url = Column(String, nullable=True)
-    access_token = Column(String, nullable=True)  # AutoWiki session token
+    access_token = Column(String, nullable=True)  # [LEGACY] AutoWiki session token - to be deleted
     created_date = Column(DateTime, default=datetime.datetime.utcnow)
     auth_provider = Column(String, default="github")  # 'github' | 'google' | 'local'
     # GitHub
     github_id = Column(String, unique=True, index=True, nullable=True)
+    github_token_enc = Column(Text, nullable=True)
+    github_refresh_token_enc = Column(Text, nullable=True)
+    encryption_key_version = Column(Integer, default=1)
     # Google
     google_id = Column(String, unique=True, index=True, nullable=True)
     # Local
@@ -30,6 +46,7 @@ class User(Base):
     password_hash = Column(String, nullable=True)
 
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
+    sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
 
 
 class Project(Base):

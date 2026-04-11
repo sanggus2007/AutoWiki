@@ -7,25 +7,39 @@ import { useAuthStore } from "@/lib/store";
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { token, setAuth } = useAuthStore();
+  const { user, setUser } = useAuthStore();
 
   useEffect(() => {
-    // Google OAuth 콜백에서 전달된 token 처리
+    // 1. Check for legacy URL tokens (for Google OAuth migration)
     const urlToken = searchParams.get("token");
-    const username = searchParams.get("username");
-    const userId = searchParams.get("user_id");
-    const avatar = searchParams.get("avatar");
-    if (urlToken && username && userId) {
-      setAuth(urlToken, { id: parseInt(userId), username, avatar_url: avatar || "" });
-      router.replace("/dashboard");
+    if (urlToken) {
+       // We ignore tokens in URL now for security, just tell user to refresh or use cookie
+       router.replace("/login?auth=success");
+       return;
+    }
+
+    // 2. Handle successful session-based login
+    const authStatus = searchParams.get("auth");
+    if (authStatus === "success") {
+      // Re-fetch user to hydrate store
+      import("@/lib/api").then(async ({ apiFetch }) => {
+        const res = await apiFetch("/api/users/me");
+        if (res.ok) {
+          const userData = await res.json();
+          setUser(userData);
+          router.replace("/dashboard");
+        }
+      });
       return;
     }
-    if (token) {
+
+    // 3. Already logged in?
+    if (user) {
       router.replace("/dashboard");
     }
-  }, [token, router, searchParams, setAuth]);
+  }, [user, router, searchParams, setUser]);
 
-  if (token) return null;
+  if (user) return null;
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">

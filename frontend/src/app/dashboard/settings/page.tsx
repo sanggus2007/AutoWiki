@@ -23,12 +23,12 @@ function GithubIcon({ size = 20, className = "" }: { size?: number, className?: 
 
 
 export default function SettingsPage() {
-  const setAuth = useAuthStore(state => state.setAuth);
+  const setUser = useAuthStore(state => state.setUser);
   const [model, setModel] = useState("gemini-3.1-pro-preview");
   const [subModel, setSubModel] = useState("gemini-3-flash-preview");
   const [thinkingLevel, setThinkingLevel] = useState("HIGH");
   const [reasoningEffort, setReasoningEffort] = useState("high");
-  const [githubToken, setGithubToken] = useState("");
+  const [isGithubLinked, setIsGithubLinked] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [saved, setSaved] = useState(false);
   const [prompts, setPrompts] = useState<{key: string, name: string, content: string, description: string}[]>([]);
@@ -49,24 +49,23 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    // Load existing settings
+    // Load existing settings (excluding sensitive tokens)
     const savedModel = localStorage.getItem("autowiki_llm_model");
-    const savedKey = localStorage.getItem("autowiki_llm_api_key");
     if (savedModel) setModel(savedModel);
     
-    // 만약 예전 키가 있고 새 키(githubToken)가 없다면 예전 키를 로드하여 하위 호환성 유지
-    const savedGithubToken = localStorage.getItem("autowiki_github_token");
-    if (savedGithubToken) {
-      setGithubToken(savedGithubToken);
-    } else if (savedKey) {
-      setGithubToken(savedKey);
-    } else {
-      // 둘 다 없으면 튜토리얼 자동 표시 (한 번도 안 본 경우만)
-      const tutorialSeen = localStorage.getItem("autowiki_tutorial_seen");
-      if (!tutorialSeen) {
-        setShowTutorial(true);
-      }
-    }
+    // Check GitHub Linking status from backend
+    apiFetch("/api/users/me")
+      .then(res => res.json())
+      .then(data => {
+        setIsGithubLinked(data.is_github_linked);
+        if (!data.is_github_linked) {
+          const tutorialSeen = localStorage.getItem("autowiki_tutorial_seen");
+          if (!tutorialSeen) {
+            setShowTutorial(true);
+          }
+        }
+      })
+      .catch(err => console.error("Failed to check auth status", err));
 
     const savedSubModel = localStorage.getItem("autowiki_llm_sub_model");
     if (savedSubModel) setSubModel(savedSubModel);
@@ -120,7 +119,6 @@ export default function SettingsPage() {
     localStorage.setItem("autowiki_llm_sub_model", subModel);
     localStorage.setItem("autowiki_llm_thinking_level", thinkingLevel);
     localStorage.setItem("autowiki_llm_reasoning_effort", reasoningEffort);
-    localStorage.setItem("autowiki_github_token", githubToken);
     localStorage.setItem("autowiki_tutorial_seen", "true");
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -164,11 +162,10 @@ export default function SettingsPage() {
         const data = await res.json();
         
         if (data.status === "success") {
-          // 1. LLM용 토큰 저장
-          localStorage.setItem("autowiki_github_token", data.github_token);
-          setGithubToken(data.github_token);
+          // 1. 상태 업데이트 (원본 토큰은 브라우저에 저장하지 않음)
+          setIsGithubLinked(true);
           // 2. 서비스 세션 업데이트
-          setAuth(data.access_token, data.user);
+          setUser(data.user);
           
           setDeviceInfo(null);
           setLinking(false);
@@ -203,11 +200,9 @@ export default function SettingsPage() {
   };
 
   const handleDisconnect = () => {
-    if (confirm("GitHub Copilot 연결을 해제하시겠습니까? (저장된 모든 토큰이 삭제됩니다)")) {
-      localStorage.removeItem("autowiki_github_token");
-      localStorage.removeItem("autowiki_llm_api_key");
-      setGithubToken("");
-      // 브라우저 캐시 삭제 후 서버 캐시 삭제 요청 (선택 사항이나 권장)
+    if (confirm("GitHub Copilot 연결을 해제하시겠습니까?")) {
+      setIsGithubLinked(false);
+      // 서버에서 토큰 삭제 요청
       apiFetch("/api/auth/disconnect", { method: "POST" }).catch(() => {});
     }
   };
@@ -253,16 +248,16 @@ export default function SettingsPage() {
             </p>
 
             <div className="space-y-4">
-              {githubToken ? (
+              {isGithubLinked ? (
                 <div className="flex items-center justify-between bg-white border border-[#00af89]/30 rounded-lg p-3 shadow-sm gap-2">
                   <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                     <div className="w-9 h-9 sm:w-10 sm:h-10 bg-[#00af89]/10 rounded-full flex items-center justify-center shrink-0">
                       <CheckCircle2 className="text-[#00af89]" size={18} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-[#00af89]">연결됨</div>
-                      <div className="text-[10px] sm:text-[11px] text-[#54595d] font-mono truncate">
-                        {githubToken.substring(0, 8)}...{githubToken.substring(githubToken.length - 4)}
+                      <div className="text-xs font-bold text-[#00af89]">GitHub 계정과 연결됨</div>
+                      <div className="text-[10px] sm:text-[11px] text-[#54595d] font-medium">
+                        서버와 안전하게 세션이 유지되고 있습니다.
                       </div>
                     </div>
                   </div>
@@ -411,7 +406,7 @@ export default function SettingsPage() {
             <div className="mt-4 bg-[#eaecf0] border border-[#a2a9b1] p-3 rounded-sm flex items-start text-[12px] text-[#202122]">
               <AlertCircle size={16} className="mr-2 shrink-0 mt-0.5 text-[#0645ad]" />
               <p>
-                <b>개인정보 보호:</b> 입력하신 토큰은 브라우저에 안전하게 저장되며, 텍스트 분석 시에만 허가된 통로를 통해 사용됩니다. 저희 서버에는 토큰의 원본이 보관되지 않습니다.
+                <b>개인정보 보호:</b> 모든 토큰 정보는 강력하게 암호화되어 서버에 안전하게 보관됩니다. 브라우저의 로컬 저장소에는 민감한 토큰 원본이 저장되지 않으며, 세션 종료 시 안전하게 보호됩니다.
               </p>
             </div>
 

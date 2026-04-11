@@ -9,24 +9,24 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const token = useAuthStore(state => state.token);
+  const user = useAuthStore(state => state.user);
   const router = useRouter();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!token) {
+    if (!user) {
       router.replace("/login");
     }
-  }, [token, router]);
+  }, [user, router]);
 
   // Close mobile sidebar on route change
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [pathname]);
 
-  if (!token) return null;
+  if (!user) return null;
 
   return (
     <div className="fixed inset-0 flex bg-[#f8f9fa] text-[#202122] overflow-hidden">

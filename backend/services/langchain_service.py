@@ -7,7 +7,8 @@ from fastapi import UploadFile, HTTPException
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_githubcopilot_chat import ChatGithubCopilot
-from langchain_githubcopilot_chat.auth import load_tokens_from_cache, fetch_copilot_token, save_tokens_to_cache
+from langchain_githubcopilot_chat import ChatGithubCopilot
+from langchain_githubcopilot_chat.auth import fetch_copilot_token
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from typing import Optional
@@ -61,8 +62,8 @@ def invoke_with_auth_fallback(llm, base_prompt, github_token: str = None):
                     # fetch_copilot_token now uses 'Bearer' which is required for tid= tokens
                     copilot_token, expires_at = fetch_copilot_token(actual_token)
                     if copilot_token:
-                        save_tokens_to_cache(actual_token, copilot_token, expires_at)
-                        os.environ["GITHUB_TOKEN"] = actual_token
+                        # We NO LONGER save to disk cache here. 
+                        # We just return the new LLM with the new token.
                         
                         print("[Auth Interceptor] ✅ Recovery successful! Retrying operation...\n")
                         target_model = getattr(llm, 'model', 'gpt-4o')
@@ -86,15 +87,29 @@ def invoke_with_auth_fallback(llm, base_prompt, github_token: str = None):
             )
         raise HTTPException(status_code=500, detail=f"LLM AI Error: {str(e)}")
 
-def get_llm(model_name: str, api_key: str, thinking_level: str = None, reasoning_effort: str = None):
-    tokens = load_tokens_from_cache()
-    github_token = api_key if api_key else tokens.get("github_token", "")
-    
-    if github_token:
-        os.environ["GITHUB_TOKEN"] = github_token
-    elif not os.environ.get("GITHUB_TOKEN"):
-        raise HTTPException(status_code=401, detail="Token Required. Please configure GitHub Token in settings.")
+def get_llm(model_name: str, github_token: str, thinking_level: str = None, reasoning_effort: str = None):
+    """
+    Initialize LLM with user-specific GitHub token.
+    Bypasses shared disk cache by exchanging PAT for a short-lived Copilot token (tid=)
+    before passing it to the model.
+    """
+    if not github_token:
+         # Fallback to env ONLY if specifically allowed or for system tasks
+         github_token = os.environ.get("GITHUB_TOKEN")
+         
+    if not github_token:
+        raise HTTPException(status_code=401, detail="GitHub Token Required. Please connect your GitHub account in settings.")
         
+    # Manually exchange PAT for Copilot token to bypass the library's shared disk cache
+    # Tokens starting with 'tid=' are already Copilot tokens and don't need exchange.
+    if github_token.startswith(("gho_", "ghp_", "ghu_", "github_pat_")):
+        copilot_token, _ = fetch_copilot_token(github_token)
+        if not copilot_token:
+            raise HTTPException(status_code=401, detail="Failed to exchange GitHub token for Copilot session. Please re-link your account.")
+        active_token = copilot_token
+    else:
+        active_token = github_token
+
     target_model = model_name if model_name else "gemini-3-flash"
     
     kwargs = {}
@@ -102,7 +117,16 @@ def get_llm(model_name: str, api_key: str, thinking_level: str = None, reasoning
     if reasoning_effort and is_o_series:
         kwargs["reasoning_effort"] = reasoning_effort
         
-    llm = ChatGithubCopilot(model=target_model, temperature=0.2, **kwargs)
+    # Pass the 'tid=' token as github_token to ChatGithubCopilot. 
+    # This prevents the library from trying to exchange and save to ~/.github-copilot-chat.json
+    from pydantic import SecretStr
+    llm = ChatGithubCopilot(
+        model=target_model, 
+        temperature=0.2, 
+        github_token=SecretStr(active_token),
+        **kwargs
+    )
+    # Store the original PAT for recovery/fallback
     setattr(llm, '_github_token', github_token) 
     return llm
 

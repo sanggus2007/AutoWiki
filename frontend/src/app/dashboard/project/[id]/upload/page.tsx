@@ -91,6 +91,11 @@ export default function ProjectUploadPage() {
           }
           return;
         }
+        if (res.status === 413) {
+          alert("파일 용량이 너무 큽니다. 서버의 데이터 처리 제한을 초과했습니다. 더 작은 파일로 나누어 업로드해주세요.");
+          setAppState("UPLOAD");
+          return;
+        }
         console.error("Upload failed", errText);
         setAppState("UPLOAD");
         return;

@@ -81,7 +81,7 @@ export const UploadUI: React.FC<UploadUIProps> = ({ onStartIngestion }) => {
           파일을 선택하거나 이곳으로 드래그하세요
         </p>
         <p className="text-sm text-gray-500 mb-5">
-          지원 형식: PDF, DOCX, TXT, CSV (최대 50MB)
+          지원 형식: PDF, DOCX, TXT, CSV (Vercel 배포 시 권장 4MB 이하)
         </p>
         <div className="px-5 py-2 rounded border border-[#cccccc] bg-[#f8f9fa] text-[#202122] font-medium text-sm pointer-events-none shadow-sm cursor-pointer hidden sm:block">
           또는 클릭하여 파일 찾기
@@ -135,8 +135,15 @@ export const UploadUI: React.FC<UploadUIProps> = ({ onStartIngestion }) => {
           </div>
 
           <button
-            className="w-full py-3 rounded bg-[#0645ad] text-white font-bold text-sm flex justify-center items-center space-x-2 hover:bg-[#0b0080] transition-colors"
-            onClick={() => onStartIngestion(files, customPrompt)}
+            className="w-full py-3 rounded bg-[#0645ad] text-white font-bold text-sm flex justify-center items-center space-x-2 hover:bg-[#0b0080] transition-colors disabled:bg-gray-400"
+            onClick={() => {
+              const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+              if (totalSize > 4.5 * 1024 * 1024) {
+                 alert("현재 환경(Vercel)의 업로드 제한으로 인해 합계 4.5MB를 초과할 수 없습니다. 파일을 나누어 업로드해 주세요.");
+                 return;
+              }
+              onStartIngestion(files, customPrompt);
+            }}
           >
             <BookOpen size={16} />
             <span>위키 생성 시작</span>

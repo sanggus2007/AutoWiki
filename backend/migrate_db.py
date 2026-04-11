@@ -1,12 +1,8 @@
-import os
-from sqlalchemy import create_engine, MetaData
-from sqlalchemy.orm import sessionmaker
+from config import DATABASE_URL
 
 sqlite_url = "sqlite:///./autowiki_v2.db"
-postgres_url = os.getenv(
-    "DATABASE_URL",
-    "postgresql://postgres.zlcfxwzfxlwczlhefeyh:Deniously==491733@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres"
-)
+postgres_url = DATABASE_URL
+
 
 sqlite_engine = create_engine(sqlite_url)
 pg_engine = create_engine(postgres_url)

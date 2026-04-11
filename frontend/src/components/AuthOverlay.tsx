@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Loader2, Key, Mail, Eye, EyeOff } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { apiFetch, API_BASE_URL } from "@/lib/api";
@@ -22,7 +22,7 @@ function GoogleIcon() {
 
 // ── Local Auth Flow (TEMPORARILY UNUSED BUT PRESERVED) ────────────────
 function LocalFlow({ onSuccess, onBack }: { onSuccess: () => void, onBack: () => void }) {
-  const setAuth = useAuthStore(state => state.setAuth);
+  const setUser = useAuthStore(state => state.setUser);
   const [mode, setMode] = useState<LocalMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,7 +40,7 @@ function LocalFlow({ onSuccess, onBack }: { onSuccess: () => void, onBack: () =>
       const res = await apiFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) { setError(data.detail || "오류가 발생했습니다."); return; }
-      setAuth(data.access_token, data.user);
+      setUser(data.user);
       setTimeout(onSuccess, 300);
     } catch { setError("통신 오류가 발생했습니다."); } finally { setLoading(false); }
   };
@@ -75,6 +75,13 @@ function LocalFlow({ onSuccess, onBack }: { onSuccess: () => void, onBack: () =>
 // ── Main AuthOverlay ─────────────────────────────────────────────────
 export function AuthOverlay({ onSuccess }: { onSuccess: () => void }) {
   const [provider, setProvider] = useState<Provider>("select");
+  const [isLocalhost, setIsLocalhost] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsLocalhost(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    }
+  }, []);
 
   const handleGoogleLogin = () => {
     window.location.href = `${API_BASE_URL}/api/auth/google`;
@@ -105,7 +112,7 @@ export function AuthOverlay({ onSuccess }: { onSuccess: () => void }) {
             </button>
 
             {/* 로컬호스트(개발 환경)에서만 이메일 로그인 노출 */}
-            {typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
+            {isLocalhost && (
               <button 
                 onClick={() => setProvider("local")}
                 className="w-full flex items-center justify-center gap-3 py-3.5 bg-[#f8fafc] text-[#64748b] border border-dashed border-[#cbd5e1] rounded-xl font-bold text-[15px] hover:bg-[#f1f5f9] transition-all"
@@ -113,6 +120,7 @@ export function AuthOverlay({ onSuccess }: { onSuccess: () => void }) {
                 <Mail size={18}/> [테스트용] 이메일로 계속하기
               </button>
             )}
+
           </div>
         ) : (
           <LocalFlow onSuccess={onSuccess} onBack={() => setProvider("select")}/>

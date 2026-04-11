@@ -2,11 +2,9 @@ import os
 import urllib.parse
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from config import DATABASE_URL
 
-raw_url = os.getenv(
-    "DATABASE_URL",
-    "postgresql://postgres.zlcfxwzfxlwczlhefeyh:Deniously==491733@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres"
-)
+raw_url = DATABASE_URL
 
 # 특수문자가 포함된 암호를 안전하게 파싱하기 위해 처리 (password에 == 등이 있을 경우 대비)
 if "://" in raw_url:

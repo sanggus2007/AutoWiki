@@ -32,7 +32,12 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       .catch(() => {});
   }, [pathname]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await apiFetch("/api/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
     logout();
     router.replace("/login");
   };
