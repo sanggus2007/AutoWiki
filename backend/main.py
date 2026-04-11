@@ -744,20 +744,34 @@ def update_prompt(key: str, payload: PromptUpdate, db=Depends(get_db)):
 # ──────────────────────────────────────
 
 def get_project_graph_context(project_id: int, db) -> str:
-    """프로젝트의 모든 관계를 텍스트로 요약하여 AI에게 컨텍스트로 제공합니다."""
-    # Only collect relationships where both nodes exist
+    """프로젝트의 모든 관계를 텍스트로 요약하고, 고립된 노드(관계 없음)를 식별하여 AI에게 제공합니다."""
     entities = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
     entity_slugs = {e.slug for e in entities}
     
     relationships = db.query(schema.Relationship).all()
     rel_texts = []
+    connected_slugs = set()
+    
     for r in relationships:
         if r.source_entity_slug in entity_slugs and r.target_entity_slug in entity_slugs:
             rel_texts.append(f"- {r.source_entity_slug} -> {r.target_entity_slug} ({r.context})")
+            connected_slugs.add(r.source_entity_slug)
+            connected_slugs.add(r.target_entity_slug)
     
-    if not rel_texts:
-        return "(현재 등록된 관계 없음)"
-    return "\n".join(rel_texts)
+    # Identify isolated nodes
+    isolated_slugs = [s for s in entity_slugs if s not in connected_slugs]
+    
+    context_parts = []
+    if rel_texts:
+        context_parts.append("[현재 프로젝트의 관계도]\n" + "\n".join(rel_texts))
+    else:
+        context_parts.append("[현재 프로젝트의 관계도]\n(현재 등록된 관계 없음)")
+        
+    if isolated_slugs:
+        context_parts.append("\n[⚠️ 현재 연결 관계가 없는 고립된 노드들]\n- " + ", ".join(isolated_slugs))
+        context_parts.append("(위 노드들은 현재 그래프에서 고립되어 있으므로, 새로운 정보와 관련이 있다면 적절히 연결해 주세요.)")
+        
+    return "\n".join(context_parts)
 
 def get_storage_usage(user_id: int, db) -> int:
     projects = db.query(schema.Project).filter(schema.Project.user_id == user_id).all()
@@ -1028,6 +1042,9 @@ def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current
     if not project_context:
         project_context = "이 프로젝트에는 아직 등록된 문서/데이터가 없습니다."
 
+    # Added: Provide the entire graph structure (relationships) to the chat AI
+    project_graph_text = get_project_graph_context(project_id, db)
+
     selected_pf = db.query(schema.ProjectFile).filter(
         schema.ProjectFile.project_id == project_id,
         schema.ProjectFile.is_selected == True
@@ -1047,7 +1064,8 @@ def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current
         history=payload.history,
         project_context=project_context,
         llm=llm,
-        project_files_text=project_files_text
+        project_files_text=project_files_text,
+        project_graph_text=project_graph_text  # Pass the graph text
     )
     
     db.add(schema.ChatMessage(session_id=session.id, role="assistant", content=reply))

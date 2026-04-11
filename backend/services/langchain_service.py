@@ -29,6 +29,8 @@ class PlanPatch(BaseModel):
     entity_slug: str = Field(description="Slug of the existing entity to be modified")
     entity_name: str = Field(description="Human-readable name of the entity (Korean)")
     changes: str = Field(description="Description of what changes to make in Korean")
+    new_type: Optional[str] = Field(None, description="Change entity type if needed")
+    new_is_root: Optional[bool] = Field(None, description="Change core/root status if needed")
 
 class PlanDelete(BaseModel):
     entity_slug: str = Field(description="Slug of the existing entity to be deleted")
@@ -41,6 +43,8 @@ class KnowledgePlan(BaseModel):
     deletions: list[PlanDelete] = Field(default_factory=list, description="삭제가 필요한 기존 문서 목록")
     nodes: list[PlanNode]
     edges: list[PlanEdge]
+    edge_patches: list[PlanEdgePatch] = Field(default_factory=list, description="기존 관계 수정 목록")
+    edge_deletions: list[PlanEdgeDelete] = Field(default_factory=list, description="기존 관계 삭제 목록")
 
 def invoke_with_auth_fallback(llm, base_prompt, github_token: str = None):
     # Retrieve the PAT stored on the LLM object or in environment
@@ -331,9 +335,9 @@ async def extract_proposals(filename: str, full_text: str, custom_prompt: str, m
         "edges": [e.dict() for e in plan.edges]
     }
 
-def execute_project_chat(message: str, history: list[dict], project_context: str, llm, project_files_text: str = "") -> str:
+def execute_project_chat(message: str, history: list[dict], project_context: str, llm, project_files_text: str = "", project_graph_text: str = "") -> str:
     messages = [
-        SystemMessage(content=f"당신은 이 프로젝트의 문서를 잘 알고 있는 친절한 AI 전문가입니다.\n\n[프로젝트 정보]\n{project_context}\n\n[참조 파일]\n{project_files_text or '(없음)'}")
+        SystemMessage(content=f"당신은 이 프로젝트의 문서를 잘 알고 있는 친절한 AI 전문가입니다.\n\n[프로젝트 문서 정보]\n{project_context}\n\n[지식 구조도(관계)]\n{project_graph_text or '(현재 등록된 관계 없음)'}\n\n[참조 파일]\n{project_files_text or '(없음)'}")
     ]
     for msg in history:
         messages.append(HumanMessage(content=msg["content"]) if msg["role"] == "user" else AIMessage(content=msg["content"]))
