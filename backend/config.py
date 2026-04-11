@@ -47,9 +47,11 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "")
 
-if not GOOGLE_REDIRECT_URI and "http" in FRONTEND_URL:
-    # FRONTEND_URL을 기반으로 추측 (운영 환경 편의성)
-    GOOGLE_REDIRECT_URI = f"{FRONTEND_URL.rstrip('/')}/api/auth/google/callback"
+# Backend URL (Render URL)
+BACKEND_URL = os.getenv("BACKEND_URL", "https://autowiki-axl3.onrender.com")
+
+if not GOOGLE_REDIRECT_URI:
+    GOOGLE_REDIRECT_URI = f"{BACKEND_URL.rstrip('/')}/api/auth/google/callback"
 
 # ──────────────────────────────────────
 # Server Settings
