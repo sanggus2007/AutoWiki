@@ -861,8 +861,8 @@ def get_project_graph_context(project_id: int, db) -> str:
         if not root_slugs:
             context_parts.append("[⚠️ 루트 노드 미설정]\n현재 프로젝트에 메인 루트(is_root=true)가 설정되어 있지 않습니다. 가장 핵심이 되는 노드 하나를 골라 'is_root'를 설정해 주세요.\n")
         elif unreachable_from_root:
-            context_parts.append(f"[🚫 루트 미도달 노드 (메인 주제 '{', '.join(root_slugs)}'와 단절됨)]\n- " + ", ".join(unreachable_from_root))
-            context_parts.append("(위 지식들은 핵심 포인트와 단절되어 있습니다. 전체 네트워크 활성화를 위해 메인 줄기와 연결하는 브릿지 관계를 만들어 주세요.)\n")
+            context_parts.append(f"[🚫 외딴섬 클러스터 (ROOT 주제 '{', '.join(root_slugs)}'와 단절됨)]\n- " + ", ".join(unreachable_from_root))
+            context_parts.append("(위 지식들은 메인 줄기와 연결되어 있지 않은 '외딴섬' 상태입니다. 전체 네트워크 활성화를 위해 이들을 메인 계보와 연결하는 브릿지 관계를 만들어 주세요.)\n")
             
         if rel_texts:
             context_parts.append("[현재 지식 관계도 목록]\n" + "\n".join(rel_texts))

@@ -352,7 +352,13 @@ async def extract_proposals(filename: str, full_text: str, custom_prompt: str, m
 
 def execute_project_chat(message: str, history: list[dict], project_context: str, llm, project_files_text: str = "", project_graph_text: str = "") -> str:
     messages = [
-        SystemMessage(content=f"당신은 이 프로젝트의 문서를 잘 알고 있는 친절한 AI 전문가입니다.\n\n[프로젝트 문서 정보]\n{project_context}\n\n[지식 구조도(관계)]\n{project_graph_text or '(현재 등록된 관계 없음)'}\n\n[참조 파일]\n{project_files_text or '(없음)'}")
+        SystemMessage(content=f"당신은 이 프로젝트의 문서를 잘 알고 있는 친절한 AI 전문가입니다.\n\n"
+                              f"[지식 구조 가이드라인]\n"
+                              f"- '외딴섬(Island)' 혹은 '고립' 노드란, 단순히 연결이 0개인 노드뿐만 아니라, 메인 루트(Root) 노드에서부터 도달할 수 없는 모든 노드와 클러스터를 의미합니다.\n"
+                              f"- 사용자가 지식 연결 상태를 물으면, [지식 구조도(관계)] 하단의 '외딴섬 클러스터' 목록을 확인하여 이들이 왜 메인 줄기와 떨어져 있는지 분석하고 연결 방안을 제시하세요.\n\n"
+                              f"[프로젝트 문서 정보]\n{project_context}\n\n"
+                              f"[지식 구조도(관계)]\n{project_graph_text or '(현재 등록된 관계 없음)'}\n\n"
+                              f"[참조 파일]\n{project_files_text or '(없음)'}")
     ]
     for msg in history:
         messages.append(HumanMessage(content=msg["content"]) if msg["role"] == "user" else AIMessage(content=msg["content"]))
