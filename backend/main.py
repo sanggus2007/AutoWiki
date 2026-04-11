@@ -382,6 +382,27 @@ import hashlib
 def generate_session_token() -> str:
     return secrets.token_hex(32)
 
+def get_decrypted_token(user, api_key_fallback: str = "") -> str:
+    """
+    Retrieve and decrypt the user's GitHub token.
+    Prioritizes api_key_fallback if provided.
+    Raises HTTPException if decryption fails or token is missing.
+    """
+    if api_key_fallback:
+        return api_key_fallback
+    
+    if not user or not user.github_token_enc:
+        return ""
+        
+    try:
+        return token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+    except Exception as e:
+        print(f"[Auth-Helper] Decryption failed for user {user.id}: {e}")
+        raise HTTPException(
+            status_code=401, 
+            detail="보안 키 변경으로 인해 GitHub 계정 재연결이 필요합니다. 설정 페이지에서 'GitHub Copilot 계정 연결하기'를 다시 진행해 주세요."
+        )
+
 # Request already imported from fastapi above
 
 def set_auth_cookie(response: Response, session_id: str, request: Request):
@@ -718,8 +739,13 @@ def get_auth_status(user=Depends(get_optional_user), db=Depends(get_db)):
     if not user or not user.github_token_enc:
         return {"status": "expired"}
     
-    # In a real app, we might check if the token is valid by making a tiny API call
-    return {"status": "active"}
+    # Verify if the current server can actually decrypt the token
+    try:
+        token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+        return {"status": "active"}
+    except Exception:
+        # Key mismatch - user needs to re-link
+        return {"status": "needs_relink"}
 
 @app.post("/api/auth/logout")
 def logout(request: Request, db=Depends(get_db)):
@@ -1032,17 +1058,6 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get
         else:
             print("[AnalyzeText] Context optimization: Skipping file contents")
 
-        # Decrypt GitHub token if not provided in payload
-        gh_token = payload.api_key
-        if not gh_token:
-            if user.github_token_enc:
-                try:
-                    gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
-                    print(f"[AnalyzeText] Decrypted GitHub token from DB (version: {user.encryption_key_version})")
-                except Exception as e:
-                    print(f"[AnalyzeText] ❌ Decryption failed: {e}")
-                    raise HTTPException(status_code=401, detail=f"토큰 복호화 실패 (서버 암호화 키 불일치 가능성): {str(e)}")
-            else:
                 print("[AnalyzeText] ⚠️ No GitHub token found for this user in DB.")
 
         print(f"[AnalyzeText] Running LLM planning with model: {payload.model_name}")
@@ -1210,12 +1225,7 @@ def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current
             project_files_text = "(첨부 파일 본문 정보는 비활성화되었습니다.)"
 
         # Decrypt GitHub token
-        gh_token = payload.api_key
-        if not gh_token and user.github_token_enc:
-            try:
-                gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
-            except Exception as e:
-                print(f"[ProjectChat] Token decryption error: {e}")
+        gh_token = get_decrypted_token(user, payload.api_key)
 
         print(f"[ProjectChat] Executing chat with model: {payload.model_name}")
         llm = get_llm(payload.model_name, gh_token, payload.thinking_level, payload.reasoning_effort)
@@ -1350,13 +1360,8 @@ async def upload_files(
     # Use sub_model for extraction (cheaper), fall back to main model if not set
     extraction_model = sub_model_name if sub_model_name else model_name
 
-    # Decrypt GitHub token
-    gh_token = api_key
-    if not gh_token and user.github_token_enc:
-        try:
-            gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
-        except Exception as e:
-            print(f"[Upload] Token decryption error: {e}")
+    # Decrypt GitHub token using centralized helper
+    gh_token = get_decrypted_token(user, api_key)
 
     results = []
     # from services.langchain_service import extract_text_from_file # Already imported at top
@@ -1405,6 +1410,9 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
     api_key = payload_data.get("api_key", "")
     thinking_level = payload_data.get("thinking_level")
     reasoning_effort = payload_data.get("reasoning_effort")
+
+    # Decrypt GitHub token
+    gh_token = get_decrypted_token(user, api_key)
     
     prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_generation").first()
     system_prompt = prompt_record.content if prompt_record else ""
@@ -1421,9 +1429,7 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
     project_graph = get_project_graph_context(project_id, db)
 
     # Commit uses main model for generation (heavy writing task)
-    gh_token = api_key
-    if not gh_token and user.github_token_enc:
-        gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+    gh_token = get_decrypted_token(user, api_key)
 
     llm = get_llm(model_name, gh_token, thinking_level, reasoning_effort)
     # payload_data will contain a "proposals" array

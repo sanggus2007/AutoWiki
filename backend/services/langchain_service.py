@@ -108,10 +108,9 @@ def get_llm(model_name: str, github_token: str, thinking_level: str = None, reas
     before passing it to the model.
     """
     if not github_token:
-         # System fallback (usually for server-side global key if configured)
-         github_token = os.environ.get("GITHUB_TOKEN")
-         if github_token:
-             print("[LLM-Auth] ℹ️ Using system-level GITHUB_TOKEN fallback")
+         # System fallback is now disabled to prevent credential confusion in production.
+         # Only use environment variable if specifically allowed for system-level background tasks.
+         pass
          
     if not github_token:
         print("[LLM-Auth] ❌ GitHub token is completely missing")
