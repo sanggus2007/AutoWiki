@@ -567,12 +567,14 @@ def google_callback(code: str, request: Request, db=Depends(get_db)):
     
     session = session_service.create_user_session(
         db, user.id, 
-        user_agent="Google-OAuth-Callback" # Simplified
+        user_agent=request.headers.get("user-agent"),
+        ip_address=request.client.host if request.client else None
     )
     
     frontend_url = config.FRONTEND_URL
 
-    response = RedirectResponse(f"{frontend_url}/login?auth=success")
+    # Include sid in redirect as a robust fallback for mobile browsers that block cookies
+    response = RedirectResponse(f"{frontend_url}/login?auth=success&sid={session.id}")
     set_auth_cookie(response, session.id, request)
     return response
 
@@ -598,25 +600,34 @@ def request_device_code():
 
 def get_current_user(request: Request, db=Depends(get_db)):
     session_id = request.cookies.get("session_id")
+    
+    # Fallback to Authorization header (Bearer <token>) specifically for mobile/cross-site fallback
+    auth_header = request.headers.get("Authorization")
+    if not session_id and auth_header and auth_header.startswith("Bearer "):
+        session_id = auth_header.replace("Bearer ", "").strip()
+        print(f"[Auth] 📱 Using Authorization fallback for session: {session_id[:8]}...")
+
     if not session_id:
-        # Fallback to Authorization header for migration/cross-compat temporarily? 
-        # No, the goal is to remove it. 
-        raise HTTPException(status_code=401, detail="Authentication required. No session found.")
+        raise HTTPException(status_code=401, detail="인증이 필요합니다. (No session found)")
     
     session = session_service.get_session(db, session_id)
     if not session:
-        raise HTTPException(status_code=401, detail="Session expired or invalid.")
+        raise HTTPException(status_code=401, detail="세션이 만료되었거나 유효하지 않습니다.")
     
     user = db.query(schema.User).filter(schema.User.id == session.user_id).first()
     if not user:
-        raise HTTPException(status_code=401, detail="User not found.")
+        raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다.")
     
-    # Attach session to request state if needed
     request.state.session_id = session_id
     return user
 
 def get_optional_user(request: Request, db=Depends(get_db)):
     session_id = request.cookies.get("session_id")
+    
+    auth_header = request.headers.get("Authorization")
+    if not session_id and auth_header and auth_header.startswith("Bearer "):
+        session_id = auth_header.replace("Bearer ", "").strip()
+
     if not session_id:
         return None
     session = session_service.get_session(db, session_id)
