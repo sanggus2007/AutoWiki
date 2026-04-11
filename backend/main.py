@@ -1058,7 +1058,8 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get
         else:
             print("[AnalyzeText] Context optimization: Skipping file contents")
 
-                print("[AnalyzeText] ⚠️ No GitHub token found for this user in DB.")
+        # Decrypt GitHub token
+        gh_token = get_decrypted_token(user, payload.api_key)
 
         print(f"[AnalyzeText] Running LLM planning with model: {payload.model_name}")
         llm = get_llm(payload.model_name, gh_token, payload.thinking_level, payload.reasoning_effort)
