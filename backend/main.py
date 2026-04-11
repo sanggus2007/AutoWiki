@@ -750,6 +750,48 @@ def update_prompt(key: str, payload: PromptUpdate, db=Depends(get_db)):
     db.commit()
     return {"status": "success"}
 
+@app.post("/api/prompts/reset")
+def reset_prompts(db=Depends(get_db)):
+    default_knowledge_prompt = """당신은 지식 네트워크 구축을 전문으로 하는 AI 플래너입니다.
+제시된 텍스트와 현재의 지식 그래프 상태를 분석하여 최적의 위키 구조를 설계하세요.
+
+[현재 그래프 맥락]
+- 기존 문서 목록: <<<EXISTING_ENTITIES>>>
+- 전체 카테고리: <<<ALL_CATEGORIES>>>
+- 관계도 및 통계: <<<PROJECT_GRAPH>>>
+
+[작업 지침]
+1. 사용자의 특별 지시(<<<CUSTOM_PROMPT>>>)나 분석 대상 텍스트(<<<TEXT>>>) 자체에 특정 그래프 수정 지침(예: '고립 노드 연결', '루트 도달 확인' 등)이 담겨 있다면, 새로운 지식 추출보다 해당 지침의 이행을 최우선으로 하세요. 
+2. 특히 <<<PROJECT_GRAPH>>> 섹션에 '루트 미도달'이나 '고립된 노드'가 명시되어 있다면, 이들을 기존 메인 줄기(Root)와 연결하는 보완 관계(edges)를 생성하는 데 집중하세요. **노드를 루트(is_root=true)로 만들어 문제를 해결하는 시도는 금지됩니다.**
+3. 루트 노드(is_root=true)는 전체 프로젝트에서 가장 핵심인 주제 **단 1개(또는 아주 극소수)**여야 합니다. 무분별하게 루트 노드를 늘리지 마세요.
+4. 새로운 지식을 추출할 때는 기존 문서들과의 연관성을 반드시 고려하여 거미줄처럼 촘촘히 연결된 네트워크를 지향하세요.
+5. 특히 다른 노드들과 단절되어 자기들끼리만 그룹을 형성한 '외딴섬(Island Cluster)' 형태의 노드들을 찾아내어, 이들을 프로젝트의 메인 계보(Root 및 핵심 인물)와 구체적인 관계(edges)로 강력하게 결속시키세요.
+
+[출력 데이터 구조] (반드시 아래 필드명을 준수할 것)
+1. 새로운 문서 (nodes): `id`, `name`, `type`, `categories`, `is_root`
+2. 수정 (patches): `entity_slug` (기존 ID), `entity_name`, `changes`
+3. 삭제 (deletions): `entity_slug`, `entity_name`, `reason`
+4. 관계 설정 (edges): **`source`** (시작 노드 ID), **`target`** (도착 노드 ID), **`label`** (관계 설명)
+
+[주의사항]
+- **데이터 정합성**: 작업 요약(plan_summary)에 언급한 모든 연결 및 수정 사항은 반드시 실제 데이터(nodes, edges, patches)에 반영되어야 합니다. 요약에만 쓰고 데이터를 누락하지 마세요.
+- plan_summary에 작업의 근거를 한국어로 명확히 설명하세요.
+- JSON 형식만 출력하며, 마크다운 코드 블록(```)은 절대 사용하지 마세요.
+- edges의 label은 "[A가] [B를] [어떻게 함]" 형태로 구체적으로 작성하세요.
+- 이미 지도가 완벽하거나 추가/수정할 내용이 없다면 nodes, patches 등을 빈 배열[]로 반환하세요.
+
+분석 대상 텍스트:
+<<<TEXT>>>"""
+
+    target = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_extraction").first()
+    if target:
+        target.content = default_knowledge_prompt
+        db.commit()
+    
+    # Return all prompts after reset
+    prompts = db.query(schema.SystemPrompt).order_by(schema.SystemPrompt.id).all()
+    return [{"key": p.key, "name": p.name, "content": p.content, "description": p.description} for p in prompts]
+
 # ──────────────────────────────────────
 # Project Endpoints
 # ──────────────────────────────────────
@@ -774,7 +816,7 @@ def get_project_graph_context(project_id: int, db) -> str:
             if r.source_entity_slug in entity_slugs and r.target_entity_slug in entity_slugs:
                 rel_texts.append(f"- [ID: {r.id}] {r.source_entity_slug} -> {r.target_entity_slug} ({r.context})")
                 adj[r.source_entity_slug].append(r.target_entity_slug)
-                adj[r.target_entity_slug].append(r.source_entity_slug)
+                # Removed reverse edge to enforce directed reachability.
                 connection_counts[r.source_entity_slug] += 1
                 connection_counts[r.target_entity_slug] += 1
         
@@ -794,21 +836,23 @@ def get_project_graph_context(project_id: int, db) -> str:
         
         # 분류
         isolated = [s for s, count in connection_counts.items() if count == 0]
-        weak = [s for s, count in connection_counts.items() if count == 1]
         unreachable_from_root = [s for s in entity_slugs if s not in reachable and s not in isolated]
-        
         context_parts = []
-        if rel_texts:
-            context_parts.append("[현재 프로젝트의 관계도]\n" + "\n".join(rel_texts))
-        else:
-            context_parts.append("[현재 프로젝트의 관계도]\n(현재 등록된 관계 없음)")
-            
+        
         if isolated:
-            context_parts.append("\n[❌ 고립된 노드 (연결 0개)]\n- " + ", ".join(isolated))
-        if weak:
-            context_parts.append("\n[⚠️ 빈약한 노드 (연결 1개뿐)]\n- " + ", ".join(weak))
-        if unreachable_from_root and root_slugs:
-            context_parts.append(f"\n[🚫 루트 미도달 노드 (메인 주제 '{', '.join(root_slugs)}'와 단절됨)]\n- " + ", ".join(unreachable_from_root))
+            context_parts.append("[❌ 고립된 노드 (연결 0개)]\n- " + ", ".join(isolated))
+            context_parts.append("(위 노드들은 현재 그래프에서 고립되어 있으므로, 다른 노드와 반드시 연결해 주세요.)\n")
+            
+        if not root_slugs:
+            context_parts.append("[⚠️ 루트 노드 미설정]\n현재 프로젝트에 메인 루트(is_root=true)가 설정되어 있지 않습니다. 가장 핵심이 되는 노드 하나를 골라 'is_root'를 설정해 주세요.\n")
+        elif unreachable_from_root:
+            context_parts.append(f"[🚫 루트 미도달 노드 (메인 주제 '{', '.join(root_slugs)}'와 단절됨)]\n- " + ", ".join(unreachable_from_root))
+            context_parts.append("(위 지식들은 핵심 포인트와 단절되어 있습니다. 전체 네트워크 활성화를 위해 메인 줄기와 연결하는 브릿지 관계를 만들어 주세요.)\n")
+            
+        if rel_texts:
+            context_parts.append("[현재 지식 관계도 목록]\n" + "\n".join(rel_texts))
+        else:
+            context_parts.append("[현재 지식 관계도 목록]\n(현재 등록된 관계 없음)")
             
         return "\n".join(context_parts)
     except Exception as e:
@@ -924,6 +968,9 @@ class TextAnalysisRequest(BaseModel):
     api_key: str = ""
     thinking_level: Optional[str] = None
     reasoning_effort: Optional[str] = None
+    include_entities: bool = True
+    include_graph: bool = True
+    include_files: bool = True
 
 @app.post("/api/projects/{project_id}/analyze-text")
 def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get_current_user), db=Depends(get_db)):
@@ -937,28 +984,41 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get
         prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_extraction").first()
         system_prompt = prompt_record.content if prompt_record else ""
 
+        # Optimized Context: Entity Information
         existing = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
-        # Provide more context to the planner: Name, Type, and a snippet of the current summary
         existing_entities = []
-        for e in existing:
-            summary_snippet = (e.summary or "").replace("\n", " ")[:1000]
-            existing_entities.append(f"- **{e.name}** (slug: {e.slug}, 타입: {e.type}): {summary_snippet}...")
+        if payload.include_entities:
+            # Full mode: Names + Types + Summaries
+            for e in existing:
+                summary_snippet = (e.summary or "").replace("\n", " ")[:1000]
+                existing_entities.append(f"- **{e.name}** (slug: {e.slug}, 타입: {e.type}): {summary_snippet}...")
+        else:
+            # Simple mode: Just Names and Types (Very small token usage, still prevents duplicates)
+            for e in existing:
+                existing_entities.append(f"- {e.name} ({e.type})")
+            print(f"[AnalyzeText] Context optimization: Sending only names for {len(existing)} entities")
 
-        # Collect all categories for global structure context
         all_cat_records = db.query(schema.Category).all()
         all_categories = [c.name for c in all_cat_records]
 
-        # Collect project graph context
-        print("[AnalyzeText] Fetching graph context...")
-        project_graph = get_project_graph_context(project_id, db)
+        # Optimized Context: Project Graph
+        project_graph = ""
+        if payload.include_graph:
+            print("[AnalyzeText] Fetching graph context...")
+            project_graph = get_project_graph_context(project_id, db)
 
-        # Auto-load selected project reference files
-        selected_pf = db.query(schema.ProjectFile).filter(
-            schema.ProjectFile.project_id == project_id,
-            schema.ProjectFile.is_selected == True
-        ).all()
-        files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
-        project_files_text = "\n\n".join(files_text)
+        # Optimized Context: Project Files
+        project_files_text = ""
+        if payload.include_files:
+            selected_pf = db.query(schema.ProjectFile).filter(
+                schema.ProjectFile.project_id == project_id,
+                schema.ProjectFile.is_selected == True
+            ).all()
+            files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
+            project_files_text = "\n\n".join(files_text)
+            print(f"[AnalyzeText] Included {len(selected_pf)} selected files")
+        else:
+            print("[AnalyzeText] Context optimization: Skipping file contents")
 
         # Decrypt GitHub token if not provided in payload
         gh_token = payload.api_key
@@ -971,7 +1031,7 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get
             payload.text, payload.custom_prompt, llm, system_prompt, existing_entities, all_categories, project_files_text, project_graph=project_graph
         )
 
-        # Filter out hallucinations: deletions or patches for non-existent entities
+        # Filter out hallucinations
         existing_slugs = {e.slug for e in existing}
         valid_patches = [p.model_dump() for p in plan.patches if p.entity_slug in existing_slugs]
         valid_deletions = [d.model_dump() for d in plan.deletions if d.entity_slug in existing_slugs]
@@ -1061,72 +1121,106 @@ class ChatRequest(BaseModel):
     session_id: Optional[int] = None
     thinking_level: Optional[str] = None
     reasoning_effort: Optional[str] = None
+    include_entities: bool = True
+    include_graph: bool = True
+    include_files: bool = True
 
 @app.post("/api/projects/{project_id}/chat")
 def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current_user), db=Depends(get_db)):
-    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    print(f"[ProjectChat] Request received for project {project_id}")
+    try:
+        project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
 
-    session = None
-    if payload.session_id:
-        session = db.query(schema.ChatSession).filter(schema.ChatSession.id == payload.session_id, schema.ChatSession.project_id == project_id).first()
-        if not session:
-            raise HTTPException(status_code=404, detail="Chat session not found")
-    else:
-        title_text = payload.message[:30] + "..." if len(payload.message) > 30 else payload.message
-        session = schema.ChatSession(project_id=project_id, title=title_text)
-        db.add(session)
-        db.commit()
-        db.refresh(session)
-        if payload.history:
-            for h in payload.history:
-                db.add(schema.ChatMessage(session_id=session.id, role=h.get("role", "assistant"), content=h.get("content", "")))
+        session = None
+        if payload.session_id:
+            session = db.query(schema.ChatSession).filter(schema.ChatSession.id == payload.session_id, schema.ChatSession.project_id == project_id).first()
+            if not session:
+                raise HTTPException(status_code=404, detail="Chat session not found")
+        else:
+            title_text = payload.message[:30] + "..." if len(payload.message) > 30 else payload.message
+            session = schema.ChatSession(project_id=project_id, title=title_text)
+            db.add(session)
             db.commit()
+            db.refresh(session)
+            if payload.history:
+                for h in payload.history:
+                    db.add(schema.ChatMessage(session_id=session.id, role=h.get("role", "assistant"), content=h.get("content", "")))
+                db.commit()
 
-    db.add(schema.ChatMessage(session_id=session.id, role="user", content=payload.message))
-    db.commit()
+        db.add(schema.ChatMessage(session_id=session.id, role="user", content=payload.message))
+        db.commit()
 
-    entities = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
-    project_context = ""
-    for e in entities:
-        categories = ", ".join([c.name for c in e.categories])
-        project_context += f"- **{e.name}** ({e.type}, 분류: {categories})\n  {e.summary[:1000]}...\n\n"
+        # Build context
+        project_context = ""
+        entities = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
         
-    if not project_context:
-        project_context = "이 프로젝트에는 아직 등록된 문서/데이터가 없습니다."
+        if payload.include_entities:
+            # Full mode: Narrate summaries for deeper chat context
+            for e in entities:
+                try:
+                    cat_names = [c.name for c in e.categories]
+                    categories = ", ".join(cat_names)
+                    project_context += f"- **{e.name}** ({e.type}, 분류: {categories})\n  {(e.summary or '')[:1000]}...\n\n"
+                except: continue
+        else:
+            # Simple mode: List names to let AI know they exist
+            project_context = "(기본 문서 정보는 비활성화되었으나, 다음 문서들이 프로젝트에 존재합니다: " + ", ".join([e.name for e in entities]) + ")"
+            
+        if not project_context and payload.include_entities:
+            project_context = "이 프로젝트에는 아직 등록된 문서/데이터가 없습니다."
 
-    # Added: Provide the entire graph structure (relationships) to the chat AI
-    project_graph_text = get_project_graph_context(project_id, db)
+        # Fetch graph context
+        project_graph_text = ""
+        if payload.include_graph:
+            print("[ProjectChat] Getting graph context...")
+            project_graph_text = get_project_graph_context(project_id, db)
 
-    selected_pf = db.query(schema.ProjectFile).filter(
-        schema.ProjectFile.project_id == project_id,
-        schema.ProjectFile.is_selected == True
-    ).all()
-    files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
-    project_files_text = "\n\n".join(files_text)
+        # Fetch file context
+        project_files_text = ""
+        if payload.include_files:
+            selected_pf = db.query(schema.ProjectFile).filter(
+                schema.ProjectFile.project_id == project_id,
+                schema.ProjectFile.is_selected == True
+            ).all()
+            files_text = [f"[{pf.filename}]\n{pf.content_text}" for pf in selected_pf]
+            project_files_text = "\n\n".join(files_text)
+        else:
+            project_files_text = "(첨부 파일 본문 정보는 비활성화되었습니다.)"
 
-    # Decrypt GitHub token if not provided in payload
-    gh_token = payload.api_key
-    if not gh_token and user.github_token_enc:
-        gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+        # Decrypt GitHub token
+        gh_token = payload.api_key
+        if not gh_token and user.github_token_enc:
+            try:
+                gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+            except Exception as e:
+                print(f"[ProjectChat] Token decryption error: {e}")
 
-    llm = get_llm(payload.model_name, gh_token, payload.thinking_level, payload.reasoning_effort)
-    
-    reply = execute_project_chat(
-        message=payload.message,
-        history=payload.history,
-        project_context=project_context,
-        llm=llm,
-        project_files_text=project_files_text,
-        project_graph_text=project_graph_text  # Pass the graph text
-    )
-    
-    db.add(schema.ChatMessage(session_id=session.id, role="assistant", content=reply))
-    session.updated_date = datetime.datetime.utcnow()
-    db.commit()
-    
-    return {"reply": reply, "session_id": session.id}
+        print(f"[ProjectChat] Executing chat with model: {payload.model_name}")
+        llm = get_llm(payload.model_name, gh_token, payload.thinking_level, payload.reasoning_effort)
+        
+        reply = execute_project_chat(
+            message=payload.message,
+            history=payload.history,
+            project_context=project_context,
+            llm=llm,
+            project_files_text=project_files_text,
+            project_graph_text=project_graph_text
+        )
+        
+        db.add(schema.ChatMessage(session_id=session.id, role="assistant", content=reply))
+        session.updated_date = datetime.datetime.utcnow()
+        db.commit()
+        
+        print("[ProjectChat] Success")
+        return {"reply": reply, "session_id": session.id}
+    except Exception as e:
+        print(f"[ProjectChat] ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail=f"채팅 처리 중 오류가 발생했습니다: {str(e)}")
 
 @app.get("/api/projects/{project_id}/chat-sessions")
 def list_chat_sessions(project_id: int, user=Depends(get_current_user), db=Depends(get_db)):
@@ -1187,6 +1281,8 @@ async def upload_files(
     api_key: str = Form(""),
     thinking_level: str = Form(None),
     reasoning_effort: str = Form(None),
+    include_entities: bool = Form(True),
+    include_graph: bool = Form(True),
     user=Depends(get_current_user),
     db=Depends(get_db)
 ):
@@ -1200,19 +1296,28 @@ async def upload_files(
     prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_extraction").first()
     system_prompt = prompt_record.content if prompt_record else ""
 
-    # Collect existing entity context (Name, Type, Summary) to help planner avoid duplicates and plan patches
-    existing = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
+    # Optional Context: Existing Entities
     existing_entities = []
-    for e in existing:
-        summary_snippet = (e.summary or "").replace("\n", " ")[:1000]
-        existing_entities.append(f"- **{e.name}** (slug: {e.slug}, 타입: {e.type}): {summary_snippet}...")
+    if include_entities:
+        existing = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
+        for e in existing:
+            summary_snippet = (e.summary or "").replace("\n", " ")[:1000]
+            existing_entities.append(f"- **{e.name}** (slug: {e.slug}, 타입: {e.type}): {summary_snippet}...")
+    else:
+        print("[Upload] Context optimization: skipping entity summaries")
 
     # Collect all categories for global structure context
     all_cat_records = db.query(schema.Category).all()
     all_categories = [c.name for c in all_cat_records]
 
-    # Collect project graph context
-    project_graph = get_project_graph_context(project_id, db)
+    # Optional Context: Project Graph
+    project_graph = ""
+    if include_graph:
+        print("[Upload] Fetching graph context...")
+        project_graph = get_project_graph_context(project_id, db)
+    else:
+        print("[Upload] Context optimization: skipping graph visualization")
+
 
     # Auto-load selected project reference files
     selected_pf = db.query(schema.ProjectFile).filter(

@@ -26,12 +26,18 @@ export async function apiFetch(input: string | URL | Request, init?: RequestInit
     if (res.status === 401) {
       const clone = res.clone();
       const text = await clone.text();
-      // Don't auto-redirect if it's just a GitHub token issue
-      if (!text.toLowerCase().includes("github") && !text.toLowerCase().includes("copilot")) {
+      const lowerText = text.toLowerCase();
+      
+      // AI 관련 GitHub 토큰 부족 에러는 인증 해제(로그아웃) 대상이 아님
+      const isGitHubError = lowerText.includes("github") || lowerText.includes("token") || lowerText.includes("key");
+      
+      if (!isGitHubError) {
         logout();
         if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
            window.location.href = "/login";
         }
+      } else {
+        console.warn("[apiFetch] 401 GitHub/Token Error detected. Skipping auto-logout.");
       }
     }
     

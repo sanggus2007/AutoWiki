@@ -35,9 +35,9 @@ export interface GraphSettings {
   labelMode: 'always' | 'hover' | 'hidden';
   showParticles: boolean;
   showLinkLabels: boolean;
-  chargeStrength: number;   // -800 ~ -50
-  ringSpacing: number;      // 60 ~ 250 (radial only)
-  linkDistance: number;     // 30 ~ 300
+  chargeStrength: number;   // -1200 ~ -50
+  ringSpacing: number;      // 60 ~ 600 (radial only)
+  linkDistance: number;     // 30 ~ 600
   theme: 'dark' | 'cosmos' | 'neon' | 'forest';
 }
 
@@ -48,9 +48,9 @@ export const DEFAULT_SETTINGS: GraphSettings = {
   labelMode: 'always',
   showParticles: true,
   showLinkLabels: false,
-  chargeStrength: -320,
-  ringSpacing: 140,
-  linkDistance: 100,
+  chargeStrength: -500,
+  ringSpacing: 250,
+  linkDistance: 280,
   theme: 'dark',
 };
 
@@ -280,14 +280,17 @@ function applyRadialLayout(nodes: any[], metrics: GraphMetrics, ringSpacing: num
   // 위치 적용
   for (const node of nodes) {
     if (node.id === rootId) {
-      node.fx = 0; node.fy = 0; node.x = 0; node.y = 0;
+      node.fx = 0; node.fy = 0; node.fz = 0;
+      node.x = 0; node.y = 0; node.z = 0;
     } else {
-      node.fx = undefined; node.fy = undefined;
+      node.fx = undefined; node.fy = undefined; node.fz = undefined;
       const d = depth[node.id] ?? 1;
       const r = d * ringSpacing;
       const angle = nodeAngle[node.id] ?? (Math.random() * 2 * Math.PI);
       node.x = r * Math.cos(angle);
       node.y = r * Math.sin(angle);
+      // 3D 공간에서도 중심 레이어에 가깝게 배치하여 초기 혼란 방지
+      node.z = (Math.random() - 0.5) * 5; 
     }
   }
 }
@@ -438,6 +441,8 @@ export const KnowledgeGraph = ({
   const [showCoreLinks, setShowCoreLinks] = useState(true);
   const [showSubLinks, setShowSubLinks] = useState(true);
 
+  const [isFilterExpanded, setIsFilterExpanded] = useState(true);
+
   const theme = THEMES[settings.theme];
 
   // ── 3D Label Texture Cache ──────────────────────────────
@@ -517,12 +522,28 @@ export const KnowledgeGraph = ({
     const h = () => fetchGraph();
     window.addEventListener('graph:refresh', h);
     const r = () => {
-      graphData.nodes.forEach((n: any) => { n.fx = undefined; n.fy = undefined; });
+      // 모든 노드 속도/핀 초기화
+      graphData.nodes.forEach((n: any) => { 
+        n.fx = undefined; n.fy = undefined; n.fz = undefined;
+        n.vx = 0; n.vy = 0; n.vz = 0;
+      });
+
       if (settings.layout === 'radial' && metrics) {
         applyRadialLayout(graphData.nodes, metrics, settings.ringSpacing);
       }
-      graphRef.current?.d3ReheatSimulation();
-      setTimeout(() => graphRef.current?.zoomToFit(800, 80), 100);
+      
+      const g = graphRef.current;
+      if (g) {
+        try {
+          if (typeof g.d3ReheatSimulation === 'function') g.d3ReheatSimulation();
+        } catch (err) {
+          console.warn("Reset reheat failed:", err);
+        }
+        // 약간의 지연 후 핏 조정 (시뮬레이션이 한 프레임은 돌아야 위치가 반영됨)
+        setTimeout(() => {
+          if (typeof g.zoomToFit === 'function') g.zoomToFit(800, 80);
+        }, 150);
+      }
     };
     window.addEventListener('graph:reset', r);
     return () => {
@@ -585,12 +606,35 @@ export const KnowledgeGraph = ({
         delete n.vz;
         delete n.fz;
       });
+    } else {
+      // 3D로 전환 시 모든 노드에 z가 없으면 초기화
+      graphData.nodes.forEach((n: any) => {
+        if (n.z === undefined) n.z = (Math.random() - 0.5) * 10;
+      });
     }
 
     graphData.nodes.forEach((node: any) => {
       node.val = Math.max(4, getRadius(node) ** 2 / 14);
     });
-  }, [metrics, settings.layout, settings.ringSpacing, getRadius, settings.dimension]); // Added dimension dependency
+
+    // 레이아웃 적용 후 강제 리히트 및 핏 (최초 로드 시 꼬임 방지)
+    // 2D <-> 3D 전환 시 엔진 초기화 대기를 위해 지연 실행 (tick 에러 방지)
+    const timeoutId = setTimeout(() => {
+      const g = graphRef.current;
+      if (g && typeof g.d3ReheatSimulation === 'function') {
+        try {
+          g.d3ReheatSimulation();
+          // 데이터가 많을 경우 대비하여 점진적으로 핏 조정
+          setTimeout(() => g.zoomToFit?.(1000, 100), 200);
+          setTimeout(() => g.zoomToFit?.(600, 120), 1000);
+        } catch (err) {
+          console.warn("Initial layout sync failed:", err);
+        }
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [metrics, settings.layout, settings.ringSpacing, getRadius, settings.dimension]);
 
   const isTreeEdge = useCallback((link: any): boolean => {
     if (!metrics) return false;
@@ -658,25 +702,27 @@ export const KnowledgeGraph = ({
         if (typeof g.d3ReheatSimulation === 'function') {
           g.d3ReheatSimulation();
         }
-        setTimeout(() => {
-          if (graphRef.current && typeof graphRef.current.zoomToFit === 'function') {
-            graphRef.current.zoomToFit(700, 80);
-          }
-        }, 800);
+
+        // 수치 조정 시에는 핏(Zoom)을 하지 않음 (조작감 개선)
+        // 레이아웃이나 차원이 바뀔 때만 레이아웃 효과에서 핏을 수행함
       } catch (err) {
         console.warn("Physics sync transiently failed:", err);
       }
     }, 50);
 
     return () => clearTimeout(timeoutId);
-  }, [settings.layout, settings.chargeStrength, settings.linkDistance, settings.ringSpacing, metrics, isTreeEdge, settings.dimension]); // Added dimension dependency
+  }, [settings.layout, settings.chargeStrength, settings.linkDistance, settings.ringSpacing, metrics, isTreeEdge, settings.dimension]);
 
   // ── Initial zoom ─────────────────────────────────────────
   useEffect(() => {
     if (graphRef.current && graphData.nodes.length > 0) {
-      setTimeout(() => graphRef.current?.zoomToFit(900, 80), 1400);
+      // 이미 레이아웃 효과에서 처리하므로 여기서는 보조적인 핏만 수행
+      const timer = setTimeout(() => {
+        graphRef.current?.zoomToFit?.(800, 100);
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [graphData]);
+  }, [graphData.nodes.length]); // 의존성 최적화
 
   const isLinkHighlighted = useCallback((link: any) => {
     return (editMode && link.id === selectedLinkId) || (!editMode && hoveredLink && link.id === hoveredLink.id);
@@ -1009,93 +1055,108 @@ export const KnowledgeGraph = ({
       )}
 
       {/* 분류 패널 — 실제 프로젝트 분류 목록 + 필터 */}
-      <div className="absolute bottom-6 right-6 z-20 select-none">
-        <div
-          className="border border-[#2e2e2e] px-4 py-3 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur-md min-w-[150px] transition-all"
-          style={{ background: `${theme.bg}cc` }}
+      <div className="absolute bottom-6 right-6 z-20 select-none flex flex-col items-end gap-3">
+        {/* Toggle Button */}
+        <button
+          onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+          className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md border border-white/10 text-white/70 hover:text-white transition-all bg-black/40"
+          title={isFilterExpanded ? "필터 숨기기" : "필터 보이기"}
         >
-          <div className="flex items-center justify-between gap-4 mb-3 pb-2 border-b border-white/5">
-            <div className="text-[10px] text-[#888] font-bold uppercase tracking-widest">지식 필터</div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setHiddenTypes(new Set())}
-                className="text-[9px] text-[#555] hover:text-[#aaa] transition-colors"
-              >
-                모두 켜기
-              </button>
-              <button
-                onClick={() => setHiddenTypes(new Set(colorMap.keys()))}
-                className="text-[9px] text-[#555] hover:text-[#aaa] transition-colors"
-              >
-                모두 끄기
-              </button>
-            </div>
-          </div>
+          {isFilterExpanded ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/></svg>
+          )}
+        </button>
 
-          <div className="max-h-[280px] overflow-y-auto scrollbar-none pr-1">
-            {/* Types */}
-            <div className="space-y-1.5 mb-3.5">
-              {(Array.from(colorMap.entries()) as [string, string][])
-                .sort(([a], [b]) => a.localeCompare(b, 'ko'))
-                .map(([type, color]) => {
-                  const isHidden = hiddenTypes.has(type);
-                  return (
-                    <div
-                      key={type}
-                      onClick={() => {
-                        setHiddenTypes(prev => {
-                          const next = new Set(prev);
-                          if (isHidden) next.delete(type);
-                          else next.add(type);
-                          return next;
-                        });
-                      }}
-                      className={`flex items-center gap-2.5 cursor-pointer group transition-opacity ${isHidden ? 'opacity-30' : 'opacity-100'}`}
-                    >
-                      <div className="relative">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full block flex-shrink-0 transition-transform group-hover:scale-110"
-                          style={{ background: color, boxShadow: isHidden ? 'none' : `0 0 8px ${color}` }}
-                        />
-                      </div>
-                      <span className="text-[12px] font-medium flex-1" style={{ color: theme.labelText }}>{type}</span>
-                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${isHidden ? 'border-[#444]' : 'border-white/20 bg-white/5'}`}>
-                        {!isHidden && <div className="w-1.5 h-1.5 bg-white rounded-px" />}
-                      </div>
-                    </div>
-                  );
-                })
-              }
-              {graphData.nodes.length === 0 && (
-                <div className="text-[10px] text-[#444]">노드 없음</div>
-              )}
-            </div>
-
-            {/* Connections */}
-            <div className="mt-3 pt-3 border-t border-white/5 space-y-2">
-              <div
-                onClick={() => setShowCoreLinks(!showCoreLinks)}
-                className={`flex items-center gap-2.5 cursor-pointer transition-opacity ${!showCoreLinks ? 'opacity-30' : 'opacity-100'}`}
-              >
-                <div className="w-5 h-[2.5px] rounded-full" style={{ background: theme.linkTree }} />
-                <span className="text-[10px] text-[#aaa] flex-1">핵심 연결</span>
-                <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${!showCoreLinks ? 'border-[#444]' : 'border-white/20 bg-white/5'}`}>
-                  {showCoreLinks && <div className="w-1.5 h-1.5 bg-white rounded-px" />}
-                </div>
-              </div>
-              <div
-                onClick={() => setShowSubLinks(!showSubLinks)}
-                className={`flex items-center gap-2.5 cursor-pointer transition-opacity ${!showSubLinks ? 'opacity-30' : 'opacity-100'}`}
-              >
-                <div className="w-5 h-[2px] border-t border-dashed border-[#666]" />
-                <span className="text-[10px] text-[#999] flex-1">부가 연결</span>
-                <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${!showSubLinks ? 'border-[#444]' : 'border-white/20 bg-white/5'}`}>
-                  {showSubLinks && <div className="w-1.5 h-1.5 bg-white rounded-px" />}
-                </div>
+        {isFilterExpanded && (
+          <div
+            className="border border-[#2e2e2e] px-4 py-3 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] backdrop-blur-md min-w-[200px] max-w-[260px] animate-in slide-in-from-bottom-2 duration-200"
+            style={{ background: `${theme.bg}cc` }}
+          >
+            <div className="flex items-center justify-between gap-4 mb-3 pb-2 border-b border-white/5">
+              <div className="text-[10px] text-[#888] font-bold uppercase tracking-widest">지식 필터</div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setHiddenTypes(new Set())}
+                  className="text-[9px] text-[#555] hover:text-[#aaa] transition-colors"
+                >
+                  모두 켜기
+                </button>
+                <button
+                  onClick={() => setHiddenTypes(new Set(colorMap.keys()))}
+                  className="text-[9px] text-[#555] hover:text-[#aaa] transition-colors"
+                >
+                  모두 끄기
+                </button>
               </div>
             </div>
+
+            <div className="max-h-[280px] overflow-y-auto scrollbar-none pr-1">
+              {/* Types */}
+              <div className="space-y-1.5 mb-3.5">
+                {(Array.from(colorMap.entries()) as [string, string][])
+                  .sort(([a], [b]) => a.localeCompare(b, 'ko'))
+                  .map(([type, color]) => {
+                    const isHidden = hiddenTypes.has(type);
+                    return (
+                      <div
+                        key={type}
+                        onClick={() => {
+                          setHiddenTypes(prev => {
+                            const next = new Set(prev);
+                            if (isHidden) next.delete(type);
+                            else next.add(type);
+                            return next;
+                          });
+                        }}
+                        className={`flex items-center gap-2.5 cursor-pointer group transition-opacity ${isHidden ? 'opacity-30' : 'opacity-100'}`}
+                      >
+                        <div className="relative">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full block flex-shrink-0 transition-transform group-hover:scale-110"
+                            style={{ background: color, boxShadow: isHidden ? 'none' : `0 0 8px ${color}` }}
+                          />
+                        </div>
+                        <span className="text-[12px] font-medium flex-1 truncate" style={{ color: theme.labelText }} title={type}>{type}</span>
+                        <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${isHidden ? 'border-[#444]' : 'border-white/20 bg-white/5'}`}>
+                          {!isHidden && <div className="w-1.5 h-1.5 bg-white rounded-px" />}
+                        </div>
+                      </div>
+                    );
+                  })
+                }
+                {graphData.nodes.length === 0 && (
+                  <div className="text-[10px] text-[#444]">노드 없음</div>
+                )}
+              </div>
+
+              {/* Connections */}
+              <div className="mt-3 pt-3 border-t border-white/5 space-y-2">
+                <div
+                  onClick={() => setShowCoreLinks(!showCoreLinks)}
+                  className={`flex items-center gap-2.5 cursor-pointer transition-opacity ${!showCoreLinks ? 'opacity-30' : 'opacity-100'}`}
+                >
+                  <div className="w-5 h-[2.5px] rounded-full" style={{ background: theme.linkTree }} />
+                  <span className="text-[10px] text-[#aaa] flex-1">핵심 연결</span>
+                  <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${!showCoreLinks ? 'border-[#444]' : 'border-white/20 bg-white/5'}`}>
+                    {showCoreLinks && <div className="w-1.5 h-1.5 bg-white rounded-px" />}
+                  </div>
+                </div>
+                <div
+                  onClick={() => setShowSubLinks(!showSubLinks)}
+                  className={`flex items-center gap-2.5 cursor-pointer transition-opacity ${!showSubLinks ? 'opacity-30' : 'opacity-100'}`}
+                >
+                  <div className="w-5 h-[2px] border-t border-dashed border-[#666]" />
+                  <span className="text-[10px] text-[#999] flex-1">부가 연결</span>
+                  <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${!showSubLinks ? 'border-[#444]' : 'border-white/20 bg-white/5'}`}>
+                    {showSubLinks && <div className="w-1.5 h-1.5 bg-white rounded-px" />}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Edit mode badge */}

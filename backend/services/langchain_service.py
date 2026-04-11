@@ -146,12 +146,21 @@ def plan_knowledge_extraction(text: str, custom_prompt: str, llm, system_prompt:
     categories_block = ", ".join(all_categories) if all_categories else "(없음)"
     files_block = project_files_text if project_files_text else "(없음)"
     
-    base_prompt = system_prompt.replace("<<<TEXT>>>", text)\
-                               .replace("<<<CUSTOM_PROMPT>>>", custom_prompt if custom_prompt else "없음")\
-                               .replace("<<<EXISTING_ENTITIES>>>", existing_block)\
-                               .replace("<<<ALL_CATEGORIES>>>", categories_block)\
-                               .replace("<<<PROJECT_FILES>>>", files_block)\
-                               .replace("<<<PROJECT_GRAPH>>>", project_graph if project_graph else "(없음)")
+    base_prompt = (system_prompt.replace("<<<TEXT>>>", text)
+                   .replace("<<<CUSTOM_PROMPT>>>", custom_prompt if custom_prompt else "없음")
+                   .replace("<<<EXISTING_ENTITIES>>>", existing_block)
+                   .replace("<<<ALL_CATEGORIES>>>", categories_block)
+                   .replace("<<<PROJECT_FILES>>>", files_block)
+                   .replace("<<<PROJECT_GRAPH>>>", project_graph if project_graph else "(없음)"))
+
+    # [DEBUG] AI에게 전달되는 최종 프롬프트 전문을 파일로 기록합니다.
+    try:
+        debug_path = os.path.join(os.path.dirname(__file__), "..", "last_prompt_debug.txt")
+        with open(debug_path, "w", encoding="utf-8") as f:
+            f.write(base_prompt)
+        print(f"[Debug] Final prompt saved to: {debug_path}")
+    except Exception as log_err:
+        print(f"[Debug] Failed to save prompt log: {log_err}")
     
     for attempt in range(3):
         try:

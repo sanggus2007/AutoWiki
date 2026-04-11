@@ -176,7 +176,7 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
     }
   };
 
-  const handleSubmit = async (text: string, useSubModel: boolean) => {
+  const handleSubmit = async (text: string, useSubModel: boolean, includeEntities: boolean = true, includeGraph: boolean = true, includeFiles: boolean = true) => {
     if (!text.trim() || isLoading) return;
 
     const newMessages = [...messages, { role: "user" as const, content: text }];
@@ -202,7 +202,10 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
           session_id: currentSessionId,
           thinking_level: thinkingLevel,
           reasoning_effort: reasoningEffort,
-          api_key: apiKey
+          api_key: apiKey,
+          include_entities: includeEntities,
+          include_graph: includeGraph,
+          include_files: includeFiles
         }),
       });
 
@@ -210,7 +213,7 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
         const errText = await res.text();
         if (is401(res.status, errText)) {
           setMessages(messages); // revert
-          setPendingAction({ text, useSubModel });
+          setPendingAction({ text, useSubModel, includeEntities, includeGraph, includeFiles } as any);
           if (errText.includes("GitHub") || errText.includes("Token")) {
             setShowTutorial(true);
           } else {
@@ -238,11 +241,11 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
 
   const handleAuthSuccess = () => {
     setShowAuthOverlay(false);
-    const saved = pendingAction;
+    const saved = pendingAction as any;
     setPendingAction(null);
     if (saved) {
       setTimeout(() => {
-        handleSubmit(saved.text, saved.useSubModel);
+        handleSubmit(saved.text, saved.useSubModel, saved.includeEntities, saved.includeGraph, saved.includeFiles);
       }, 500);
     }
   };

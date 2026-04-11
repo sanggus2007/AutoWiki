@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Key, Bot, Save, AlertCircle, CheckCircle2, HelpCircle, Sparkles, LogOut, Loader2, ExternalLink, Copy, Check } from "lucide-react";
+import { Key, Bot, Save, AlertCircle, CheckCircle2, HelpCircle, Sparkles, LogOut, Loader2, ExternalLink, Copy, Check, RotateCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
@@ -114,6 +114,22 @@ export default function SettingsPage() {
     }
   };
 
+  const handleResetPrompts = async () => {
+    if (confirm("모든 시스템 프롬프트를 권장 기본값으로 복구하시겠습니까? 현재 작성된 내용은 사라집니다.")) {
+      try {
+        const res = await apiFetch("/api/prompts/reset", { method: "POST" });
+        if (res.ok) {
+          const data = await res.json();
+          setPrompts(data);
+          setPromptsSaved(true);
+          setTimeout(() => setPromptsSaved(false), 3000);
+        }
+      } catch (err) {
+        console.error("Failed to reset prompts", err);
+      }
+    }
+  };
+
   const handleSave = () => {
     localStorage.setItem("autowiki_llm_model", model);
     localStorage.setItem("autowiki_llm_sub_model", subModel);
@@ -122,6 +138,28 @@ export default function SettingsPage() {
     localStorage.setItem("autowiki_tutorial_seen", "true");
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
+  };
+
+  const handleResetConfig = () => {
+    if (confirm("모든 모델 구성을 기본값으로 초기화하시겠습니까?")) {
+      const defaultModel = "gemini-3.1-pro-preview";
+      const defaultSubModel = "gemini-3-flash-preview";
+      const defaultThinking = "HIGH";
+      const defaultReasoning = "high";
+
+      setModel(defaultModel);
+      setSubModel(defaultSubModel);
+      setThinkingLevel(defaultThinking);
+      setReasoningEffort(defaultReasoning);
+
+      localStorage.setItem("autowiki_llm_model", defaultModel);
+      localStorage.setItem("autowiki_llm_sub_model", defaultSubModel);
+      localStorage.setItem("autowiki_llm_thinking_level", defaultThinking);
+      localStorage.setItem("autowiki_llm_reasoning_effort", defaultReasoning);
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    }
   };
 
   const handleStartLinking = async () => {
@@ -199,11 +237,24 @@ export default function SettingsPage() {
     };
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     if (confirm("GitHub Copilot 연결을 해제하시겠습니까?")) {
-      setIsGithubLinked(false);
-      // 서버에서 토큰 삭제 요청
-      apiFetch("/api/auth/disconnect", { method: "POST" }).catch(() => {});
+      try {
+        const res = await apiFetch("/api/auth/github/disconnect", { method: "POST" });
+        if (res.ok) {
+          setIsGithubLinked(false);
+          // 전역 유저 상태에서도 연결 정보 제거된 버전으로 업데이트
+          const meRes = await apiFetch("/api/users/me");
+          if (meRes.ok) {
+            const freshUser = await meRes.json();
+            setUser(freshUser);
+          }
+          setSaved(true);
+          setTimeout(() => setSaved(false), 2000);
+        }
+      } catch (err) {
+        console.error("Disconnect failed", err);
+      }
     }
   };
 
@@ -423,12 +474,21 @@ export default function SettingsPage() {
               <div></div>
             )}
             
-            <button
-              onClick={handleSave}
-              className="bg-[#0645ad] hover:bg-[#0b0080] text-white font-bold px-4 py-2 rounded-sm flex items-center transition-colors"
-            >
-              <Save size={16} className="mr-2" /> 구성 저장하기
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleResetConfig}
+                className="bg-white hover:bg-gray-100 text-[#54595d] border border-[#a2a9b1] font-bold px-3 py-2 rounded-sm flex items-center transition-colors text-sm"
+                title="기본 설정으로 되돌리기"
+              >
+                <RotateCcw size={14} className="mr-1.5" /> 기본값 복구
+              </button>
+              <button
+                onClick={handleSave}
+                className="bg-[#0645ad] hover:bg-[#0b0080] text-white font-bold px-4 py-2 rounded-sm flex items-center transition-colors"
+              >
+                <Save size={16} className="mr-2" /> 구성 저장하기
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -472,12 +532,21 @@ export default function SettingsPage() {
                 <div></div>
               )}
               
+            <div className="flex gap-2">
+              <button
+                onClick={handleResetPrompts}
+                className="bg-white hover:bg-gray-100 text-[#54595d] border border-[#a2a9b1] font-bold px-3 py-2 rounded-sm flex items-center transition-colors text-sm"
+                title="권장 프롬프트로 복구"
+              >
+                <RotateCcw size={14} className="mr-1.5" /> 기본값 복구
+              </button>
               <button
                 onClick={handlePromptsSave}
                 className="bg-[#0645ad] hover:bg-[#0b0080] text-white font-bold px-4 py-2 rounded-sm flex items-center transition-colors"
               >
                 <Save size={16} className="mr-2" /> 프롬프트 저장하기
               </button>
+            </div>
             </div>
           </div>
         )}

@@ -62,7 +62,7 @@ export default function ProjectUploadPage() {
   });
 
   // ── File upload analysis ────────────────────────────────────────────────────
-  const runUpload = useCallback(async (files: File[], customPrompt: string) => {
+  const runUpload = useCallback(async (files: File[], customPrompt: string, includeEntities: boolean, includeGraph: boolean, includeFiles: boolean) => {
     setAppState("LOADING");
     const { model, subModel, thinkingLevel, reasoningEffort, key } = getModelKeys();
 
@@ -74,6 +74,9 @@ export default function ProjectUploadPage() {
     formData.append("reasoning_effort", reasoningEffort);
     formData.append("api_key", key);
     formData.append("custom_prompt", customPrompt);
+    formData.append("include_entities", String(includeEntities));
+    formData.append("include_graph", String(includeGraph));
+    formData.append("include_files", String(includeFiles));
 
     try {
       const res = await apiFetch(
@@ -83,20 +86,28 @@ export default function ProjectUploadPage() {
       if (!res.ok) {
         const errText = await res.text();
         if (is401(res.status, errText)) {
-          setPendingAction({ action: "upload", files, customPrompt });
+          setPendingAction({ action: "upload", files, customPrompt, includeEntities, includeGraph, includeFiles } as any);
           if (errText.includes("GitHub") || errText.includes("Token")) {
+            alert("파일 분석에 필요한 GitHub 연동 정보가 없습니다. 안내 메뉴를 확인해 주세요.");
             setShowTutorial(true);
           } else {
             setShowAuthOverlay(true);
           }
-          return;
-        }
-        if (res.status === 413) {
-          alert("파일 용량이 너무 큽니다. 서버의 데이터 처리 제한을 초과했습니다. 더 작은 파일로 나누어 업로드해주세요.");
           setAppState("UPLOAD");
           return;
         }
-        console.error("Upload failed", errText);
+        // 토큰 한도 초과 에러 처리
+        if (errText.includes("token") && (errText.includes("limit") || errText.includes("exceed"))) {
+          alert("입력한 데이터와 선택된 맥락이 AI의 처리 한도를 초과했습니다. 하단의 'AI 분석 시 참고할 맥락' 체크박스(기존 문서 등)를 조절하여 맥락의 크기를 줄여보세요.");
+          setAppState("UPLOAD");
+          return;
+        }
+
+        if (res.status === 413) {
+          alert("파일 용량이 너무 큽니다. 서버의 데이터 처리 제한을 초과했습니다. 더 작은 파일로 나누어 업로드해주세요.");
+        } else {
+          alert(`분석 실패: ${errText}`);
+        }
         setAppState("UPLOAD");
         return;
       }
@@ -110,7 +121,7 @@ export default function ProjectUploadPage() {
   }, [projectId]);
 
   // ── Text-only analysis ──────────────────────────────────────────────────────
-  const runTextAnalysis = useCallback(async (text: string, useSubModel: boolean) => {
+  const runTextAnalysis = useCallback(async (text: string, useSubModel: boolean, includeEntities: boolean, includeGraph: boolean, includeFiles: boolean) => {
     setAppState("LOADING");
     const { model, subModel, thinkingLevel, reasoningEffort, key } = getModelKeys();
     const chosenModel = useSubModel ? subModel : model;
@@ -126,18 +137,35 @@ export default function ProjectUploadPage() {
             model_name: chosenModel,
             thinking_level: thinkingLevel,
             reasoning_effort: reasoningEffort,
-            api_key: key
+            api_key: key,
+            include_entities: includeEntities,
+            include_graph: includeGraph,
+            include_files: includeFiles
           }),
         }
       );
       if (!res.ok) {
         const errText = await res.text();
         if (is401(res.status, errText)) {
-          setPendingAction({ action: "text", text, useSubModel });
-          setShowAuthOverlay(true);
+          setPendingAction({ action: "text", text, useSubModel, includeEntities, includeGraph, includeFiles } as any);
+          if (errText.includes("GitHub") || errText.includes("Token")) {
+            alert("AI 기능을 사용하려면 GitHub 계정 연동이 필요합니다. 안내에 따라 설정을 완료해 주세요.");
+            setShowTutorial(true);
+          } else {
+            setShowAuthOverlay(true);
+          }
+          setAppState("UPLOAD");
           return;
         }
+        // 토큰 한도 초과 에러 처리
+        if (errText.includes("token") && (errText.includes("limit") || errText.includes("exceed"))) {
+          alert("입력한 데이터와 선택된 맥락이 AI의 처리 한도를 초과했습니다. 분석 도구 하단의 체크박스(기존 문서, 관계도, 첨부 파일 등)를 일부 해제하여 맥락을 줄인 뒤 다시 시도해 주세요.");
+          setAppState("UPLOAD");
+          return;
+        }
+        
         console.error("Text analysis failed", errText);
+        alert(`분석 실패: ${errText}`);
         setAppState("UPLOAD");
         return;
       }
@@ -188,15 +216,15 @@ export default function ProjectUploadPage() {
   }, [projectId, userPrompt]);
 
   // ── Public handlers ─────────────────────────────────────────────────────────
-  const handleStartIngestion = (files: File[], customPrompt: string) => {
+  const handleStartIngestion = (files: File[], customPrompt: string, includeEntities: boolean, includeGraph: boolean, includeFiles: boolean) => {
     setUserPrompt(customPrompt);
     setSavedFiles(files);
-    runUpload(files, customPrompt);
+    runUpload(files, customPrompt, includeEntities, includeGraph, includeFiles);
   };
 
-  const handleTextSubmit = (text: string, useSubModel: boolean) => {
+  const handleTextSubmit = (text: string, useSubModel: boolean, includeEntities: boolean, includeGraph: boolean, includeFiles: boolean) => {
     setUserPrompt(text);
-    runTextAnalysis(text, useSubModel);
+    runTextAnalysis(text, useSubModel, includeEntities, includeGraph, includeFiles);
   };
 
   const handleConfirm = (finalProposals: Proposal[]) => runCommit(finalProposals);

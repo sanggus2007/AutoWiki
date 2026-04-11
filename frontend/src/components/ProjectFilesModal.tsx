@@ -117,7 +117,7 @@ export function ProjectFilesModal({ projectId, onClose }: ProjectFilesModalProps
         <div className="p-4 flex-1 overflow-y-auto">
           <p className="text-sm text-[#54595d] mb-4">
             이곳에 업로드된 파일들은 지식 구조도로 즉시 추출되지 않고 원본 파일로 저장됩니다.<br/>
-            이후 AI 채팅이나 문서 추가 시 문맥으로 활용할 수 있습니다 (최대 50,000자 제한).
+            이후 AI 채팅이나 문서 추가 시 문맥으로 활용할 수 있습니다.
           </p>
 
           <div className="mb-4">
