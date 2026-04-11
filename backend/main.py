@@ -754,7 +754,7 @@ def get_project_graph_context(project_id: int, db) -> str:
     
     for r in relationships:
         if r.source_entity_slug in entity_slugs and r.target_entity_slug in entity_slugs:
-            rel_texts.append(f"- {r.source_entity_slug} -> {r.target_entity_slug} ({r.context})")
+            rel_texts.append(f"- [ID: {r.id}] {r.source_entity_slug} -> {r.target_entity_slug} ({r.context})")
             connected_slugs.add(r.source_entity_slug)
             connected_slugs.add(r.target_entity_slug)
     
@@ -1411,11 +1411,34 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
             existing_entity.summary = updated_summary
             patches_saved += 1
 
+    # ── Process approved edge modifications (patches and deletions) ──────────
+    edges_modified = 0
+    edges_deleted = 0
+    for prop in proposals:
+        # Edge Deletions
+        edge_deletions_data = prop.get("edge_deletions", [])
+        for ed in edge_deletions_data:
+            edge_id = ed.get("edge_id")
+            if edge_id:
+                db.query(schema.Relationship).filter(schema.Relationship.id == edge_id).delete(synchronize_session=False)
+                edges_deleted += 1
+        
+        # Edge Patches
+        edge_patches_data = prop.get("edge_patches", [])
+        for ep in edge_patches_data:
+            edge_id = ep.get("edge_id")
+            new_label = ep.get("new_label")
+            if edge_id and new_label:
+                rel = db.query(schema.Relationship).filter(schema.Relationship.id == edge_id).first()
+                if rel:
+                    rel.context = new_label
+                    edges_modified += 1
+
     db.commit()
 
     return {
         "status": "success",
-        "message": f"Committed {nodes_saved} nodes, {edges_saved} edges, {patches_saved} patches, and {deletions_processed} deletions."
+        "message": f"Committed {nodes_saved} nodes, {edges_saved} edges (new), {patches_saved} patches, {deletions_processed} deletions, {edges_modified} edge updates, and {edges_deleted} edge deletions."
     }
 
 # ──────────────────────────────────────

@@ -36,6 +36,14 @@ class PlanDelete(BaseModel):
     entity_name: str = Field(description="Human-readable name of the entity")
     reason: str = Field(description="Reason for deletion in Korean")
 
+class PlanEdgePatch(BaseModel):
+    edge_id: int = Field(description="기존 관계의 고유 ID")
+    new_label: str = Field(description="수정할 관계 요약 (한국어)")
+
+class PlanEdgeDelete(BaseModel):
+    edge_id: int = Field(description="삭제할 관계의 고유 ID")
+    reason: str = Field(description="삭제 사유 (한국어)")
+
 class KnowledgePlan(BaseModel):
     plan_summary: str = Field(description="AI의 작업 계획 설명 (한국어 자연어)")
     patches: list[PlanPatch] = Field(default_factory=list, description="기존 문서 수정 제안 목록")
@@ -328,7 +336,9 @@ async def extract_proposals(filename: str, full_text: str, custom_prompt: str, m
         "patches": [p.model_dump() for p in plan.patches],
         "deletions": [d.model_dump() for d in plan.deletions],
         "nodes": [n.model_dump() for n in plan.nodes],
-        "edges": [e.model_dump() for e in plan.edges]
+        "edges": [e.model_dump() for e in plan.edges],
+        "edge_patches": [ep.model_dump() for ep in plan.edge_patches],
+        "edge_deletions": [ed.model_dump() for ed in plan.edge_deletions]
     }
 
 def execute_project_chat(message: str, history: list[dict], project_context: str, llm, project_files_text: str = "", project_graph_text: str = "") -> str:
