@@ -755,61 +755,65 @@ def update_prompt(key: str, payload: PromptUpdate, db=Depends(get_db)):
 # ──────────────────────────────────────
 
 def get_project_graph_context(project_id: int, db) -> str:
-    """프로젝트의 모든 관계를 분석하여 고립, 빈약, 루트 미도달 노드를 식별합니다."""
-    entities = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
-    entity_slugs = {e.slug for e in entities}
-    root_slugs = {e.slug for e in entities if e.is_root}
-    
-    relationships = db.query(schema.Relationship).all()
-    rel_texts = []
-    
-    # 그래프 인접 리스트 구축
-    adj = {slug: [] for slug in entity_slugs}
-    connection_counts = {slug: 0 for slug in entity_slugs}
-    
-    for r in relationships:
-        if r.source_entity_slug in entity_slugs and r.target_entity_slug in entity_slugs:
-            rel_texts.append(f"- [ID: {r.id}] {r.source_entity_slug} -> {r.target_entity_slug} ({r.context})")
-            adj[r.source_entity_slug].append(r.target_entity_slug)
-            adj[r.target_entity_slug].append(r.source_entity_slug) # 무방향성 도달 체크
-            connection_counts[r.source_entity_slug] += 1
-            connection_counts[r.target_entity_slug] += 1
-    
-    # 루트 노드로부터의 도달 가능성 체크 (BFS)
-    reachable = set()
-    queue = list(root_slugs)
-    reachable.update(root_slugs)
-    
-    idx = 0
-    while idx < len(queue):
-        curr = queue[idx]
-        idx += 1
-        for neighbor in adj.get(curr, []):
-            if neighbor not in reachable:
-                reachable.add(neighbor)
-                queue.append(neighbor)
-    
-    # 분류
-    isolated = [s for s, count in connection_counts.items() if count == 0]
-    weak = [s for s, count in connection_counts.items() if count == 1]
-    unreachable_from_root = [s for s in entity_slugs if s not in reachable and s not in isolated]
-    
-    context_parts = []
-    if rel_texts:
-        context_parts.append("[현재 프로젝트의 관계도]\n" + "\n".join(rel_texts))
-    else:
-        context_parts.append("[현재 프로젝트의 관계도]\n(현재 등록된 관계 없음)")
+    """프로젝트의 모든 관계를 분석하여 고립, 빈약, 루트 미도달 노드를 식별합니다. (컬럼 부재 시에도 작동 가능)"""
+    try:
+        entities = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
+        entity_slugs = {e.slug for e in entities}
         
-    if isolated:
-        context_parts.append("\n[❌ 고립된 노드 (연결 0개)]\n- " + ", ".join(isolated))
-    if weak:
-        context_parts.append("\n[⚠️ 빈약한 노드 (연결 1개뿐)]\n- " + ", ".join(weak))
-        context_parts.append("(위 노드들은 맥락이 부족하므로 다른 지식들과 더 풍부하게 연결해 주세요.)")
-    if unreachable_from_root and root_slugs:
-        context_parts.append(f"\n[🚫 루트 미도달 노드 (메인 주제 '{', '.join(root_slugs)}'와 단절됨)]\n- " + ", ".join(unreachable_from_root))
-        context_parts.append("(위 지식들은 프로젝트의 핵심 줄기에서 벗어나 있습니다. 전체적인 통일성을 위해 적절한 브릿지 관계를 만들어 주세요.)")
+        # Safer access to is_root to prevent crash if DB column is missing
+        root_slugs = {e.slug for e in entities if getattr(e, 'is_root', False)}
         
-    return "\n".join(context_parts)
+        relationships = db.query(schema.Relationship).all()
+        rel_texts = []
+        
+        # 그래프 인접 리스트 구축
+        adj = {slug: [] for slug in entity_slugs}
+        connection_counts = {slug: 0 for slug in entity_slugs}
+        
+        for r in relationships:
+            if r.source_entity_slug in entity_slugs and r.target_entity_slug in entity_slugs:
+                rel_texts.append(f"- [ID: {r.id}] {r.source_entity_slug} -> {r.target_entity_slug} ({r.context})")
+                adj[r.source_entity_slug].append(r.target_entity_slug)
+                adj[r.target_entity_slug].append(r.source_entity_slug)
+                connection_counts[r.source_entity_slug] += 1
+                connection_counts[r.target_entity_slug] += 1
+        
+        # 루트 노드로부터의 도달 가능성 체크 (BFS)
+        reachable = set()
+        queue = list(root_slugs)
+        reachable.update(root_slugs)
+        
+        idx = 0
+        while idx < len(queue):
+            curr = queue[idx]
+            idx += 1
+            for neighbor in adj.get(curr, []):
+                if neighbor not in reachable:
+                    reachable.add(neighbor)
+                    queue.append(neighbor)
+        
+        # 분류
+        isolated = [s for s, count in connection_counts.items() if count == 0]
+        weak = [s for s, count in connection_counts.items() if count == 1]
+        unreachable_from_root = [s for s in entity_slugs if s not in reachable and s not in isolated]
+        
+        context_parts = []
+        if rel_texts:
+            context_parts.append("[현재 프로젝트의 관계도]\n" + "\n".join(rel_texts))
+        else:
+            context_parts.append("[현재 프로젝트의 관계도]\n(현재 등록된 관계 없음)")
+            
+        if isolated:
+            context_parts.append("\n[❌ 고립된 노드 (연결 0개)]\n- " + ", ".join(isolated))
+        if weak:
+            context_parts.append("\n[⚠️ 빈약한 노드 (연결 1개뿐)]\n- " + ", ".join(weak))
+        if unreachable_from_root and root_slugs:
+            context_parts.append(f"\n[🚫 루트 미도달 노드 (메인 주제 '{', '.join(root_slugs)}'와 단절됨)]\n- " + ", ".join(unreachable_from_root))
+            
+        return "\n".join(context_parts)
+    except Exception as e:
+        print(f"[GraphContext] WARNING: Failed to generate advanced context: {e}")
+        return "(지식 관계도 분석 중 오류가 발생하여 기본 정보만 제공됩니다.)"
 
 def get_storage_usage(user_id: int, db) -> int:
     projects = db.query(schema.Project).filter(schema.Project.user_id == user_id).all()
@@ -1663,7 +1667,7 @@ def get_graph_data(project_id: int = Query(None), db=Depends(get_db)):
             "type": t,        # 분류 (프론트 색상 매핑에 필요)
             "val": 15,
             "color": color,
-            "is_root": e.is_root
+            "is_root": getattr(e, 'is_root', False)
         })
 
     links = []
