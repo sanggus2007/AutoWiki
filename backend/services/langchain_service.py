@@ -113,13 +113,22 @@ def get_llm(model_name: str, github_token: str, thinking_level: str = None, reas
         
     # Manually exchange PAT for Copilot token to bypass the library's shared disk cache
     # Tokens starting with 'tid=' are already Copilot tokens and don't need exchange.
-    if github_token.startswith(("gho_", "ghp_", "ghu_", "github_pat_")):
-        copilot_token, _ = fetch_copilot_token(github_token)
-        if not copilot_token:
-            raise HTTPException(status_code=401, detail="Failed to exchange GitHub token for Copilot session. Please re-link your account.")
-        active_token = copilot_token
+    # Note: Device flow tokens might start with various prefixes (gho, ghu, etc)
+    if not github_token.startswith("tid="):
+        print(f"[LLM-Auth] 🔄 Exchanging GitHub token (prefix: {github_token[:8]}...) for Copilot session...")
+        try:
+            copilot_token, _ = fetch_copilot_token(github_token)
+            if not copilot_token:
+                print("[LLM-Auth] ❌ fetch_copilot_token returned None")
+                raise HTTPException(status_code=401, detail="Failed to exchange GitHub token for Copilot session. Please re-link your account.")
+            active_token = copilot_token
+            print("[LLM-Auth] ✅ Token exchange successful")
+        except Exception as e:
+            print(f"[LLM-Auth] ❌ Token exchange exception: {e}")
+            raise HTTPException(status_code=401, detail=f"GitHub Copilot 인증 실패: {str(e)}")
     else:
         active_token = github_token
+        print("[LLM-Auth] ⏩ Using existing Copilot session token (tid=)")
 
     target_model = model_name if model_name else "gemini-3-flash"
     

@@ -384,10 +384,9 @@ def generate_session_token() -> str:
 
 from fastapi import Request
 
-def set_auth_cookie(response: Response, session_id: str):
+def set_auth_cookie(response: Response, session_id: str, request: Request):
     frontend_url = config.FRONTEND_URL
-
-    backend_host = "localhost:8000" # Should be dynamic in prod
+    backend_host = request.headers.get("host", "localhost:8000")
     
     secure = is_cookie_secure(frontend_url)
     samesite = get_samesite_policy(frontend_url, backend_host)
@@ -485,7 +484,7 @@ def google_login_redirect():
     return RedirectResponse(url)
 
 @app.get("/api/auth/google/callback")
-def google_callback(code: str, db=Depends(get_db)):
+def google_callback(code: str, request: Request, db=Depends(get_db)):
     token_res = httpx.post("https://oauth2.googleapis.com/token", data={
         "code": code,
         "client_id": config.GOOGLE_CLIENT_ID,
@@ -543,13 +542,8 @@ def google_callback(code: str, db=Depends(get_db)):
     
     frontend_url = config.FRONTEND_URL
 
-    # Instead of token in URL, we will redirect and rely on the cookie
-    # But for now, to avoid breaking frontend immediately during migration, 
-    # we might still need a way to let the frontend know login finished.
-    # However, the requirement is to REMOVE tokens from browser.
-    
     response = RedirectResponse(f"{frontend_url}/login?auth=success")
-    set_auth_cookie(response, session.id)
+    set_auth_cookie(response, session.id, request)
     return response
 
 
@@ -696,7 +690,7 @@ def poll_for_token(payload: PollPayload, request: Request, db=Depends(get_db), c
                                 "avatar_url": target_user.avatar_url
                             }
                         })
-                        set_auth_cookie(response, session.id)
+                        set_auth_cookie(response, session.id, request)
                         return response
             
             error_detail = "Copilot 토큰 획득에 실패했습니다. 유료 구독 상태를 확인해 주세요."
@@ -1040,8 +1034,16 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get
 
         # Decrypt GitHub token if not provided in payload
         gh_token = payload.api_key
-        if not gh_token and user.github_token_enc:
-            gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+        if not gh_token:
+            if user.github_token_enc:
+                try:
+                    gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+                    print(f"[AnalyzeText] Decrypted GitHub token from DB (version: {user.encryption_key_version})")
+                except Exception as e:
+                    print(f"[AnalyzeText] ❌ Decryption failed: {e}")
+                    raise HTTPException(status_code=401, detail=f"토큰 복호화 실패 (서버 암호화 키 불일치 가능성): {str(e)}")
+            else:
+                print("[AnalyzeText] ⚠️ No GitHub token found for this user in DB.")
 
         print(f"[AnalyzeText] Running LLM planning with model: {payload.model_name}")
         llm = get_llm(payload.model_name, gh_token, payload.thinking_level, payload.reasoning_effort)

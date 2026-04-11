@@ -98,10 +98,11 @@ export default function ProjectUploadPage() {
         const errText = await res.text();
         if (is401(res.status, errText)) {
           setPendingAction({ action: "upload", files, customPrompt, includeEntities, includeGraph, includeFiles });
-          if (errText.includes("GitHub") || errText.includes("Token")) {
-            alert("파일 분석에 필요한 GitHub 연동 정보가 없습니다. 안내 메뉴를 확인해 주세요.");
+          if (errText.includes("GitHub") || errText.includes("Token") || errText.includes("key")) {
+            alert(`AI 분석 인증 오류: ${errText}`);
             setShowTutorial(true);
           } else {
+            alert(`세션 오류 (재로그인 필요): ${errText}`);
             setShowAuthOverlay(true);
           }
           setAppState("UPLOAD");
@@ -159,10 +160,11 @@ export default function ProjectUploadPage() {
         const errText = await res.text();
         if (is401(res.status, errText)) {
           setPendingAction({ action: "text", text, useSubModel, includeEntities, includeGraph, includeFiles });
-          if (errText.includes("GitHub") || errText.includes("Token")) {
-            alert("AI 기능을 사용하려면 GitHub 계정 연동이 필요합니다. 안내에 따라 설정을 완료해 주세요.");
+          if (errText.includes("GitHub") || errText.includes("Token") || errText.includes("key")) {
+            alert(`AI 분석 인증 오류: ${errText}`);
             setShowTutorial(true);
           } else {
+            alert(`세션 오류 (재로그인 필요): ${errText}`);
             setShowAuthOverlay(true);
           }
           setAppState("UPLOAD");
