@@ -8,6 +8,14 @@ export async function apiFetch(input: string | URL | Request, init?: RequestInit
   
   // CSRF Protection: Custom header to prevent generic form submissions
   headers.set("X-CSRF-Token", "autowiki-session-v3");
+  
+  // Mobile/Cross-site Fallback: Add session ID from localStorage to Authorization header
+  if (typeof window !== "undefined") {
+    const sid = localStorage.getItem("autowiki_sid");
+    if (sid) {
+      headers.set("Authorization", `Bearer ${sid}`);
+    }
+  }
 
   let url = input;
   if (typeof input === "string" && (input.startsWith("/") || input.startsWith("api/"))) {

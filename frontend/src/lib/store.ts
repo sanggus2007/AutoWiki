@@ -16,5 +16,10 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   setUser: (user) => set({ user }),
-  logout: () => set({ user: null }),
+  logout: () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("autowiki_sid");
+    }
+    set({ user: null });
+  },
 }));

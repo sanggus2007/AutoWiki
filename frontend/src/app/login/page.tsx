@@ -18,9 +18,16 @@ function LoginContent() {
        return;
     }
 
-    // 2. Handle successful session-based login
+    // 2. Handle successful session-based login (Cookie or sid fallback)
     const authStatus = searchParams.get("auth");
+    const sid = searchParams.get("sid");
+    
     if (authStatus === "success") {
+      if (sid) {
+        localStorage.setItem("autowiki_sid", sid);
+        console.log("[Auth] Captured session ID from URL fallback");
+      }
+      
       // Re-fetch user to hydrate store
       import("@/lib/api").then(async ({ apiFetch }) => {
         const res = await apiFetch("/api/users/me");
@@ -28,6 +35,8 @@ function LoginContent() {
           const userData = await res.json();
           setUser(userData);
           router.replace("/dashboard");
+        } else {
+          console.error("[Login] Failed to fetch user after login success");
         }
       });
       return;
