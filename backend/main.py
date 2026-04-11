@@ -9,7 +9,7 @@ import httpx
 from typing import List, Optional
 from database import engine, Base, get_db
 from models import schema
-from services.langchain_service import extract_proposals, execute_batch_knowledge_generation, execute_section_patch, apply_section_patches, plan_knowledge_extraction, get_llm, slugify, execute_project_chat
+from services.langchain_service import extract_proposals, execute_batch_knowledge_generation, execute_section_patch, apply_section_patches, plan_knowledge_extraction, get_llm, slugify, execute_project_chat, extract_text_from_file
 from services.security import token_manager, is_cookie_secure, get_samesite_policy
 from services import session as session_service
 from services.auth_utils import hash_password, verify_password
@@ -926,8 +926,8 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get
 
     # Filter out hallucinations: deletions or patches for non-existent entities
     existing_slugs = {e.slug for e in existing}
-    valid_patches = [p.dict() for p in plan.patches if p.entity_slug in existing_slugs]
-    valid_deletions = [d.dict() for d in plan.deletions if d.entity_slug in existing_slugs]
+    valid_patches = [p.model_dump() for p in plan.patches if p.entity_slug in existing_slugs]
+    valid_deletions = [d.model_dump() for d in plan.deletions if d.entity_slug in existing_slugs]
 
     return {
         "proposals": [{
@@ -936,8 +936,8 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get
             "plan_summary": plan.plan_summary,
             "patches": valid_patches,
             "deletions": valid_deletions,
-            "nodes": [n.dict() for n in plan.nodes],
-            "edges": [e.dict() for e in plan.edges]
+            "nodes": [n.model_dump() for n in plan.nodes],
+            "edges": [e.model_dump() for e in plan.edges]
         }]
     }
 
@@ -1709,8 +1709,6 @@ def list_project_files(project_id: int, user=Depends(get_current_user), db=Depen
         
     files = db.query(schema.ProjectFile).filter(schema.ProjectFile.project_id == project_id).order_by(schema.ProjectFile.upload_date.desc()).all()
     return [{"id": f.id, "filename": f.filename, "upload_date": f.upload_date.isoformat() if f.upload_date else None, "size": len(f.content_text.encode('utf-8')), "is_selected": bool(f.is_selected)} for f in files]
-
-from services.langchain_service import extract_text_from_file
 
 @app.post("/api/projects/{project_id}/files")
 async def add_project_files(project_id: int, files: list[UploadFile] = File(...), user=Depends(get_current_user), db=Depends(get_db)):

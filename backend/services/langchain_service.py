@@ -7,7 +7,6 @@ from fastapi import UploadFile, HTTPException
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_githubcopilot_chat import ChatGithubCopilot
-from langchain_githubcopilot_chat import ChatGithubCopilot
 from langchain_githubcopilot_chat.auth import fetch_copilot_token
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
@@ -272,9 +271,6 @@ async def extract_text_from_file(file: UploadFile) -> str:
     ext = file.filename.split('.')[-1].lower()
     print(f"[Extract] Processing file: {file.filename}, ext: {ext}, type: {file.content_type}")
     
-    import os
-    from tempfile import NamedTemporaryFile
-    
     tmp_path = None
     try:
         with NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
@@ -329,10 +325,10 @@ async def extract_proposals(filename: str, full_text: str, custom_prompt: str, m
         "filename": filename,
         "content_text": full_text,
         "plan_summary": plan.plan_summary,
-        "patches": [p.dict() for p in plan.patches],
-        "deletions": [d.dict() for d in plan.deletions],
-        "nodes": [n.dict() for n in plan.nodes],
-        "edges": [e.dict() for e in plan.edges]
+        "patches": [p.model_dump() for p in plan.patches],
+        "deletions": [d.model_dump() for d in plan.deletions],
+        "nodes": [n.model_dump() for n in plan.nodes],
+        "edges": [e.model_dump() for e in plan.edges]
     }
 
 def execute_project_chat(message: str, history: list[dict], project_context: str, llm, project_files_text: str = "", project_graph_text: str = "") -> str:
