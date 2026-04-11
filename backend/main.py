@@ -440,7 +440,7 @@ def local_register(payload: LocalRegisterPayload, request: Request, db=Depends(g
         "status": "success",
         "user": {"id": user.id, "username": user.username, "avatar_url": user.avatar_url}
     })
-    set_auth_cookie(response, session.id)
+    set_auth_cookie(response, session.id, request)
     return response
 
 @app.post("/api/auth/local/login")
@@ -461,7 +461,7 @@ def local_login(payload: LocalLoginPayload, request: Request, db=Depends(get_db)
         "status": "success",
         "user": {"id": user.id, "username": user.username, "avatar_url": user.avatar_url}
     })
-    set_auth_cookie(response, session.id)
+    set_auth_cookie(response, session.id, request)
     return response
 
 # ── Google Auth ─────────────────────────────────────────────────────────────
@@ -1350,6 +1350,14 @@ async def upload_files(
     # Use sub_model for extraction (cheaper), fall back to main model if not set
     extraction_model = sub_model_name if sub_model_name else model_name
 
+    # Decrypt GitHub token
+    gh_token = api_key
+    if not gh_token and user.github_token_enc:
+        try:
+            gh_token = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+        except Exception as e:
+            print(f"[Upload] Token decryption error: {e}")
+
     results = []
     from services.langchain_service import extract_text_from_file
     for file in files:
@@ -1361,7 +1369,7 @@ async def upload_files(
             # NOTE: ProjectFile is NOT saved here.
             # It is only saved upon commit so that cancelling (going back) does not
             # leave orphaned reference files in the project.
-            res = await extract_proposals(file.filename, full_text, custom_prompt, extraction_model, api_key, system_prompt, existing_entities, all_categories, project_files_text, thinking_level, reasoning_effort, project_graph=project_graph)
+            res = await extract_proposals(file.filename, full_text, custom_prompt, extraction_model, gh_token, system_prompt, existing_entities, all_categories, project_files_text, thinking_level, reasoning_effort, project_graph=project_graph)
             
             # Filter out hallucinations: deletions or patches for non-existent entities
             existing_slugs = {e.slug for e in existing}

@@ -89,14 +89,16 @@ def invoke_with_auth_fallback(llm, base_prompt, github_token: str = None):
             error_msg = "GitHub Copilot 인증에 실패했습니다."
             if actual_token and "tid=" in actual_token:
                 error_msg += " OAuth 세션이 만료된 것 같습니다. 설정 페이지에서 'GitHub Copilot 계정 연결하기'를 다시 진행해 주세요."
+            elif actual_token:
+                error_msg += f" 설정된 토큰이 유효하지 않거나 만료되었습니다. (응답: {err_str[:40]})"
             else:
-                error_msg += " 설정된 PAT가 유효하지 않거나 만료되었습니다."
+                error_msg += " 인증 토큰이 제공되지 않았습니다."
                 
             raise HTTPException(
                 status_code=401, 
-                detail=f"{error_msg} ({err_str[:80]})"
+                detail=f"{error_msg}"
             )
-        raise HTTPException(status_code=500, detail=f"LLM AI Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"AI 분석 중 오류가 발생했습니다: {str(e)}")
 
 def get_llm(model_name: str, github_token: str, thinking_level: str = None, reasoning_effort: str = None):
     """
@@ -105,12 +107,14 @@ def get_llm(model_name: str, github_token: str, thinking_level: str = None, reas
     before passing it to the model.
     """
     if not github_token:
-         # Fallback to env ONLY if specifically allowed or for system tasks
+         # System fallback (usually for server-side global key if configured)
          github_token = os.environ.get("GITHUB_TOKEN")
+         if github_token:
+             print("[LLM-Auth] ℹ️ Using system-level GITHUB_TOKEN fallback")
          
     if not github_token:
-        print("[LLM-Auth] ❌ GitHub token is completely missing (None or Empty)")
-        raise HTTPException(status_code=401, detail="GitHub Token Required. Please connect your GitHub account in settings.")
+        print("[LLM-Auth] ❌ GitHub token is completely missing")
+        raise HTTPException(status_code=401, detail="GitHub 계정 연동이 필요합니다. 설정 페이지에서 연결해 주세요.")
         
     # 토큰 무결성 체크 (복호화 결과가 유효한지 확인)
     valid_prefix = ("gho_", "ghp_", "ghu_", "github_pat_", "tid_")

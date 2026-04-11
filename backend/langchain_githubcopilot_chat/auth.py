@@ -18,10 +18,11 @@ CLIENT_ID = "Iv1.b507a08c87ecfe98"
 CACHE_PATH = os.path.expanduser("~/.github-copilot-chat.json")
 
 # Shared Copilot headers
-COPILOT_EDITOR_VERSION = "vscode/1.104.1"
-COPILOT_PLUGIN_VERSION = "copilot-chat/0.26.7"
+# Modern Copilot headers (VS Code 1.92.0 equivalent)
+COPILOT_EDITOR_VERSION = "vscode/1.92.2"
+COPILOT_PLUGIN_VERSION = "copilot-chat/0.19.1"
 COPILOT_INTEGRATION_ID = "vscode-chat"
-COPILOT_USER_AGENT = "GitHubCopilotChat/0.26.7"
+COPILOT_USER_AGENT = "GitHubCopilotChat/0.19.1"
 
 COPILOT_DEFAULT_HEADERS = {
     "Copilot-Integration-Id": COPILOT_INTEGRATION_ID,
@@ -30,134 +31,71 @@ COPILOT_DEFAULT_HEADERS = {
     "Editor-Plugin-Version": COPILOT_PLUGIN_VERSION,
     "editor-version": COPILOT_EDITOR_VERSION,
     "editor-plugin-version": COPILOT_PLUGIN_VERSION,
-    "copilot-vision-request": "true",
+    "X-GitHub-Api-Version": "2023-01-01",
+    "Accept": "application/json",
 }
 
-# In-memory lock for token refresh to prevent concurrent refresh attempts
-_token_refresh_lock: Optional[asyncio.Lock] = None
-_sync_token_refresh_lock: threading.Lock = threading.Lock()
-
-
-def _get_token_refresh_lock() -> asyncio.Lock:
-    """Get or create the async token refresh lock."""
-    global _token_refresh_lock
-    if _token_refresh_lock is None:
-        _token_refresh_lock = asyncio.Lock()
-    return _token_refresh_lock
-
-
-def save_tokens_to_cache(
-    github_token: str,
-    copilot_token: str,
-    expires_at: Optional[float] = None,
-) -> None:
-    """Save tokens to cache with optional expiration time."""
-    try:
-        with open(CACHE_PATH, "w") as f:
-            json.dump(
-                {
-                    "github_token": github_token,
-                    "copilot_token": copilot_token,
-                    "expires_at": expires_at,
-                },
-                f,
-                indent=2,
-            )
-    except OSError as exc:
-        logger.warning("Failed to save Copilot token cache to %s: %s", CACHE_PATH, exc)
-
-
-def load_tokens_from_cache() -> Dict[str, str]:
-    """Load tokens from cache, checking expiration if present."""
-    try:
-        with open(CACHE_PATH, "r") as f:
-            data = json.load(f)
-            # Check if token has expired
-            if data.get("expires_at"):
-                if time.time() > data["expires_at"]:
-                    # Token expired, return empty
-                    return {}
-            return data
-    except FileNotFoundError:
-        return {}  # cache doesn't exist yet — silently OK
-    except (OSError, json.JSONDecodeError, KeyError, ValueError) as exc:
-        logger.warning(
-            "Failed to load Copilot token cache from %s: %s", CACHE_PATH, exc
-        )
-        return {}
-
-
 def fetch_copilot_token(github_token: str) -> Tuple[Optional[str], Optional[float]]:
-    """Fetch copilot token and return it with expiration time.
+    """Fetch copilot token and return it with expiration time."""
+    github_token = github_token.strip() # Remove any accidental whitespace
+    
+    # Try multiple auth schemes commonly used by GitHub Internal API
+    schemes = [f"Bearer {github_token}", f"token {github_token}"]
+    last_error = ""
 
-    Returns:
-        Tuple of (token, expires_at_timestamp). expires_at is None if not provided.
-    """
-    # Prefer 'Bearer' for reliability in modern environments, fallback to 'token' handled via manual retry if needed
-    headers = {
-        "Authorization": f"Bearer {github_token}",
-        "Accept": "application/json",
-        **COPILOT_DEFAULT_HEADERS,
-    }
-    with httpx.Client() as client:
-        res = client.get(
-            "https://api.github.com/copilot_internal/v2/token",
-            headers=headers,
-        )
-        # If Bearer fails, try classic 'token' prefix
-        if res.status_code == 401:
-            headers["Authorization"] = f"token {github_token}"
-            res = client.get(
-                "https://api.github.com/copilot_internal/v2/token",
-                headers=headers,
-            )
+    for auth_header in schemes:
+        headers = {
+            "Authorization": auth_header,
+            **COPILOT_DEFAULT_HEADERS,
+        }
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                res = client.get(
+                    "https://api.github.com/copilot_internal/v2/token",
+                    headers=headers,
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    return data.get("token"), data.get("expires_at")
+                
+                last_error = f"{res.status_code}: {res.text}"
+                logger.warning(f"FetchCopilotToken ({auth_header[:10]}...): {last_error}")
+        except Exception as e:
+            last_error = str(e)
+            logger.error(f"FetchCopilotToken Error: {last_error}")
 
-        if res.status_code == 200:
-            data = res.json()
-            token = data.get("token")
-            expires_at = data.get("expires_at")
-            return token, expires_at
-        else:
-            logger.error(f"Failed to fetch Copilot token: {res.status_code} {res.text}")
-            # Raise an exception with GitHub's raw response to diagnose 401s in production
-            raise Exception(f"GitHub API Error {res.status_code}: {res.text}")
-    return None, None
+    # If all failed, raise with detail
+    raise Exception(f"Failed all auth schemes. Last error: {last_error}")
 
 
 async def afetch_copilot_token(
     github_token: str,
 ) -> Tuple[Optional[str], Optional[float]]:
-    """Async fetch copilot token and return it with expiration time.
+    """Async fetch copilot token and return it with expiration time."""
+    github_token = github_token.strip()
+    schemes = [f"Bearer {github_token}", f"token {github_token}"]
+    last_error = ""
 
-    Returns:
-        Tuple of (token, expires_at_timestamp). expires_at is None if not provided.
-    """
-    headers = {
-        "Authorization": f"Bearer {github_token}",
-        "Accept": "application/json",
-        **COPILOT_DEFAULT_HEADERS,
-    }
-    async with httpx.AsyncClient() as client:
-        res = await client.get(
-            "https://api.github.com/copilot_internal/v2/token",
-            headers=headers,
-        )
-        if res.status_code == 401:
-            headers["Authorization"] = f"token {github_token}"
-            res = await client.get(
-                "https://api.github.com/copilot_internal/v2/token",
-                headers=headers,
-            )
+    for auth_header in schemes:
+        headers = {
+            "Authorization": auth_header,
+            **COPILOT_DEFAULT_HEADERS,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get(
+                    "https://api.github.com/copilot_internal/v2/token",
+                    headers=headers,
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    return data.get("token"), data.get("expires_at")
+                
+                last_error = f"{res.status_code}: {res.text}"
+        except Exception as e:
+            last_error = str(e)
 
-        if res.status_code == 200:
-            data = res.json()
-            token = data.get("token")
-            expires_at = data.get("expires_at")
-            return token, expires_at
-        else:
-            logger.error(f"Failed to fetch Copilot token (async): {res.status_code} {res.text}")
-            raise Exception(f"GitHub API Error {res.status_code}: {res.text}")
-    return None, None
+    raise Exception(f"Failed all auth schemes (async). Last error: {last_error}")
 
 
 def get_copilot_token(
