@@ -19,10 +19,10 @@ CACHE_PATH = os.path.expanduser("~/.github-copilot-chat.json")
 
 # Shared Copilot headers
 # Modern Copilot headers (VS Code 1.92.0 equivalent)
-COPILOT_EDITOR_VERSION = "vscode/1.92.2"
-COPILOT_PLUGIN_VERSION = "copilot-chat/0.19.1"
+COPILOT_EDITOR_VERSION = "vscode/1.96.2"
+COPILOT_PLUGIN_VERSION = "copilot-chat/0.23.2"
 COPILOT_INTEGRATION_ID = "vscode-chat"
-COPILOT_USER_AGENT = "GitHubCopilotChat/0.19.1"
+COPILOT_USER_AGENT = "GitHubCopilotChat/0.23.2"
 
 COPILOT_DEFAULT_HEADERS = {
     "Copilot-Integration-Id": COPILOT_INTEGRATION_ID,
@@ -93,7 +93,9 @@ def fetch_copilot_token(github_token: str) -> Tuple[Optional[str], Optional[floa
                     return data.get("token"), data.get("expires_at")
                 
                 last_error = f"{res.status_code}: {res.text}"
-                logger.warning(f"FetchCopilotToken ({auth_header[:10]}...): {last_error}")
+                token_slice = github_token[:8] + "..." if len(github_token) > 8 else "???"
+                logger.warning(f"[Auth] ❌ Token exchange failed for prefix {token_slice}. Error: {last_error}")
+                print(f"[Auth] ❌ Token exchange failed for prefix {token_slice}. Status: {res.status_code}")
         except Exception as e:
             last_error = str(e)
             logger.error(f"FetchCopilotToken Error: {last_error}")

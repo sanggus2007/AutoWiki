@@ -388,16 +388,25 @@ def get_decrypted_token(user, api_key_fallback: str = "") -> str:
     Prioritizes api_key_fallback if provided.
     Raises HTTPException if decryption fails or token is missing.
     """
-    if api_key_fallback:
-        return api_key_fallback
+    # Guard against common frontend placeholders or empty strings
+    effective_api_key = ""
+    if api_key_fallback and api_key_fallback.strip() not in ["", "null", "undefined"]:
+        effective_api_key = api_key_fallback.strip()
+
+    if effective_api_key:
+        print(f"[Auth-Helper] Using provided API Key (prefix: {effective_api_key[:8]}...)")
+        return effective_api_key
     
     if not user or not user.github_token_enc:
+        print("[Auth-Helper] No token found in DB for user.")
         return ""
         
     try:
-        return token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+        decrypted = token_manager.decrypt(user.github_token_enc, user.encryption_key_version)
+        print(f"[Auth-Helper] Successfully decrypted DB token (prefix: {decrypted[:8]}...)")
+        return decrypted
     except Exception as e:
-        print(f"[Auth-Helper] Decryption failed for user {user.id}: {e}")
+        print(f"[Auth-Helper] ❌ Decryption failed for user {user.id}: {e}")
         raise HTTPException(
             status_code=401, 
             detail="보안 키 변경으로 인해 GitHub 계정 재연결이 필요합니다. 설정 페이지에서 'GitHub Copilot 계정 연결하기'를 다시 진행해 주세요."
