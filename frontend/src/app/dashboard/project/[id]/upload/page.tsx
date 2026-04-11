@@ -19,11 +19,17 @@ interface PendingUpload {
   action: "upload";
   files: File[];
   customPrompt: string;
+  includeEntities: boolean;
+  includeGraph: boolean;
+  includeFiles: boolean;
 }
 interface PendingTextAnalysis {
   action: "text";
   text: string;
   useSubModel: boolean;
+  includeEntities: boolean;
+  includeGraph: boolean;
+  includeFiles: boolean;
 }
 interface PendingCommit {
   action: "commit";
@@ -52,6 +58,11 @@ export default function ProjectUploadPage() {
   const [showAuthOverlay, setShowAuthOverlay] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+
+  // 분석 시 활용할 맥락 옵션 상태 보존
+  const [includeEntities, setIncludeEntities] = useState(true);
+  const [includeGraph, setIncludeGraph] = useState(true);
+  const [includeFiles, setIncludeFiles] = useState(true);
 
   const getModelKeys = () => ({
     model: localStorage.getItem("autowiki_llm_model") || "gemini-3.1-pro-preview",
@@ -86,7 +97,7 @@ export default function ProjectUploadPage() {
       if (!res.ok) {
         const errText = await res.text();
         if (is401(res.status, errText)) {
-          setPendingAction({ action: "upload", files, customPrompt, includeEntities, includeGraph, includeFiles } as any);
+          setPendingAction({ action: "upload", files, customPrompt, includeEntities, includeGraph, includeFiles });
           if (errText.includes("GitHub") || errText.includes("Token")) {
             alert("파일 분석에 필요한 GitHub 연동 정보가 없습니다. 안내 메뉴를 확인해 주세요.");
             setShowTutorial(true);
@@ -147,7 +158,7 @@ export default function ProjectUploadPage() {
       if (!res.ok) {
         const errText = await res.text();
         if (is401(res.status, errText)) {
-          setPendingAction({ action: "text", text, useSubModel, includeEntities, includeGraph, includeFiles } as any);
+          setPendingAction({ action: "text", text, useSubModel, includeEntities, includeGraph, includeFiles });
           if (errText.includes("GitHub") || errText.includes("Token")) {
             alert("AI 기능을 사용하려면 GitHub 계정 연동이 필요합니다. 안내에 따라 설정을 완료해 주세요.");
             setShowTutorial(true);
@@ -216,23 +227,32 @@ export default function ProjectUploadPage() {
   }, [projectId, userPrompt]);
 
   // ── Public handlers ─────────────────────────────────────────────────────────
-  const handleStartIngestion = (files: File[], customPrompt: string, includeEntities: boolean, includeGraph: boolean, includeFiles: boolean) => {
+  const handleStartIngestion = (files: File[], customPrompt: string, iEnt: boolean, iGra: boolean, iFil: boolean) => {
     setUserPrompt(customPrompt);
     setSavedFiles(files);
-    runUpload(files, customPrompt, includeEntities, includeGraph, includeFiles);
+    setIncludeEntities(iEnt);
+    setIncludeGraph(iGra);
+    setIncludeFiles(iFil);
+    runUpload(files, customPrompt, iEnt, iGra, iFil);
   };
 
-  const handleTextSubmit = (text: string, useSubModel: boolean, includeEntities: boolean, includeGraph: boolean, includeFiles: boolean) => {
+  const handleTextSubmit = (text: string, useSubModel: boolean, iEnt: boolean, iGra: boolean, iFil: boolean) => {
     setUserPrompt(text);
-    runTextAnalysis(text, useSubModel, includeEntities, includeGraph, includeFiles);
+    setIncludeEntities(iEnt);
+    setIncludeGraph(iGra);
+    setIncludeFiles(iFil);
+    runTextAnalysis(text, useSubModel, iEnt, iGra, iFil);
   };
 
   const handleConfirm = (finalProposals: Proposal[]) => runCommit(finalProposals);
 
   const handleReanalyze = (feedback: string) => {
     const combined = feedback + (userPrompt ? `\n\n기존 지시사항: ${userPrompt}` : "");
-    if (savedFiles.length > 0) runUpload(savedFiles, combined);
-    else runTextAnalysis(combined, false);
+    if (savedFiles.length > 0) {
+      runUpload(savedFiles, combined, includeEntities, includeGraph, includeFiles);
+    } else {
+      runTextAnalysis(combined, false, includeEntities, includeGraph, includeFiles);
+    }
   };
 
   // ── Auth retry ──────────────────────────────────────────────────────────────
@@ -242,9 +262,13 @@ export default function ProjectUploadPage() {
     setPendingAction(null);
     if (!saved) return;
     setTimeout(() => {
-      if (saved.action === "upload") runUpload(saved.files, saved.customPrompt);
-      else if (saved.action === "text") runTextAnalysis(saved.text, saved.useSubModel);
-      else runCommit(saved.finalProposals);
+      if (saved.action === "upload") {
+        runUpload(saved.files, saved.customPrompt, saved.includeEntities, saved.includeGraph, saved.includeFiles);
+      } else if (saved.action === "text") {
+        runTextAnalysis(saved.text, saved.useSubModel, saved.includeEntities, saved.includeGraph, saved.includeFiles);
+      } else {
+        runCommit(saved.finalProposals);
+      }
     }, 500);
   }, [pendingAction, runUpload, runTextAnalysis, runCommit]);
 
