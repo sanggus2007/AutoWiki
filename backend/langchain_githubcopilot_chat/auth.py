@@ -93,9 +93,9 @@ def fetch_copilot_token(github_token: str) -> Tuple[Optional[str], Optional[floa
     Returns:
         Tuple of (token, expires_at_timestamp). expires_at is None if not provided.
     """
-    # For Device Flow tokens (tid=), 'token' prefix is typically required by GitHub Internal API
+    # Prefer 'Bearer' for reliability in modern environments, fallback to 'token' handled via manual retry if needed
     headers = {
-        "Authorization": f"token {github_token}",
+        "Authorization": f"Bearer {github_token}",
         "Accept": "application/json",
         **COPILOT_DEFAULT_HEADERS,
     }
@@ -104,6 +104,14 @@ def fetch_copilot_token(github_token: str) -> Tuple[Optional[str], Optional[floa
             "https://api.github.com/copilot_internal/v2/token",
             headers=headers,
         )
+        # If Bearer fails, try classic 'token' prefix
+        if res.status_code == 401:
+            headers["Authorization"] = f"token {github_token}"
+            res = client.get(
+                "https://api.github.com/copilot_internal/v2/token",
+                headers=headers,
+            )
+
         if res.status_code == 200:
             data = res.json()
             token = data.get("token")
@@ -123,7 +131,7 @@ async def afetch_copilot_token(
         Tuple of (token, expires_at_timestamp). expires_at is None if not provided.
     """
     headers = {
-        "Authorization": f"token {github_token}",
+        "Authorization": f"Bearer {github_token}",
         "Accept": "application/json",
         **COPILOT_DEFAULT_HEADERS,
     }
@@ -132,6 +140,13 @@ async def afetch_copilot_token(
             "https://api.github.com/copilot_internal/v2/token",
             headers=headers,
         )
+        if res.status_code == 401:
+            headers["Authorization"] = f"token {github_token}"
+            res = await client.get(
+                "https://api.github.com/copilot_internal/v2/token",
+                headers=headers,
+            )
+
         if res.status_code == 200:
             data = res.json()
             token = data.get("token")
