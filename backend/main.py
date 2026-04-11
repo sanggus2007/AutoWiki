@@ -65,7 +65,7 @@ def init_db():
 1. **신규 생성 (nodes)**: 기존에 존재하지 않는 새로운 문서를 만들 때 사용하세요.
    - 필드명: `id` (영어 슬러그), `name` (한글명), `type`, `categories`, `is_root`
 2. **수정 (patches)**: 기존 문서를 보완/수정할 때 사용하세요.
-   - 필드명: **`entity_slug`** (기존 문서 ID), **`entity_name`** (기존 한글명), `changes`
+   - 필드명: **`entity_slug`** (기존 ID), **`entity_name`**, **`changes`** (수정 내용 설명), `new_type` (유형 변경 시), `new_is_root` (루트 여부 변경 시)
 3. **삭제 (deletions)**: 기존 문서를 폐기/병합할 때 사용하세요.
    - 필드명: **`entity_slug`** (기존 문서 ID), **`entity_name`** (기존 한글명), `reason`
    - **절대 규칙**: **삭제(deletions) 목록에 넣은 문서를 다시 생성(nodes) 목록에 올리는 모순된 행위는 절대 금지합니다.** 삭제할 거라면 생성하지 말고, 이름만 바꾸고 싶다면 `patches`를 쓰세요.
@@ -83,7 +83,7 @@ def init_db():
 {
   "plan_summary": "인공지능 및 앨런 튜링에 관한 새 문서를 생성하고, 중복된 기존 '알바스 코퍼레이션' 문서를 삭제할 계획입니다.",
   "patches": [
-    {"entity_slug": "origin-wiki", "entity_name": "기존 문서", "changes": "최신 연구 내용을 역사 섹션에 보강함"}
+    {"entity_slug": "origin-wiki", "entity_name": "기존 문서", "changes": "최신 연구 내용을 역사 섹션에 보강함", "new_is_root": true}
   ],
   "deletions": [
     {"entity_slug": "old-duplicate-doc", "entity_name": "중복된 문서", "reason": "신규 생성할 '신규 문서'와 주제가 완전히 겹치므로 삭제함"}
@@ -281,31 +281,46 @@ def example():
 추가 또는 수정된 응용 사례 내용..."""
 
     try:
-        existing_extraction = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_extraction").first()
-        if not existing_extraction:
+        # 1단계: 지식 추출 프롬프트
+        p1 = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_extraction").first()
+        if not p1:
             db.add(schema.SystemPrompt(
-                key="knowledge_extraction",
-                name="[1단계] 지식 구조 추출",
+                key="knowledge_extraction", name="[1단계] 지식 구조 추출",
                 content=DEFAULT_EXTRACTION_PROMPT,
-                description="주어진 텍스트로부터 문서와 관계를 JSON 형태로 추출합니다. plan_summary + <<<EXISTING_ENTITIES>>> 플레이스홀더 필수 유지"
+                description="주어진 텍스트로부터 문서와 관계를 JSON 형태로 추출합니다."
             ))
-        existing_gen = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_generation").first()
-        if not existing_gen:
+        else:
+            # 스키마 변경 사항이 있을 수 있으므로 (예: patches 필드) 업데이트 수행
+            # 단, 사용자가 대대적으로 고쳤을 수도 있으므로 완전 덮어쓰기보다는 필요한 경우에만 권장
+            # 여기서는 배포 초기 단계이므로 최신 스키마 준수를 위해 업데이트함
+            p1.content = DEFAULT_EXTRACTION_PROMPT
+            
+        # 2단계: 문서 생성 프롬프트
+        p2 = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_generation").first()
+        if not p2:
             db.add(schema.SystemPrompt(
-                key="knowledge_generation",
-                name="[2단계] 위키백과 마크다운 생성",
+                key="knowledge_generation", name="[2단계] 위키백과 마크다운 생성",
                 content=DEFAULT_GENERATION_PROMPT,
-                description="추출된 지식 플랜을 기반으로 상세한 위키 문서를 작성합니다. (DOCUMENT_SEPARATOR 규칙 필수 유지)"
+                description="추출된 지식 플랜을 기반으로 상세한 위키 문서를 작성합니다."
             ))
-        existing_patch = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_patch").first()
-        if not existing_patch:
+        else:
+            p2.content = DEFAULT_GENERATION_PROMPT
+
+        # 2단계-B: 패치 프롬프트
+        p3 = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_patch").first()
+        if not p3:
             db.add(schema.SystemPrompt(
-                key="knowledge_patch",
-                name="[2단계-B] 기존 문서 개선 (섹션 단위 패치)",
+                key="knowledge_patch", name="[2단계-B] 기존 문서 개선 (섹션 단위 패치)",
                 content=DEFAULT_PATCH_PROMPT,
-                description="기존 위키 문서에서 변경 섹션만 반환합니다. <<<ENTITY_NAME>>>, <<<ENTITY_TYPE>>>, <<<PATCH_DESCRIPTION>>>, <<<SECTIONS_LIST>>>, <<<EXISTING_SUMMARY>>>, <<<SOURCE_TEXT>>> 플레이스홀더 유지"
+                description="기존 위키 문서에서 변경 섹션만 반환합니다."
             ))
+        else:
+            p3.content = DEFAULT_PATCH_PROMPT
+            
         db.commit()
+    except Exception as e:
+        print(f"[Startup] Prompt Sync Error: {e}")
+        db.rollback()
     finally:
         db.close()
 
@@ -769,7 +784,7 @@ def reset_prompts(db=Depends(get_db)):
 
 [출력 데이터 구조] (반드시 아래 필드명을 준수할 것)
 1. 새로운 문서 (nodes): `id`, `name`, `type`, `categories`, `is_root`
-2. 수정 (patches): `entity_slug` (기존 ID), `entity_name`, `changes`
+2. 수정 (patches): `entity_slug` (기존 ID), `entity_name`, `changes`, `new_type`, `new_is_root`
 3. 삭제 (deletions): `entity_slug`, `entity_name`, `reason`
 4. 관계 설정 (edges): **`source`** (시작 노드 ID), **`target`** (도착 노드 ID), **`label`** (관계 설명)
 
