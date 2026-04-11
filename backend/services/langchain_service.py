@@ -69,7 +69,8 @@ def invoke_with_auth_fallback(llm, base_prompt, github_token: str = None):
             
             if actual_token:
                 try:
-                    print(f"[Auth Interceptor] 🔄 Attempting recovery with stored token (prefix: {actual_token[:8]}...)...")
+                    prefix = actual_token[:8] if isinstance(actual_token, str) else "???"
+                    print(f"[Auth Interceptor] 🔄 Attempting recovery with stored token (prefix: {prefix}...)...")
                     # fetch_copilot_token now uses 'Bearer' which is required for tid= tokens
                     copilot_token, expires_at = fetch_copilot_token(actual_token)
                     if copilot_token:

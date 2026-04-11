@@ -1,8 +1,8 @@
 import os
 import datetime
 import re
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Query
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Query, Request
+from fastapi.responses import RedirectResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
@@ -21,7 +21,7 @@ import langchain_githubcopilot_chat.auth
 import config
 
 # Create DB tables
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine) # Handled in startup event
 
 app = FastAPI(title="AutoWiki AI Backend")
 
@@ -339,7 +339,7 @@ app.add_middleware(
 )
 
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response, JSONResponse
+# Response, JSONResponse already imported from fastapi.responses above
 
 class CSRFMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
@@ -382,7 +382,7 @@ import hashlib
 def generate_session_token() -> str:
     return secrets.token_hex(32)
 
-from fastapi import Request
+# Request already imported from fastapi above
 
 def set_auth_cookie(response: Response, session_id: str, request: Request):
     frontend_url = config.FRONTEND_URL
@@ -1359,7 +1359,7 @@ async def upload_files(
             print(f"[Upload] Token decryption error: {e}")
 
     results = []
-    from services.langchain_service import extract_text_from_file
+    # from services.langchain_service import extract_text_from_file # Already imported at top
     for file in files:
         try:
             full_text = await extract_text_from_file(file)
