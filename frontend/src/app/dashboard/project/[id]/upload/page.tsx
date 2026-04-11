@@ -69,7 +69,7 @@ export default function ProjectUploadPage() {
     subModel: localStorage.getItem("autowiki_llm_sub_model") || "gemini-3-flash-preview",
     thinkingLevel: localStorage.getItem("autowiki_llm_thinking_level") || "HIGH",
     reasoningEffort: localStorage.getItem("autowiki_llm_reasoning_effort") || "high",
-    key: localStorage.getItem("autowiki_github_token") || localStorage.getItem("autowiki_llm_api_key") || "",
+    key: "",
   });
 
   // ── File upload analysis ────────────────────────────────────────────────────
