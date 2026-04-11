@@ -37,9 +37,13 @@ def get_session(db: DBSession, session_id: str) -> Optional[schema.Session]:
         db.commit()
         return None
         
-    # Update last activity
-    session.last_activity = datetime.datetime.utcnow()
-    db.commit()
+    # Update last activity without blocking/waiting for commit every single time
+    # (Optional: Only update if last_activity was > 5 mins ago to save IO)
+    now = datetime.datetime.utcnow()
+    if not session.last_activity or (now - session.last_activity).total_seconds() > 300:
+        session.last_activity = now
+        db.commit() # Only commit occasionally
+    
     return session
 
 def delete_session(db: DBSession, session_id: str):

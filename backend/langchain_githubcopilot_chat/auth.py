@@ -119,6 +119,8 @@ def fetch_copilot_token(github_token: str) -> Tuple[Optional[str], Optional[floa
             return token, expires_at
         else:
             logger.error(f"Failed to fetch Copilot token: {res.status_code} {res.text}")
+            # Raise an exception with GitHub's raw response to diagnose 401s in production
+            raise Exception(f"GitHub API Error {res.status_code}: {res.text}")
     return None, None
 
 
@@ -154,6 +156,7 @@ async def afetch_copilot_token(
             return token, expires_at
         else:
             logger.error(f"Failed to fetch Copilot token (async): {res.status_code} {res.text}")
+            raise Exception(f"GitHub API Error {res.status_code}: {res.text}")
     return None, None
 
 
