@@ -109,19 +109,20 @@ def get_llm(model_name: str, github_token: str, thinking_level: str = None, reas
          github_token = os.environ.get("GITHUB_TOKEN")
          
     if not github_token:
+        print("[LLM-Auth] ❌ GitHub token is completely missing (None or Empty)")
         raise HTTPException(status_code=401, detail="GitHub Token Required. Please connect your GitHub account in settings.")
         
     # 토큰 무결성 체크 (복호화 결과가 유효한지 확인)
-    # GitHub Access Token은 보통 gho_, ghu_, ghp_, github_pat_ 등으로 시작함.
-    # 만약 깨진 문자열이라면 암호화 키 불일치일 확률이 99%
     valid_prefix = ("gho_", "ghp_", "ghu_", "github_pat_", "tid_")
     if not github_token.startswith(valid_prefix):
-        prefix_peek = github_token[:4] + "..." if len(github_token) > 4 else "???"
-        print(f"[LLM-Auth] ❌ Invalid token format detected (prefix: {prefix_peek}). Possible encryption key mismatch.")
+        prefix_peek = github_token[:8] + "..." if len(github_token) > 8 else "???"
+        print(f"[LLM-Auth] ❌ Invalid token format detected (prefix: {prefix_peek}). This usually means the encryption key is different from where it was saved.")
         raise HTTPException(
             status_code=401, 
-            detail=f"인증 토큰 형식이 올바르지 않습니다. (키 불일치 의심: {prefix_peek}) 설정에서 계정을 다시 연결해 주세요."
+            detail=f"인증 토큰 복호화 결과가 비정상입니다. (감지된 접두사: {prefix_peek}) 설정에서 계정을 다시 연결해 주세요."
         )
+    else:
+        print(f"[LLM-Auth] ✅ Token decrypted and prefix validated: {github_token[:4]}...")
     # Manually exchange PAT for Copilot token to bypass the library's shared disk cache
     # Tokens starting with 'tid=' are already Copilot tokens and don't need exchange.
     # Note: Device flow tokens might start with various prefixes (gho, ghu, etc)
