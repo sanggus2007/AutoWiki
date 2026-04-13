@@ -190,7 +190,8 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
 
       const thinkingLevel = (typeof window !== "undefined" && localStorage.getItem("autowiki_llm_thinking_level")) || "MEDIUM";
       const reasoningEffort = (typeof window !== "undefined" && localStorage.getItem("autowiki_llm_reasoning_effort")) || "medium";
-      const apiKey = (typeof window !== "undefined" && (localStorage.getItem("autowiki_github_token") || localStorage.getItem("autowiki_llm_api_key"))) || "";
+      // We no longer send manual API keys from frontend; backend handles it via session and DB.
+      const apiKey = "";
 
       const res = await apiFetch(`/api/projects/${projectId}/chat`, {
         method: "POST",
