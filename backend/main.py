@@ -42,6 +42,19 @@ def init_db():
         print(f"[Startup] DB Migration Notice (might already exist): {e}")
         db.rollback()
     
+    # --- Auto Migration: Ensure ai_provider, ollama_api_key_enc, ollama_host exist ---
+    try:
+        from sqlalchemy import text
+        print("[Startup] Checking for AI provider and Ollama columns in users table...")
+        db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_provider VARCHAR DEFAULT 'github_copilot'"))
+        db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_api_key_enc TEXT"))
+        db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_host VARCHAR DEFAULT 'https://ollama.com'"))
+        db.commit()
+        print("[Startup] DB Migration (AI provider & Ollama) check complete.")
+    except Exception as e:
+        print(f"[Startup] DB Migration Notice for users table (might already exist): {e}")
+        db.rollback()
+
     DEFAULT_EXTRACTION_PROMPT = """당신은 위키백과 수준의 백과사전을 기획하는 전문 AI 기획자입니다.
 제공된 텍스트를 분석하여 어떤 문서(Node)들을 생성해야 할지, 문서들 간의 관계(Edge)는 어떠한지 구조를 기획하세요. (내용 생성은 금지)
 
@@ -411,6 +424,29 @@ def get_decrypted_token(user, api_key_fallback: str = "") -> str:
             status_code=401, 
             detail="보안 키 변경으로 인해 GitHub 계정 재연결이 필요합니다. 설정 페이지에서 'GitHub Copilot 계정 연결하기'를 다시 진행해 주세요."
         )
+
+def get_active_provider_and_token(user, api_key_fallback: str = ""):
+    provider = getattr(user, 'ai_provider', 'github_copilot') or 'github_copilot'
+    active_token = ""
+    
+    if provider == 'github_copilot':
+        active_token = get_decrypted_token(user, api_key_fallback)
+    elif provider == 'ollama':
+        effective_api_key = ""
+        if api_key_fallback and api_key_fallback.strip() not in ["", "null", "undefined"]:
+            effective_api_key = api_key_fallback.strip()
+            
+        if effective_api_key:
+            print(f"[Auth-Helper] Using provided Ollama API Key (prefix: {effective_api_key[:8]}...)")
+            active_token = effective_api_key
+        elif user and user.ollama_api_key_enc:
+            try:
+                active_token = token_manager.decrypt(user.ollama_api_key_enc, user.encryption_key_version)
+                print(f"[Auth-Helper] Successfully decrypted DB Ollama key (prefix: {active_token[:4]}...)")
+            except Exception as e:
+                print(f"[Auth-Helper] ❌ Ollama Decryption failed: {e}")
+                active_token = ""
+    return provider, active_token
 
 # Request already imported from fastapi above
 
@@ -940,7 +976,40 @@ def get_user_me(user=Depends(get_current_user), db=Depends(get_db)):
         "auth_provider": user.auth_provider,
         "is_github_linked": user.github_token_enc is not None,
         "storage_used": usage,
-        "storage_limit": 10485760
+        "storage_limit": 10485760,
+        "ai_provider": getattr(user, 'ai_provider', 'github_copilot') or 'github_copilot',
+        "ollama_host": getattr(user, 'ollama_host', 'https://ollama.com') or 'https://ollama.com',
+        "has_ollama_key": getattr(user, 'ollama_api_key_enc', None) is not None
+    }
+
+class AISettingsPayload(BaseModel):
+    ai_provider: str
+    ollama_host: Optional[str] = "https://ollama.com"
+    ollama_api_key: Optional[str] = None
+
+@app.put("/api/users/me/ai-settings")
+def update_user_ai_settings(payload: AISettingsPayload, user=Depends(get_current_user), db=Depends(get_db)):
+    if payload.ai_provider not in ["github_copilot", "ollama"]:
+        raise HTTPException(status_code=400, detail="Invalid AI provider")
+    
+    user.ai_provider = payload.ai_provider
+    if payload.ollama_host:
+        user.ollama_host = payload.ollama_host.strip()
+        
+    if payload.ollama_api_key is not None:
+        key_stripped = payload.ollama_api_key.strip()
+        if key_stripped == "":
+            user.ollama_api_key_enc = None
+        elif key_stripped != "********":
+            user.ollama_api_key_enc = token_manager.encrypt(key_stripped, user.encryption_key_version)
+            
+    db.commit()
+    db.refresh(user)
+    return {
+        "status": "success",
+        "ai_provider": user.ai_provider,
+        "ollama_host": user.ollama_host,
+        "has_ollama_key": user.ollama_api_key_enc is not None
     }
 
 @app.post("/api/projects")
@@ -1078,11 +1147,19 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get
         else:
             print("[AnalyzeText] Context optimization: Skipping file contents")
 
-        # Decrypt GitHub token
-        gh_token = get_decrypted_token(user, payload.api_key)
+        # Decrypt active provider credentials
+        provider, active_token = get_active_provider_and_token(user, payload.api_key)
+        host = getattr(user, 'ollama_host', 'https://ollama.com') or 'https://ollama.com'
 
-        print(f"[AnalyzeText] Running LLM planning with model: {payload.model_name}")
-        llm = get_llm(payload.model_name, gh_token, payload.thinking_level, payload.reasoning_effort)
+        print(f"[AnalyzeText] Running LLM planning with model: {payload.model_name} (provider: {provider})")
+        llm = get_llm(
+            payload.model_name, 
+            active_token, 
+            payload.thinking_level, 
+            payload.reasoning_effort, 
+            ai_provider=provider, 
+            ollama_host=host
+        )
         plan = plan_knowledge_extraction(
             payload.text, payload.custom_prompt, llm, system_prompt, existing_entities, all_categories, project_files_text, project_graph=project_graph
         )
@@ -1245,11 +1322,19 @@ def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current
         else:
             project_files_text = "(첨부 파일 본문 정보는 비활성화되었습니다.)"
 
-        # Decrypt GitHub token
-        gh_token = get_decrypted_token(user, payload.api_key)
+        # Decrypt active provider credentials
+        provider, active_token = get_active_provider_and_token(user, payload.api_key)
+        host = getattr(user, 'ollama_host', 'https://ollama.com') or 'https://ollama.com'
 
-        print(f"[ProjectChat] Executing chat with model: {payload.model_name}")
-        llm = get_llm(payload.model_name, gh_token, payload.thinking_level, payload.reasoning_effort)
+        print(f"[ProjectChat] Executing chat with model: {payload.model_name} (provider: {provider})")
+        llm = get_llm(
+            payload.model_name, 
+            active_token, 
+            payload.thinking_level, 
+            payload.reasoning_effort, 
+            ai_provider=provider, 
+            ollama_host=host
+        )
         
         reply = execute_project_chat(
             message=payload.message,
@@ -1381,8 +1466,9 @@ async def upload_files(
     # Use sub_model for extraction (cheaper), fall back to main model if not set
     extraction_model = sub_model_name if sub_model_name else model_name
 
-    # Decrypt GitHub token using centralized helper
-    gh_token = get_decrypted_token(user, api_key)
+    # Decrypt active provider credentials
+    provider, active_token = get_active_provider_and_token(user, api_key)
+    host = getattr(user, 'ollama_host', 'https://ollama.com') or 'https://ollama.com'
 
     results = []
     # from services.langchain_service import extract_text_from_file # Already imported at top
@@ -1395,7 +1481,22 @@ async def upload_files(
             # NOTE: ProjectFile is NOT saved here.
             # It is only saved upon commit so that cancelling (going back) does not
             # leave orphaned reference files in the project.
-            res = await extract_proposals(file.filename, full_text, custom_prompt, extraction_model, gh_token, system_prompt, existing_entities, all_categories, project_files_text, thinking_level, reasoning_effort, project_graph=project_graph)
+            res = await extract_proposals(
+                file.filename, 
+                full_text, 
+                custom_prompt, 
+                extraction_model, 
+                active_token, 
+                system_prompt, 
+                existing_entities, 
+                all_categories, 
+                project_files_text, 
+                thinking_level, 
+                reasoning_effort, 
+                project_graph=project_graph,
+                ai_provider=provider,
+                ollama_host=host
+            )
             
             # Filter out hallucinations: deletions or patches for non-existent entities
             existing_slugs = {e.slug for e in existing}
@@ -1432,8 +1533,9 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
     thinking_level = payload_data.get("thinking_level")
     reasoning_effort = payload_data.get("reasoning_effort")
 
-    # Decrypt GitHub token
-    gh_token = get_decrypted_token(user, api_key)
+    # Decrypt active provider credentials
+    provider, active_token = get_active_provider_and_token(user, api_key)
+    host = getattr(user, 'ollama_host', 'https://ollama.com') or 'https://ollama.com'
     
     prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_generation").first()
     system_prompt = prompt_record.content if prompt_record else ""
@@ -1450,9 +1552,15 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
     project_graph = get_project_graph_context(project_id, db)
 
     # Commit uses main model for generation (heavy writing task)
-    gh_token = get_decrypted_token(user, api_key)
-
-    llm = get_llm(model_name, gh_token, thinking_level, reasoning_effort)
+    print(f"[Commit] Initializing LLM with model: {model_name} (provider: {provider})")
+    llm = get_llm(
+        model_name, 
+        active_token, 
+        thinking_level, 
+        reasoning_effort, 
+        ai_provider=provider, 
+        ollama_host=host
+    )
     # payload_data will contain a "proposals" array
     proposals = payload_data.get("proposals", [])
     

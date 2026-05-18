@@ -54,6 +54,64 @@ class KnowledgePlan(BaseModel):
     edge_deletions: list[PlanEdgeDelete] = Field(default_factory=list, description="기존 관계 삭제 목록")
 
 def invoke_with_auth_fallback(llm, base_prompt, github_token: str = None):
+    is_ollama = (llm.__class__.__name__ == 'ChatOllama')
+    if is_ollama:
+        print("[LLM-Ollama] 🔄 Executing with native HTTP stream-aggregation to prevent proxy timeouts...")
+        from langchain_core.messages import AIMessage
+        import urllib.request
+        import json
+        
+        # Format messages
+        messages_json = []
+        if isinstance(base_prompt, str):
+            messages_json.append({"role": "user", "content": base_prompt})
+        else:
+            for msg in base_prompt:
+                role = "user"
+                if getattr(msg, 'type', '') == 'system' or getattr(msg, 'name', '') == 'system':
+                    role = "system"
+                elif getattr(msg, 'type', '') == 'ai' or getattr(msg, 'name', '') == 'assistant':
+                    role = "assistant"
+                messages_json.append({"role": role, "content": getattr(msg, 'content', str(msg))})
+                
+        payload = {
+            "model": llm.model,
+            "messages": messages_json,
+            "stream": True,
+            "options": {"temperature": getattr(llm, 'temperature', 0.2)}
+        }
+        
+        # The base_url might already have /api/chat or not. Typically it's just the host.
+        host = llm.base_url.rstrip('/')
+        url = f"{host}/api/chat" if not host.endswith("/api") else f"{host}/chat"
+        
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            method="POST"
+        )
+        req.add_header("Content-Type", "application/json")
+        
+        if getattr(llm, 'headers', None) and "Authorization" in llm.headers:
+            req.add_header("Authorization", llm.headers["Authorization"])
+            
+        full_content = ""
+        try:
+            with urllib.request.urlopen(req, timeout=60) as response:
+                for line in response:
+                    if line:
+                        chunk = json.loads(line.decode("utf-8"))
+                        full_content += chunk.get("message", {}).get("content", "")
+                        if chunk.get("done", False):
+                            break
+            return AIMessage(content=full_content)
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                raise HTTPException(status_code=401, detail="Ollama API 키 인증에 실패했습니다. 설정 페이지에서 API 키를 확인해 주세요.")
+            raise HTTPException(status_code=502, detail=f"Ollama 서버 오류 (HTTP {e.code}): {e.read().decode('utf-8')[:120]}")
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Ollama 서버에 연결할 수 없습니다. (오류: {str(e)[:120]})")
+
     # Retrieve the PAT stored on the LLM object or in environment
     actual_token = github_token or getattr(llm, '_github_token', None) or os.environ.get("GITHUB_TOKEN")
     
@@ -101,12 +159,33 @@ def invoke_with_auth_fallback(llm, base_prompt, github_token: str = None):
             )
         raise HTTPException(status_code=500, detail=f"AI 분석 중 오류가 발생했습니다: {str(e)}")
 
-def get_llm(model_name: str, github_token: str, thinking_level: str = None, reasoning_effort: str = None):
+def get_llm(model_name: str, token: str, thinking_level: str = None, reasoning_effort: str = None, ai_provider: str = "github_copilot", ollama_host: str = None):
     """
-    Initialize LLM with user-specific GitHub token.
-    Bypasses shared disk cache by exchanging PAT for a short-lived Copilot token (tid=)
-    before passing it to the model.
+    Initialize LLM with user-specific provider settings.
+    Supports GitHub Copilot and Ollama.
     """
+    if ai_provider == "ollama":
+        from langchain_community.chat_models import ChatOllama
+        
+        host = ollama_host.strip() if ollama_host else "http://localhost:11434"
+        if host.endswith("/"):
+            host = host[:-1]
+            
+        print(f"[LLM-Ollama] Initializing ChatOllama with model={model_name}, host={host}")
+        
+        headers = {}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+            
+        llm = ChatOllama(
+            model=model_name if model_name else "llama3",
+            base_url=host,
+            headers=headers if headers else None,
+            temperature=0.2
+        )
+        return llm
+
+    github_token = token
     if not github_token:
          # System fallback is now disabled to prevent credential confusion in production.
          # Only use environment variable if specifically allowed for system-level background tasks.
@@ -145,7 +224,7 @@ def get_llm(model_name: str, github_token: str, thinking_level: str = None, reas
     else:
         active_token = github_token
         print("[LLM-Auth] ⏩ Using existing Copilot session token (tid=)")
-
+ 
     target_model = model_name if model_name else "gemini-3-flash"
     
     kwargs = {}
@@ -358,10 +437,10 @@ async def extract_text_from_file(file: UploadFile) -> str:
             os.unlink(tmp_path)
             print(f"[Extract] Temp file cleaned up: {tmp_path}")
 
-async def extract_proposals(filename: str, full_text: str, custom_prompt: str, model_name: str, api_key: str, system_prompt: str, existing_entities: list[str] | None = None, all_categories: list[str] | None = None, project_files_text: str | None = None, thinking_level: str = None, reasoning_effort: str = None, project_graph: str = ""):
+async def extract_proposals(filename: str, full_text: str, custom_prompt: str, model_name: str, api_key: str, system_prompt: str, existing_entities: list[str] | None = None, all_categories: list[str] | None = None, project_files_text: str | None = None, thinking_level: str = None, reasoning_effort: str = None, project_graph: str = "", ai_provider: str = "github_copilot", ollama_host: str = None):
     if not full_text.strip():
         raise HTTPException(status_code=400, detail="텍스트를 추출할 수 없습니다.")
-    llm = get_llm(model_name, api_key, thinking_level, reasoning_effort)
+    llm = get_llm(model_name, api_key, thinking_level, reasoning_effort, ai_provider=ai_provider, ollama_host=ollama_host)
     plan = plan_knowledge_extraction(full_text, custom_prompt, llm, system_prompt, existing_entities, all_categories, project_files_text, project_graph=project_graph)
     return {
         "filename": filename,

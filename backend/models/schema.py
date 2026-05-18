@@ -45,6 +45,11 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=True)
     password_hash = Column(String, nullable=True)
 
+    # AI Settings
+    ai_provider = Column(String, default="github_copilot")
+    ollama_api_key_enc = Column(Text, nullable=True)
+    ollama_host = Column(String, default="https://ollama.com")
+
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
 

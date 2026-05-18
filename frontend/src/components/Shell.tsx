@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Home, Book, FileText, Settings, Search, Edit3, FolderOpen, Plus, Network, Archive, LogOut, Database, Menu, X as CloseIcon } from "lucide-react";
+import { Home, Book, FileText, Settings, Search, Edit3, FolderOpen, Plus, Archive, LogOut, Database, Menu, X as CloseIcon } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import ExportImportPanel from "./ExportImportPanel";
 import { apiFetch } from "@/lib/api";
@@ -113,7 +113,6 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto custom-scrollbar">
           <div className="text-[11px] font-bold text-[#54595d] px-2 mb-1 uppercase tracking-wider">탐색</div>
           <NavItem icon={<Home size={15} />} label="대문" href="/dashboard" active={pathname === "/dashboard"} />
-          <NavItem icon={<Network size={15} />} label="전체 지식 구조도" href="/dashboard/graph" active={pathname === "/dashboard/graph"} />
           
           <div className="mt-5 mb-1">
             <div className="flex items-center justify-between px-2">

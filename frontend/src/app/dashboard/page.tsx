@@ -109,8 +109,8 @@ export default function DashboardPage() {
                       <div className="flex-1 min-w-0">
                         <div className="text-[#0645ad] hover:underline font-bold truncate">{p.name}</div>
                         <div className="text-[11px] text-[#54595d] mt-1 flex items-center space-x-3">
-                          <span>문서 {p.doc_count}건</span>
-                          <span>개체 {p.entity_count}건</span>
+                          <span>파일 {p.doc_count}건</span>
+                          <span>문서 {p.entity_count}건</span>
                         </div>
                       </div>
                     </div>
