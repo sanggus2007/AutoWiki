@@ -273,15 +273,6 @@ export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
 
-  const handleDummyClick = (menu: string) => {
-    const messages: Record<string, string> = {
-      "토론": "저희 사용자들의 수준이 너무 높아서 토론이 필요 없는 경지에 이르렀습니다... (실은 개발 중이에요! 🤫)",
-      "기여": "여러분의 소중한 기여를 담기엔 서버가 아직 너무 작습니다. 무럭무럭 키워올게요! 🌱",
-      "최근 바뀜": "방금 전 당신이 이 버튼을 누른 게 가장 최근의 변화입니다! (농담이에요, 곧 추가됩니다! 🚀)"
-    };
-    alert(messages[menu] || "곧 구현될 기능입니다!");
-  };
-
   useEffect(() => {
     const timer = setTimeout(async () => {
       if (searchQuery.trim().length > 0) {
@@ -316,9 +307,6 @@ export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
         >
           <Menu size={20} />
         </button>
-        <span onClick={() => handleDummyClick("토론")} className="hidden sm:inline hover:underline cursor-pointer">토론</span>
-        <span onClick={() => handleDummyClick("기여")} className="hidden sm:inline hover:underline cursor-pointer">기여</span>
-        <span onClick={() => handleDummyClick("최근 바뀜")} className="hidden md:inline hover:underline cursor-pointer">최근 바뀜</span>
       </div>
 
       <div className="flex-1 max-w-[200px] sm:max-w-sm ml-auto relative">
