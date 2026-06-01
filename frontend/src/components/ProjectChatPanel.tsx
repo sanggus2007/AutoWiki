@@ -41,11 +41,22 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
   const [isLoading, setIsLoading] = useState(false);
   const [showAuthOverlay, setShowAuthOverlay] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [aiProvider, setAiProvider] = useState<"github_copilot" | "ollama">("github_copilot");
   const [pendingAction, setPendingAction] = useState<{text: string, useSubModel: boolean} | null>(null);
   
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(true);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Resizing state
   const [panelWidth, setPanelWidth] = useState(600);
@@ -132,9 +143,21 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
     loadSessions();
   }, [projectId]);
 
+  useEffect(() => {
+    apiFetch("/api/users/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ai_provider) {
+          setAiProvider(data.ai_provider);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch user settings in ChatPanel:", err));
+  }, []);
+
   const handleSelectSession = async (sessionId: number) => {
     if (isLoading) return;
     setCurrentSessionId(sessionId);
+    if (window.innerWidth < 768) setIsHistoryOpen(false); // auto-close on mobile!
     localStorage.setItem(`autowiki_last_chat_session_${projectId}`, sessionId.toString());
     try {
       const res = await apiFetch(`/api/projects/${projectId}/chat-sessions/${sessionId}`);
@@ -154,6 +177,7 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
   const handleNewChat = () => {
     if (isLoading) return;
     setCurrentSessionId(null);
+    if (window.innerWidth < 768) setIsHistoryOpen(false); // auto-close on mobile!
     localStorage.removeItem(`autowiki_last_chat_session_${projectId}`);
     setMessages([{ role: "assistant", content: "안녕하세요! 이 프로젝트에 대해 무엇이든 물어보세요." }]);
   };
@@ -254,8 +278,8 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
   return (
     <div 
       className={`fixed right-0 top-0 bottom-0 bg-white border-l border-[#a2a9b1] shadow-2xl flex z-50 font-sans transition-all duration-300 transform translate-x-0 overflow-hidden
-        ${window.innerWidth < 768 ? 'w-full left-0 inset-0' : ''}`}
-      style={window.innerWidth >= 768 ? { width: `${panelWidth}px` } : {}}
+        ${isMobile ? 'w-full left-0 inset-0' : ''}`}
+      style={!isMobile ? { width: `${panelWidth}px` } : {}}
     >
       {/* Resize Handle - desktop only */}
       <div
@@ -265,9 +289,22 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
       />
       {/* Sidebar (Sessions) */}
       <div className={`
-        ${isHistoryOpen || window.innerWidth >= 768 ? 'w-[200px] border-r' : 'w-0'} 
+        ${isMobile ? (isHistoryOpen ? 'w-full' : 'hidden') : 'w-[200px] border-r'} 
         bg-[#f8f9fa] border-[#a2a9b1] flex flex-col transition-all duration-300 overflow-hidden shrink-0
       `}>
+        {/* Mobile History Header */}
+        {isMobile && isHistoryOpen && (
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#a2a9b1] bg-[#eaecf0] shrink-0">
+            <span className="font-bold text-[#202122] text-[14px] flex items-center gap-1.5"><MessageSquare size={16} /> 대화 기록</span>
+            <button 
+              onClick={() => setIsHistoryOpen(false)} 
+              className="text-[#54595d] hover:text-[#cc0000] p-1 rounded-sm hover:bg-[#c8ccd1] transition-colors"
+              title="대화창으로 돌아가기"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
         <div className="p-3 border-b border-[#a2a9b1]">
           <button 
             onClick={handleNewChat}
@@ -304,10 +341,10 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className={`flex-1 min-w-0 flex flex-col ${isMobile && isHistoryOpen ? 'hidden' : 'flex'}`}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 sm:py-4 border-b border-[#a2a9b1] bg-[#f8f9fa] shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <button 
               onClick={() => setIsHistoryOpen(!isHistoryOpen)}
               className="md:hidden p-1 -ml-1 text-[#54595d] hover:bg-[#eaecf0] rounded-sm"
@@ -359,15 +396,16 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
         </div>
 
         {/* Input */}
-        <div className="p-3 bg-[#f8f9fa] border-t border-[#a2a9b1] pb-[calc(12px+env(safe-area-inset-bottom))]">
+        <div className="p-2 sm:p-3 bg-[#f8f9fa] border-t border-[#a2a9b1] pb-[calc(12px+env(safe-area-inset-bottom))]">
           <TextInputUI
             onSubmit={handleSubmit}
             title=""
             description=""
-            placeholder="질문을 입력하세요... (모바일은 '전송' 버튼 / PC는 Ctrl+Enter)"
+            placeholder="질문을 입력하세요"
             buttonText="전송"
             hideHeader={true}
             clearOnSubmit={true}
+            isChat={true}
           />
         </div>
       </div>
@@ -375,6 +413,7 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
       {showAuthOverlay && <AuthOverlay onSuccess={handleAuthSuccess} />}
       {showTutorial && (
         <SetupTutorial 
+          initialProvider={aiProvider}
           onClose={() => {
             localStorage.setItem("autowiki_tutorial_seen", "true");
             setShowTutorial(false);

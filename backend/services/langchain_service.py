@@ -56,7 +56,12 @@ class KnowledgePlan(BaseModel):
 def invoke_with_auth_fallback(llm, base_prompt, github_token: str = None):
     is_ollama = (llm.__class__.__name__ == 'ChatOllama')
     if is_ollama:
-        print("[LLM-Ollama] 🔄 Executing with native HTTP stream-aggregation to prevent proxy timeouts...")
+        print("[LLM-Ollama] 🔄 Invoking ChatOllama natively...")
+        try:
+            return llm.invoke(base_prompt)
+        except Exception as e:
+            print(f"[LLM-Ollama] ⚠️ Native ChatOllama failed: {e}. Falling back to custom HTTP stream-aggregation...")
+            
         from langchain_core.messages import AIMessage
         import urllib.request
         import json
@@ -97,18 +102,30 @@ def invoke_with_auth_fallback(llm, base_prompt, github_token: str = None):
             
         full_content = ""
         try:
-            with urllib.request.urlopen(req, timeout=60) as response:
+            with urllib.request.urlopen(req, timeout=15) as response:
                 for line in response:
                     if line:
-                        chunk = json.loads(line.decode("utf-8"))
-                        full_content += chunk.get("message", {}).get("content", "")
-                        if chunk.get("done", False):
-                            break
+                        decoded_line = line.decode("utf-8").strip()
+                        if not decoded_line:
+                            continue
+                        try:
+                            chunk = json.loads(decoded_line)
+                            full_content += chunk.get("message", {}).get("content", "")
+                            if chunk.get("done", False):
+                                break
+                        except json.JSONDecodeError:
+                            # If it's not JSON, it could be HTML or standard text. Collect it if it seems helpful, or skip.
+                            if "error" in decoded_line.lower() or "exception" in decoded_line.lower():
+                                full_content += f"\n[Error Response: {decoded_line[:200]}]"
             return AIMessage(content=full_content)
         except urllib.error.HTTPError as e:
             if e.code == 401:
                 raise HTTPException(status_code=401, detail="Ollama API 키 인증에 실패했습니다. 설정 페이지에서 API 키를 확인해 주세요.")
-            raise HTTPException(status_code=502, detail=f"Ollama 서버 오류 (HTTP {e.code}): {e.read().decode('utf-8')[:120]}")
+            try:
+                error_body = e.read().decode('utf-8')[:120]
+            except Exception:
+                error_body = "No details"
+            raise HTTPException(status_code=502, detail=f"Ollama 서버 오류 (HTTP {e.code}): {error_body}")
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Ollama 서버에 연결할 수 없습니다. (오류: {str(e)[:120]})")
 
@@ -285,6 +302,63 @@ def plan_knowledge_extraction(text: str, custom_prompt: str, llm, system_prompt:
             if attempt == 2:
                 raise HTTPException(status_code=500, detail=f"LLM AI parsing totally failed: {e}")
 
+def execute_batch_knowledge_generation_stream(nodes_batch: list[dict], text: str, custom_prompt: str, llm, system_prompt: str, project_files_text: str = "", project_graph: str = ""):
+    target_nodes_info = ""
+    for n in nodes_batch:
+        target_nodes_info += f"- 개체명: {n['name']}, 카테고리: {n.get('categories', [])}\n"
+
+    base_prompt = system_prompt.replace("<<<TEXT>>>", text)\
+                               .replace("<<<CUSTOM_PROMPT>>>", custom_prompt if custom_prompt else "없음")\
+                               .replace("<<<BATCH_SIZE>>>", str(len(nodes_batch)))\
+                               .replace("<<<TARGET_NODES_INFO>>>", target_nodes_info)\
+                               .replace("<<<PROJECT_FILES>>>", project_files_text if project_files_text else "없음")\
+                               .replace("<<<PROJECT_GRAPH>>>", project_graph if project_graph else "(없음)")
+
+    is_ollama = (llm.__class__.__name__ == 'ChatOllama')
+    if is_ollama:
+        try:
+            print("[Ollama-Stream] Native stream execution...")
+            for chunk in llm.stream(base_prompt):
+                content = chunk.content if hasattr(chunk, 'content') else str(chunk)
+                yield content
+            return
+        except Exception as e:
+            print(f"[Ollama-Stream] Native stream failed: {e}. Falling back to custom HTTP stream...")
+
+        import json
+        messages_json = [{"role": "user", "content": base_prompt}]
+        payload = {
+            "model": llm.model,
+            "messages": messages_json,
+            "stream": True,
+            "options": {"temperature": getattr(llm, 'temperature', 0.2)}
+        }
+        host = llm.base_url.rstrip('/')
+        url = f"{host}/api/chat" if not host.endswith("/api") else f"{host}/chat"
+        try:
+            with httpx.stream("POST", url, json=payload, headers={"Content-Type": "application/json"}, timeout=30.0) as r:
+                for line in r.iter_lines():
+                    if line:
+                        chunk = json.loads(line)
+                        content = chunk.get("message", {}).get("content", "")
+                        if content:
+                            yield content
+                        if chunk.get("done", False):
+                            break
+            return
+        except Exception as http_err:
+            print(f"[Ollama-Stream] HTTP stream fallback failed: {http_err}")
+            raise http_err
+    else:
+        try:
+            print("[Copilot-Stream] Stream execution...")
+            for chunk in llm.stream(base_prompt):
+                content = chunk.content if hasattr(chunk, 'content') else str(chunk)
+                yield content
+        except Exception as e:
+            print(f"[Copilot-Stream] Stream failed: {e}")
+            raise e
+
 def execute_batch_knowledge_generation(nodes_batch: list[dict], text: str, custom_prompt: str, llm, system_prompt: str, project_files_text: str = "", project_graph: str = "") -> str:
     target_nodes_info = ""
     for n in nodes_batch:
@@ -401,17 +475,55 @@ async def extract_text_from_file(file: UploadFile) -> str:
         
         print(f"[Extract] Temp file created at: {tmp_path} (size: {os.path.getsize(tmp_path)} bytes)")
         
-        docs = []
+        result_text = ""
         if 'pdf' in ext:
-            print("[Extract] Using PyPDFLoader")
-            loader = PyPDFLoader(tmp_path)
-            docs = loader.load()
+            print("[Extract] Processing PDF file...")
+            # 1. Try direct pure-python pypdf.PdfReader extraction
+            try:
+                print("[Extract] Attempting direct pypdf.PdfReader text extraction...")
+                from pypdf import PdfReader
+                reader = PdfReader(tmp_path)
+                num_pages = len(reader.pages)
+                print(f"[Extract] PDF has {num_pages} pages.")
+                
+                text_parts = []
+                for i, page in enumerate(reader.pages):
+                    page_text = page.extract_text()
+                    if page_text:
+                        text_parts.append(page_text)
+                
+                extracted_direct = "\n".join(text_parts)
+                if extracted_direct.strip():
+                    print(f"[Extract] Direct pypdf successful. Extracted {len(extracted_direct)} chars.")
+                    result_text = extracted_direct
+            except Exception as pypdf_err:
+                print(f"[Extract] Direct pypdf failed: {pypdf_err}. Trying PyPDFLoader fallback...")
+            
+            # 2. Fallback to PyPDFLoader if direct extraction returned empty or failed
+            if not result_text.strip():
+                try:
+                    print("[Extract] Attempting PyPDFLoader fallback...")
+                    loader = PyPDFLoader(tmp_path)
+                    docs = loader.load()
+                    loader_text = "\n".join([doc.page_content for doc in docs if doc.page_content])
+                    if loader_text.strip():
+                        print(f"[Extract] PyPDFLoader fallback successful. Extracted {len(loader_text)} chars.")
+                        result_text = loader_text
+                except Exception as langchain_pdf_err:
+                    print(f"[Extract] PyPDFLoader fallback failed: {langchain_pdf_err}")
+            
+            # If both failed or extracted text is empty
+            if not result_text.strip():
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"'{file.filename}' 파일에서 텍스트를 추출할 수 없습니다. 스캔된 이미지 형태의 PDF이거나 텍스트 레이어가 없는 파일일 수 있습니다."
+                )
         elif 'docx' in ext:
             print("[Extract] Using Docx2txtLoader")
-            # This requires 'docx2txt' package
             try:
                 loader = Docx2txtLoader(tmp_path)
                 docs = loader.load()
+                result_text = "\n".join([doc.page_content for doc in docs if doc.page_content])
             except Exception as docx_err:
                 print(f"[Extract] Docx2txtLoader failed: {docx_err}")
                 import traceback
@@ -419,10 +531,23 @@ async def extract_text_from_file(file: UploadFile) -> str:
                 raise HTTPException(status_code=500, detail=f"DOCX 파싱 실패: {str(docx_err)}")
         else:
             print(f"[Extract] Using TextLoader for ext: {ext}")
-            loader = TextLoader(tmp_path, encoding="utf-8")
-            docs = loader.load()
+            try:
+                loader = TextLoader(tmp_path, encoding="utf-8")
+                docs = loader.load()
+                result_text = "\n".join([doc.page_content for doc in docs if doc.page_content])
+            except Exception as txt_err:
+                print(f"[Extract] TextLoader failed: {txt_err}")
+                import traceback
+                traceback.print_exc()
+                raise HTTPException(status_code=500, detail=f"텍스트 파일 파싱 실패: {str(txt_err)}")
         
-        result_text = "\n".join([doc.page_content for doc in docs if doc.page_content])
+        result_text = result_text.strip()
+        if not result_text:
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{file.filename}' 파일의 내용이 비어 있거나 텍스트를 추출할 수 없습니다."
+            )
+            
         print(f"[Extract] Extraction successful. Length: {len(result_text)} chars")
         return result_text
         

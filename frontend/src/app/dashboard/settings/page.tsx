@@ -30,6 +30,7 @@ export default function SettingsPage() {
   const [reasoningEffort, setReasoningEffort] = useState("high");
   const [isGithubLinked, setIsGithubLinked] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialProvider, setTutorialProvider] = useState<"github_copilot" | "ollama" | null>(null);
   const [saved, setSaved] = useState(false);
   const [aiProvider, setAiProvider] = useState<"github_copilot" | "ollama">("github_copilot");
   const [ollamaHost, setOllamaHost] = useState("https://ollama.com");
@@ -88,7 +89,10 @@ export default function SettingsPage() {
       .then(res => res.json())
       .then(data => {
         setIsGithubLinked(data.is_github_linked);
-        const provider = data.ai_provider || "github_copilot";
+        
+        // Sync preferred provider from localStorage if backend doesn't have it set yet
+        const savedPreferred = localStorage.getItem("autowiki_preferred_provider") as "github_copilot" | "ollama";
+        const provider = data.ai_provider || savedPreferred || "github_copilot";
         setAiProvider(provider);
         setOllamaHost(data.ollama_host || "https://ollama.com");
         setHasOllamaKey(data.has_ollama_key || false);
@@ -98,17 +102,18 @@ export default function SettingsPage() {
         
         // Sync active inputs based on loaded provider
         if (provider === "github_copilot") {
-          setModel(savedCopilotModel);
-          setSubModel(savedCopilotSubModel);
+          setModel(savedCopilotModel || data.model || "gemini-3.1-pro-preview");
+          setSubModel(savedCopilotSubModel || data.sub_model || "gemini-3-flash-preview");
         } else {
-          setModel(savedOllamaModel);
-          setSubModel(savedOllamaSubModel);
+          setModel(savedOllamaModel || data.model || "llama3");
+          setSubModel(savedOllamaSubModel || data.sub_model || "llama3");
         }
         
         if (!data.is_github_linked && provider === "github_copilot") {
           const tutorialSeen = localStorage.getItem("autowiki_tutorial_seen");
           if (!tutorialSeen) {
             setShowTutorial(true);
+            setTutorialProvider("github_copilot");
           }
         }
       })
@@ -434,7 +439,10 @@ export default function SettingsPage() {
                   <GithubIcon size={18} className="mr-2" /> GitHub Copilot 통합
                 </h3>
                 <button 
-                  onClick={() => setShowTutorial(true)}
+                  onClick={() => {
+                    setTutorialProvider("github_copilot");
+                    setShowTutorial(true);
+                  }}
                   className="text-[11px] font-bold text-[#0645ad] flex items-center gap-1 hover:underline bg-white px-2 py-1 rounded border border-[#0645ad]/10"
                 >
                   <HelpCircle size={12} /> 설정 안내
@@ -532,9 +540,20 @@ export default function SettingsPage() {
           {/* Ollama Cloud & Local Integration Section */}
           {aiProvider === "ollama" && (
             <div className="bg-[#fcf8f2] border border-[#d6a45c]/30 rounded-md p-5 mb-2 shadow-sm animate-in fade-in duration-300">
-              <h3 className="text-sm font-black text-[#b87014] flex items-center uppercase tracking-wider mb-3">
-                <Bot size={18} className="mr-2 text-[#b87014]" /> Ollama Cloud & Local 통합
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-black text-[#b87014] flex items-center uppercase tracking-wider">
+                  <Bot size={18} className="mr-2 text-[#b87014]" /> Ollama Cloud & Local 통합
+                </h3>
+                <button 
+                  onClick={() => {
+                    setTutorialProvider("ollama");
+                    setShowTutorial(true);
+                  }}
+                  className="text-[11px] font-bold text-[#b87014] flex items-center gap-1 hover:underline bg-white px-2 py-1 rounded border border-[#d6a45c]/25"
+                >
+                  <HelpCircle size={12} /> 설정 안내
+                </button>
+              </div>
               
               <p className="text-[#54595d] text-[12px] mb-4 leading-relaxed">
                 로컬에 실행 중인 Ollama 서버 또는 Ollama Cloud API를 연동합니다. 
@@ -861,14 +880,17 @@ export default function SettingsPage() {
       <AnimatePresence>
         {showTutorial && (
           <SetupTutorial 
+            initialProvider={tutorialProvider}
             onClose={() => {
               localStorage.setItem("autowiki_tutorial_seen", "true");
               setShowTutorial(false);
+              setTutorialProvider(null);
             }} 
             onGoToSettings={() => {
               localStorage.setItem("autowiki_tutorial_seen", "true");
               setShowTutorial(false);
-              document.getElementById("github-token-input")?.focus();
+              setTutorialProvider(null);
+              document.getElementById("sub-model-input")?.focus();
             }} 
           />
         )}

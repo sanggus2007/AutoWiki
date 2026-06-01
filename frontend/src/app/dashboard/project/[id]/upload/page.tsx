@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { UploadUI } from "@/components/UploadUI";
 import { TextInputUI } from "@/components/TextInputUI";
@@ -10,6 +10,7 @@ import { AuthOverlay } from "@/components/AuthOverlay";
 import { ArrowLeft, Loader2, Paperclip, MessageSquareText } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { SetupTutorial } from "@/components/SetupTutorial";
+import { GlassObserver } from "@/components/GlassObserver";
 
 
 type AppState = "UPLOAD" | "LOADING" | "REVIEW" | "COMMITTING";
@@ -59,10 +60,21 @@ export default function ProjectUploadPage() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
-  // 분석 시 활용할 맥락 옵션 상태 보존
   const [includeEntities, setIncludeEntities] = useState(true);
   const [includeGraph, setIncludeGraph] = useState(true);
   const [includeFiles, setIncludeFiles] = useState(true);
+  const [aiProvider, setAiProvider] = useState<"github_copilot" | "ollama">("github_copilot");
+
+  useEffect(() => {
+    apiFetch("/api/users/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ai_provider) {
+          setAiProvider(data.ai_provider);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch user settings:", err));
+  }, []);
 
   const getModelKeys = () => ({
     model: localStorage.getItem("autowiki_llm_model") || "gemini-3.1-pro-preview",
@@ -246,7 +258,14 @@ export default function ProjectUploadPage() {
     runTextAnalysis(text, useSubModel, iEnt, iGra, iFil);
   };
 
-  const handleConfirm = (finalProposals: Proposal[]) => runCommit(finalProposals);
+  const handleConfirm = (finalProposals: Proposal[]) => {
+    setProposals(finalProposals);
+    if (aiProvider === "ollama") {
+      setAppState("COMMITTING");
+    } else {
+      runCommit(finalProposals);
+    }
+  };
 
   const handleReanalyze = (feedback: string) => {
     const combined = feedback + (userPrompt ? `\n\n기존 지시사항: ${userPrompt}` : "");
@@ -328,16 +347,34 @@ export default function ProjectUploadPage() {
 
       {/* ── Committing ────────────────────────────────────────────────── */}
       {appState === "COMMITTING" && (
-        <div className="flex items-center justify-center py-8">
-          <div className="text-center font-sans space-y-4">
-            <Loader2 size={48} className="animate-spin text-[#0645ad] mx-auto" />
-            <h2 className="text-2xl font-bold">AI가 위키 문서를 작성 중입니다...</h2>
-            <p className="text-[#54595d]">
-              승인된 기획안을 바탕으로 위키백과 수준의 상세 마크다운 문서를 렌더링하고 있습니다.<br />
-              (항목 수에 따라 1~2분이 소요될 수 있습니다)
-            </p>
+        aiProvider === "ollama" ? (
+          <GlassObserver
+            projectId={projectId}
+            proposals={proposals}
+            userPrompt={userPrompt}
+            model={getModelKeys().model}
+            subModel={getModelKeys().subModel}
+            thinkingLevel={getModelKeys().thinkingLevel}
+            reasoningEffort={getModelKeys().reasoningEffort}
+            apiKey={getModelKeys().key}
+            onComplete={() => router.push(`/dashboard/project/${projectId}`)}
+            onCancel={(errorMsg) => {
+              alert(errorMsg);
+              setAppState("REVIEW");
+            }}
+          />
+        ) : (
+          <div className="flex items-center justify-center py-8 w-full">
+            <div className="text-center font-sans space-y-4 max-w-lg">
+              <Loader2 size={48} className="animate-spin text-[#0645ad] mx-auto" />
+              <h2 className="text-2xl font-bold">AI가 위키 문서를 작성 중입니다...</h2>
+              <p className="text-[#54595d]">
+                승인된 기획안을 바탕으로 위키백과 수준의 상세 마크다운 문서를 렌더링하고 있습니다.<br />
+                (항목 수에 따라 1~2분이 소요될 수 있습니다)
+              </p>
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {/* ── Review ────────────────────────────────────────────────────── */}
@@ -348,6 +385,7 @@ export default function ProjectUploadPage() {
       {showAuthOverlay && <AuthOverlay onSuccess={handleAuthSuccess} />}
       {showTutorial && (
         <SetupTutorial 
+          initialProvider={aiProvider}
           onClose={() => {
             localStorage.setItem("autowiki_tutorial_seen", "true");
             setShowTutorial(false);

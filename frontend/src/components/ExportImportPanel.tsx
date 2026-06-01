@@ -147,15 +147,15 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-white border border-[#a2a9b1] shadow-2xl w-full max-w-lg rounded-sm overflow-hidden"
+        className="bg-white border border-[#a2a9b1] shadow-2xl w-full max-w-lg rounded-sm my-auto max-h-[90dvh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Header ── */}
-        <div className="bg-[#eaecf0] border-b border-[#a2a9b1] px-5 py-3 flex items-center justify-between">
+        <div className="bg-[#eaecf0] border-b border-[#a2a9b1] px-5 py-3 flex items-center justify-between shrink-0">
           <h2 className="font-serif font-bold text-[#202122] text-lg">
             내보내기 / 가져오기
           </h2>
@@ -167,7 +167,7 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
           </button>
         </div>
 
-        <div className="p-5 space-y-6">
+        <div className="p-5 space-y-6 overflow-y-auto custom-scrollbar flex-1">
           {/* ── Export Section ── */}
           <section>
             <div className="flex items-center space-x-2 mb-3 pb-2 border-b border-[#eaecf0]">

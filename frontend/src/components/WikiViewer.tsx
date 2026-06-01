@@ -312,25 +312,41 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
   };
 
   return (
-    <div className="max-w-5xl mx-auto w-full p-6 pb-32 font-sans bg-white min-h-screen border-x border-[#a2a9b1]">
+    <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 pb-32 font-sans bg-white min-h-screen border-x border-[#a2a9b1]">
       {/* Toolbar */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <button onClick={() => router.back()} className="text-[#0645ad] hover:underline text-[13px] flex items-center">
           <ArrowLeft size={14} className="mr-1" /> 뒤로 가기
         </button>
-        <div className="flex items-center space-x-2">
-          <button onClick={() => setShowDeleteConfirm(true)} className="flex items-center px-3 py-1.5 rounded-sm font-bold text-[13px] border border-[#c8ccd1] bg-[#fff3f3] text-[#cc0000] hover:bg-[#fee7e6]">
-            <Trash2 size={14} className="mr-1.5" /> 삭제
+        <div className="flex items-center space-x-1.5 sm:space-x-2">
+          <button 
+            onClick={() => setShowDeleteConfirm(true)} 
+            className="flex items-center justify-center p-1.5 sm:px-3 sm:py-1.5 rounded-sm font-bold text-[13px] border border-[#c8ccd1] bg-[#fff3f3] text-[#cc0000] hover:bg-[#fee7e6]"
+            title="삭제"
+          >
+            <Trash2 size={14} className="sm:mr-1.5" />
+            <span className="hidden sm:inline">삭제</span>
           </button>
           <button className="p-1.5 rounded-sm bg-[#f8f9fa] text-[#54595d] hover:bg-[#eaecf0] border border-[#a2a9b1]" title="공유">
             <Share2 size={14} />
           </button>
-          <div className="border-l border-[#a2a9b1] h-4 mx-1" />
+          <div className="border-l border-[#a2a9b1] h-4 mx-0.5 sm:mx-1" />
           <button
             onClick={() => setIsEditing(!isEditing)}
-            className={`flex items-center px-3 py-1.5 rounded-sm font-bold text-[13px] border ${isEditing ? "bg-[#0645ad] text-white border-[#0645ad] hover:bg-[#0b0080]" : "bg-[#f8f9fa] text-[#202122] border-[#a2a9b1] hover:bg-[#eaecf0]"}`}
+            className={`flex items-center justify-center p-1.5 sm:px-3 sm:py-1.5 rounded-sm font-bold text-[13px] border ${isEditing ? "bg-[#0645ad] text-white border-[#0645ad] hover:bg-[#0b0080]" : "bg-[#f8f9fa] text-[#202122] border-[#a2a9b1] hover:bg-[#eaecf0]"}`}
+            title={isEditing ? "변경사항 저장" : "편집"}
           >
-            {isEditing ? <><Save size={14} className="mr-1.5" /> 변경사항 저장</> : <><Edit3 size={14} className="mr-1.5" /> 편집 (원본)</>}
+            {isEditing ? (
+              <>
+                <Save size={14} className="sm:mr-1.5" />
+                <span className="hidden sm:inline">변경사항 저장</span>
+              </>
+            ) : (
+              <>
+                <Edit3 size={14} className="sm:mr-1.5" />
+                <span className="hidden sm:inline">편집</span>
+              </>
+            )}
           </button>
         </div>
       </div>

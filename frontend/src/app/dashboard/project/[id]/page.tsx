@@ -138,7 +138,7 @@ export default function ProjectPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl bg-white min-h-screen text-[#202122] font-sans">
+    <div className="p-4 sm:p-6 max-w-5xl bg-white min-h-screen text-[#202122] font-sans">
       {/* Header */}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
@@ -146,49 +146,49 @@ export default function ProjectPage() {
           <ArrowLeft size={14} className="mr-1" /> 대문으로 돌아가기
         </button>
         
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {/* Main Actions - visible on all screens */}
           <button
             onClick={() => router.push(`/dashboard/project/${projectId}/upload`)}
-            className="flex-1 sm:flex-none flex items-center justify-center px-3 py-1.5 rounded-sm font-bold text-[13px] border border-[#0645ad] bg-[#0645ad] text-white hover:bg-[#0b0080]"
+            className="flex-1 sm:flex-none flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-sm font-bold text-[12px] sm:text-[13px] border border-[#0645ad] bg-[#0645ad] text-white hover:bg-[#0b0080]"
           >
-            <Upload size={14} className="mr-1.5" /> 지식 추가
+            <Upload size={13} className="mr-1 sm:mr-1.5" /> 지식 추가
           </button>
           
           <button
             onClick={() => setIsChatOpen(true)}
-            className="flex-1 sm:flex-none flex items-center justify-center px-3 py-1.5 rounded-sm font-bold text-[13px] border border-[#0645ad]/20 bg-[#eef1ff] text-[#0645ad] hover:bg-[#d0daff] transition-colors"
+            className="flex-1 sm:flex-none flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-sm font-bold text-[12px] sm:text-[13px] border border-[#0645ad]/20 bg-[#eef1ff] text-[#0645ad] hover:bg-[#d0daff] transition-colors"
           >
-            <MessageSquare size={14} className="mr-1.5" /> AI 채팅
+            <MessageSquare size={13} className="mr-1 sm:mr-1.5" /> AI 채팅
           </button>
 
-          {/* Secondary Actions - Grouped on mobile in real implementations, but here we can make them wrap nicely */}
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-1 sm:mt-0">
+          {/* Secondary Actions */}
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto mt-1 sm:mt-0">
              <button
               onClick={() => router.push(`/dashboard/graph?projectId=${projectId}`)}
-              className="flex-1 sm:flex-none flex items-center justify-center px-3 py-1.5 rounded-sm font-bold text-[12px] border border-[#a2a9b1] bg-[#f8f9fa] text-[#202122] hover:bg-[#eaecf0]"
+              className="flex-1 sm:flex-none flex items-center justify-center px-2 sm:px-3 py-1.5 rounded-sm font-bold text-[11px] sm:text-[12px] border border-[#a2a9b1] bg-[#f8f9fa] text-[#202122] hover:bg-[#eaecf0]"
             >
-              <Share2 size={13} className="mr-1.5" /> 구조도
+              <Share2 size={12} className="mr-1 sm:mr-1.5" /> 구조도
             </button>
             <button
               onClick={() => setShowFilesModal(true)}
-              className="flex-1 sm:flex-none flex items-center justify-center px-3 py-1.5 rounded-sm font-bold text-[12px] border border-[#a2a9b1] bg-[#f8f9fa] text-[#202122] hover:bg-[#eaecf0]"
+              className="flex-1 sm:flex-none flex items-center justify-center px-2 sm:px-3 py-1.5 rounded-sm font-bold text-[11px] sm:text-[12px] border border-[#a2a9b1] bg-[#f8f9fa] text-[#202122] hover:bg-[#eaecf0]"
             >
-              <FolderOpen size={13} className="mr-1.5" /> 파일
+              <FolderOpen size={12} className="mr-1 sm:mr-1.5" /> 파일
             </button>
             <button
               onClick={openEditModal}
               className="flex items-center justify-center p-1.5 rounded-sm border border-[#a2a9b1] bg-[#f8f9fa] text-[#54595d] hover:bg-[#eaecf0]"
               title="정보 수정"
             >
-              <Pencil size={14} />
+              <Pencil size={13} />
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}
               className="flex items-center justify-center p-1.5 rounded-sm border border-[#c8ccd1] bg-[#fff3f3] text-[#cc0000] hover:bg-[#fee7e6]"
               title="삭제"
             >
-              <Trash2 size={14} />
+              <Trash2 size={13} />
             </button>
           </div>
         </div>
@@ -196,7 +196,7 @@ export default function ProjectPage() {
 
       {/* Title */}
       <div className="border-b border-[#a2a9b1] mb-5 pb-2">
-        <h1 className="text-2xl sm:text-3xl font-serif text-[#000000] mb-1 flex items-center">
+        <h1 className="text-2xl sm:text-3xl font-serif text-[#000000] mb-1 flex items-center min-w-0 break-words">
           <FolderOpen size={24} className="mr-2 text-[#54595d] shrink-0 lg:w-[28px] lg:h-[28px]" />
           {project.name}
         </h1>
@@ -235,7 +235,7 @@ export default function ProjectPage() {
               placeholder="문서 검색..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="pl-8 pr-7 py-1.5 text-[13px] border border-[#a2a9b1] rounded-sm focus:outline-none focus:border-[#0645ad] w-48 bg-white"
+              className="pl-8 pr-7 py-1.5 text-[13px] border border-[#a2a9b1] rounded-sm focus:outline-none focus:border-[#0645ad] w-32 sm:w-48 bg-white transition-all"
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#888] hover:text-[#cc0000]">
@@ -271,14 +271,14 @@ export default function ProjectPage() {
                   onClick={() => toggleGroup(type)}
                   className="w-full flex items-center justify-between px-3 py-2.5 bg-[#f8f9fa] hover:bg-[#eaecf0] transition-colors text-left"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0 mr-2">
                     {isOpen
                       ? <ChevronDown size={15} className="text-[#54595d] shrink-0" />
                       : <ChevronRight size={15} className="text-[#54595d] shrink-0" />
                     }
                     {/* colorMap 기반 인라인 스타일 배지 */}
                     <span
-                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-bold border"
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[12px] font-bold border whitespace-nowrap shrink-0"
                       style={(() => {
                         const c = colorMap.get(type) ?? TYPE_COLOR_NONE;
                         return {
@@ -294,10 +294,12 @@ export default function ProjectPage() {
                       />
                       {type}
                     </span>
-                    <span className="text-[13px] font-bold text-[#202122]">
-                      {!isOpen && items.slice(0, 2).map(e => e.name).join("、")}
-                      {!isOpen && items.length > 2 && <span className="text-[#54595d] font-normal"> 외 {items.length - 2}건</span>}
-                    </span>
+                    {!isOpen && (
+                      <span className="text-[13px] font-bold text-[#202122] truncate min-w-0 hidden sm:inline-block">
+                        {items.slice(0, 2).map(e => e.name).join("、")}
+                        {items.length > 2 && <span className="text-[#54595d] font-normal"> 외 {items.length - 2}건</span>}
+                      </span>
+                    )}
                   </div>
                   <span className="text-[12px] text-[#54595d] font-mono shrink-0 ml-2">{items.length}건</span>
                 </button>
@@ -335,8 +337,8 @@ export default function ProjectPage() {
 
       {/* ── Edit Modal ──────────────────────────────────────────────────── */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={() => setShowEditModal(false)}>
-          <div className="bg-white border border-[#a2a9b1] shadow-lg p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white border border-[#a2a9b1] shadow-lg p-6 max-w-md w-full my-auto" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-[#000000] mb-4 font-serif flex items-center gap-2">
               <Pencil size={18} className="text-[#0645ad]" /> 프로젝트 정보 수정
             </h3>
@@ -379,8 +381,8 @@ export default function ProjectPage() {
 
       {/* ── Delete Modal ────────────────────────────────────────────────── */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="bg-white border border-[#a2a9b1] shadow-lg p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="bg-white border border-[#a2a9b1] shadow-lg p-6 max-w-md w-full my-auto" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-[#000000] mb-2 font-serif">프로젝트 삭제 확인</h3>
             <p className="text-[14px] text-[#202122] mb-1">
               <strong>「{project.name}」</strong> 프로젝트를 정말 삭제하시겠습니까?

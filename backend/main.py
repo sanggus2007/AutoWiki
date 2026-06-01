@@ -2,14 +2,14 @@ import os
 import datetime
 import re
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse, JSONResponse, Response
+from fastapi.responses import RedirectResponse, JSONResponse, Response, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
 from typing import List, Optional
 from database import engine, Base, get_db
 from models import schema
-from services.langchain_service import extract_proposals, execute_batch_knowledge_generation, execute_section_patch, apply_section_patches, plan_knowledge_extraction, get_llm, slugify, execute_project_chat, extract_text_from_file
+from services.langchain_service import extract_proposals, execute_batch_knowledge_generation, execute_batch_knowledge_generation_stream, execute_section_patch, apply_section_patches, plan_knowledge_extraction, get_llm, slugify, execute_project_chat, extract_text_from_file
 from services.security import token_manager, is_cookie_secure, get_samesite_policy
 from services import session as session_service
 from services.auth_utils import hash_password, verify_password
@@ -92,6 +92,7 @@ def init_db():
 - 전체 edges 수는 nodes 수를 초과하지 않도록 절제하세요.
 - 제공된 텍스트가 기존 문서들에 이미 충분히 반영되어 있거나, 추가적인 가치가 있는 새로운 정보가 없다면 억지로 추출하지 마세요. 이 경우 nodes와 patches를 빈 배열([])로 반환하는 것이 올바른 대응입니다.
 - 단순히 텍스트에 언급되었다고 해서 모두 추출하는 것이 아니라, 위키 문서로서 독자적인 가치를 지닐 만큼의 유의미한 정보가 포함된 경우에만 추출하세요.
+- 유형은 최대한 '인물', '단체', '개념', '사물' 중에 하나로 하세요. 저 넷 유형에 속하지 않는 경우에만 다른 유형을 택하세요.
 
 [Perfect JSON Example - 이 구조를 100% 따르세요]
 {
@@ -425,7 +426,7 @@ def get_decrypted_token(user, api_key_fallback: str = "") -> str:
             detail="보안 키 변경으로 인해 GitHub 계정 재연결이 필요합니다. 설정 페이지에서 'GitHub Copilot 계정 연결하기'를 다시 진행해 주세요."
         )
 
-def get_active_provider_and_token(user, api_key_fallback: str = ""):
+def get_active_provider_and_token(user, api_key_fallback: str = "", model_name: str = ""):
     provider = getattr(user, 'ai_provider', 'github_copilot') or 'github_copilot'
     active_token = ""
     
@@ -1148,7 +1149,7 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get
             print("[AnalyzeText] Context optimization: Skipping file contents")
 
         # Decrypt active provider credentials
-        provider, active_token = get_active_provider_and_token(user, payload.api_key)
+        provider, active_token = get_active_provider_and_token(user, payload.api_key, payload.model_name)
         host = getattr(user, 'ollama_host', 'https://ollama.com') or 'https://ollama.com'
 
         print(f"[AnalyzeText] Running LLM planning with model: {payload.model_name} (provider: {provider})")
@@ -1323,7 +1324,7 @@ def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current
             project_files_text = "(첨부 파일 본문 정보는 비활성화되었습니다.)"
 
         # Decrypt active provider credentials
-        provider, active_token = get_active_provider_and_token(user, payload.api_key)
+        provider, active_token = get_active_provider_and_token(user, payload.api_key, payload.model_name)
         host = getattr(user, 'ollama_host', 'https://ollama.com') or 'https://ollama.com'
 
         print(f"[ProjectChat] Executing chat with model: {payload.model_name} (provider: {provider})")
@@ -1467,7 +1468,7 @@ async def upload_files(
     extraction_model = sub_model_name if sub_model_name else model_name
 
     # Decrypt active provider credentials
-    provider, active_token = get_active_provider_and_token(user, api_key)
+    provider, active_token = get_active_provider_and_token(user, api_key, model_name)
     host = getattr(user, 'ollama_host', 'https://ollama.com') or 'https://ollama.com'
 
     results = []
@@ -1517,7 +1518,7 @@ async def upload_files(
     }
 
 @app.post("/api/projects/{project_id}/commit")
-def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current_user), db=Depends(get_db)):
+async def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current_user), db=Depends(get_db)):
     project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -1534,7 +1535,7 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
     reasoning_effort = payload_data.get("reasoning_effort")
 
     # Decrypt active provider credentials
-    provider, active_token = get_active_provider_and_token(user, api_key)
+    provider, active_token = get_active_provider_and_token(user, api_key, model_name)
     host = getattr(user, 'ollama_host', 'https://ollama.com') or 'https://ollama.com'
     
     prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_generation").first()
@@ -1561,230 +1562,251 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
         ai_provider=provider, 
         ollama_host=host
     )
-    # payload_data will contain a "proposals" array
-    proposals = payload_data.get("proposals", [])
-    
-    nodes_saved = 0
-    edges_saved = 0
-    
-    for prop in proposals:
-        filename = prop.get("filename")
-        content_text = prop.get("content_text")
-        nodes_data = prop.get("nodes", [])
-        edges_data = prop.get("edges", [])
 
-        # Save ProjectFile on commit (only if it came from an actual file, not text input)
-        if filename and filename != "(직접 입력)" and content_text:
-            existing_pf = db.query(schema.ProjectFile).filter(
-                schema.ProjectFile.project_id == project_id,
-                schema.ProjectFile.filename == filename
-            ).first()
-            if not existing_pf:
-                pf = schema.ProjectFile(
-                    project_id=project_id,
-                    filename=filename,
-                    content_text=content_text,
-                    is_selected=True
-                )
-                db.add(pf)
-                db.commit()
-
-        # Save Document
-        db_doc = schema.Document(filename=filename, content_text=content_text, project_id=project_id)
-        db.add(db_doc)
-        db.commit()
-        db.refresh(db_doc)
+    async def event_generator():
+        nodes_saved = 0
+        edges_saved = 0
+        patches_saved = 0
+        deletions_processed = 0
+        edges_modified = 0
+        edges_deleted = 0
         
-        # Save Nodes
-        nodes_to_generate = []
-        for n in nodes_data:
-            existing = db.query(schema.Entity).filter(
-                schema.Entity.slug == n["id"],
-                schema.Entity.project_id == project_id
-            ).first()
-            if not existing:
-                nodes_to_generate.append(n)
-                
-        # Process in batches of 4 to maximize token utilization without hitting output limits
-        batch_size = 4
-        for i in range(0, len(nodes_to_generate), batch_size):
-            batch = nodes_to_generate[i:i+batch_size]
+        try:
+            yield f"data: {json.dumps({'type': 'status', 'message': '기본 프로젝트 데이터베이스 기록 중...'})}\n\n"
             
-            # Execution Phase: Generate the heavy Markdown multiplexed string via LLM
-            batch_result_string = execute_batch_knowledge_generation(
-                nodes_batch=batch,
-                text=content_text,
-                custom_prompt=custom_prompt,
-                llm=llm,
-                system_prompt=system_prompt,
-                project_files_text=project_files_text,
-                project_graph=project_graph
-            )
-            
-            # Parse the multiplexed string using Regex
-            chunks = re.split(r'===\s*DOCUMENT_SEPARATOR:\s*(.*?)\s*===', batch_result_string)
-            doc_map = {}
-            if len(chunks) > 1:
-                # chunks[0] is preamble. Even indexes are content, odd indices are captured names.
-                for j in range(1, len(chunks), 2):
-                    extracted_name = chunks[j].strip()
-                    extracted_content = chunks[j+1].strip() if j+1 < len(chunks) else "내용 없음"
-                    doc_map[extracted_name] = extracted_content
-            
-            # Iterate through the requested batch and map the parsed string chunks safely
-            for n in batch:
-                generated_summary = doc_map.get(n["name"])
-                
-                # Fuzzy fallback if naming mismatch occurs
-                if not generated_summary:
-                    if doc_map:
-                        fallback_key = list(doc_map.keys())[0]
-                        generated_summary = doc_map.pop(fallback_key)
-                    else:
-                        generated_summary = "문서 생성에 실패하거나 구분자를 인식하지 못했습니다."
-                else:
-                    del doc_map[n["name"]]
-                    
-                db_entity = schema.Entity(
-                    slug=n["id"], 
-                    name=n["name"], 
-                    type=n["type"], 
-                    summary=generated_summary,
-                    is_root=n.get("is_root", False),
-                    document_id=db_doc.id,
-                    project_id=project_id
-                )
-                db.add(db_entity)
-                db.commit()
-                db.refresh(db_entity)
+            for prop in proposals:
+                filename = prop.get("filename")
+                content_text = prop.get("content_text")
+                nodes_data = prop.get("nodes", [])
+                edges_data = prop.get("edges", [])
 
-                # Save categories
-                for cat_name in n.get("categories", []):
-                    cat_slug = slugify(cat_name)
-                    cat = db.query(schema.Category).filter(schema.Category.slug == cat_slug).first()
-                    if not cat:
-                        cat = schema.Category(slug=cat_slug, name=cat_name)
-                        db.add(cat)
+                # Save ProjectFile on commit (only if it came from an actual file, not text input)
+                if filename and filename != "(직접 입력)" and content_text:
+                    existing_pf = db.query(schema.ProjectFile).filter(
+                        schema.ProjectFile.project_id == project_id,
+                        schema.ProjectFile.filename == filename
+                    ).first()
+                    if not existing_pf:
+                        pf = schema.ProjectFile(
+                            project_id=project_id,
+                            filename=filename,
+                            content_text=content_text,
+                            is_selected=True
+                        )
+                        db.add(pf)
                         db.commit()
-                        db.refresh(cat)
-                    db_entity.categories.append(cat)
 
-                nodes_saved += 1
+                # Save Document
+                db_doc = schema.Document(filename=filename, content_text=content_text, project_id=project_id)
+                db.add(db_doc)
+                db.commit()
+                db.refresh(db_doc)
                 
-        # Save Edges
-        for e in edges_data:
-            db_edge = schema.Relationship(
-                source_entity_slug=e["source"],
-                target_entity_slug=e["target"],
-                context=e["label"]
-            )
-            db.add(db_edge)
-            edges_saved += 1
+                # Save Nodes
+                nodes_to_generate = []
+                for n in nodes_data:
+                    existing = db.query(schema.Entity).filter(
+                        schema.Entity.slug == n["id"],
+                        schema.Entity.project_id == project_id
+                    ).first()
+                    if not existing:
+                        nodes_to_generate.append(n)
+                        
+                # Process in batches of 4
+                batch_size = 4
+                for i in range(0, len(nodes_to_generate), batch_size):
+                    batch = nodes_to_generate[i:i+batch_size]
+                    batch_names = ", ".join([n["name"] for n in batch])
+                    
+                    yield f"data: {json.dumps({'type': 'status', 'message': f'AI가 문서를 집필하는 중입니다: [{batch_names}]'})}\n\n"
+                    
+                    # LLM Streaming 시작 알림
+                    yield f"data: {json.dumps({'type': 'stream_start'})}\n\n"
+                    
+                    batch_result_string = ""
+                    for token in execute_batch_knowledge_generation_stream(
+                        nodes_batch=batch,
+                        text=content_text,
+                        custom_prompt=custom_prompt,
+                        llm=llm,
+                        system_prompt=system_prompt,
+                        project_files_text=project_files_text,
+                        project_graph=project_graph
+                    ):
+                        batch_result_string += token
+                        # 실시간 토큰 전송
+                        yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
+                        
+                    yield f"data: {json.dumps({'type': 'stream_end'})}\n\n"
+                    
+                    # Parse the multiplexed string using Regex
+                    chunks = re.split(r'===\s*DOCUMENT_SEPARATOR:\s*(.*?)\s*===', batch_result_string)
+                    doc_map = {}
+                    if len(chunks) > 1:
+                        for j in range(1, len(chunks), 2):
+                            extracted_name = chunks[j].strip()
+                            extracted_content = chunks[j+1].strip() if j+1 < len(chunks) else "내용 없음"
+                            doc_map[extracted_name] = extracted_content
+                    
+                    for n in batch:
+                        generated_summary = doc_map.get(n["name"])
+                        if not generated_summary:
+                            if doc_map:
+                                fallback_key = list(doc_map.keys())[0]
+                                generated_summary = doc_map.pop(fallback_key)
+                            else:
+                                generated_summary = "문서 생성에 실패하거나 구분자를 인식하지 못했습니다."
+                        else:
+                            del doc_map[n["name"]]
+                            
+                        db_entity = schema.Entity(
+                            slug=n["id"], 
+                            name=n["name"], 
+                            type=n["type"], 
+                            summary=generated_summary,
+                            is_root=n.get("is_root", False),
+                            document_id=db_doc.id,
+                            project_id=project_id
+                        )
+                        db.add(db_entity)
+                        db.commit()
+                        db.refresh(db_entity)
+
+                        for cat_name in n.get("categories", []):
+                            cat_slug = slugify(cat_name)
+                            cat = db.query(schema.Category).filter(schema.Category.slug == cat_slug).first()
+                            if not cat:
+                                cat = schema.Category(slug=cat_slug, name=cat_name)
+                                db.add(cat)
+                                db.commit()
+                                db.refresh(cat)
+                            db_entity.categories.append(cat)
+                            db.commit()
+
+                        nodes_saved += 1
+                        
+                # Save Edges
+                yield f"data: {json.dumps({'type': 'status', 'message': f'지식 그래프 관계선 연결 중... ({len(edges_data)}개)'})}\n\n"
+                for e in edges_data:
+                    db_edge = schema.Relationship(
+                        source_entity_slug=e["source"],
+                        target_entity_slug=e["target"],
+                        context=e["label"]
+                    )
+                    db.add(db_edge)
+                    edges_saved += 1
+                db.commit()
+
+            # Deletions
+            deletions_list = []
+            for prop in proposals:
+                deletions_list.extend(prop.get("deletions", []))
             
-    # ── Process approved deletions ──────────────────────────────────────────────
-    deletions_processed = 0
-    for prop in proposals:
-        deletions_data = prop.get("deletions", [])
-        for dl in deletions_data:
-            entity_slug = dl.get("entity_slug")
-            if not entity_slug:
-                continue
+            if deletions_list:
+                yield f"data: {json.dumps({'type': 'status', 'message': f'폐기 대상 기존 문서 제거 중... ({len(deletions_list)}개)'})}\n\n"
+                for dl in deletions_list:
+                    entity_slug = dl.get("entity_slug")
+                    if not entity_slug:
+                        continue
+                    db.query(schema.Relationship).filter(
+                        (schema.Relationship.source_entity_slug == entity_slug) |
+                        (schema.Relationship.target_entity_slug == entity_slug)
+                    ).delete(synchronize_session=False)
+                    db.query(schema.Entity).filter(
+                        schema.Entity.slug == entity_slug,
+                        schema.Entity.project_id == project_id
+                    ).delete(synchronize_session=False)
+                    deletions_processed += 1
+                db.commit()
 
-            # Delete relationships connected to this entity
-            db.query(schema.Relationship).filter(
-                (schema.Relationship.source_entity_slug == entity_slug) |
-                (schema.Relationship.target_entity_slug == entity_slug)
-            ).delete(synchronize_session=False)
-
-            # Delete entity
-            db.query(schema.Entity).filter(
-                schema.Entity.slug == entity_slug,
-                schema.Entity.project_id == project_id
-            ).delete(synchronize_session=False)
-            deletions_processed += 1
+            # Patches
+            patches_list = []
+            for prop in proposals:
+                patches_list.extend(prop.get("patches", []))
             
-    # ── Process approved patches (modifications to existing documents) ──────────
-    patch_prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_patch").first()
-    patch_system_prompt = patch_prompt_record.content if patch_prompt_record else ""
-    patches_saved = 0
+            if patches_list:
+                yield f"data: {json.dumps({'type': 'status', 'message': f'기존 문서 보완 및 패치 업데이트 중... ({len(patches_list)}개)'})}\n\n"
+                patch_prompt_record = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == "knowledge_patch").first()
+                patch_system_prompt = patch_prompt_record.content if patch_prompt_record else ""
+                
+                for prop in proposals:
+                    content_text = prop.get("content_text", "")
+                    patches_data = prop.get("patches", [])
+                    for patch in patches_data:
+                        entity_slug = patch.get("entity_slug")
+                        patch_desc  = patch.get("changes")
+                        new_type = patch.get("new_type")
+                        new_is_root = patch.get("new_is_root")
 
-    for prop in proposals:
-        content_text = prop.get("content_text", "")
-        patches_data = prop.get("patches", [])
-        for patch in patches_data:
-            entity_slug = patch.get("entity_slug")
-            patch_desc  = patch.get("changes")
-            new_type = patch.get("new_type")
-            new_is_root = patch.get("new_is_root")
+                        if not entity_slug:
+                            continue
 
-            if not entity_slug:
-                continue
+                        existing_entity = db.query(schema.Entity).filter(
+                            schema.Entity.slug == entity_slug,
+                            schema.Entity.project_id == project_id
+                        ).first()
+                        if not existing_entity:
+                            continue
 
-            existing_entity = db.query(schema.Entity).filter(
-                schema.Entity.slug == entity_slug,
-                schema.Entity.project_id == project_id
-            ).first()
-            if not existing_entity:
-                continue
+                        if new_type:
+                            existing_entity.type = new_type
+                        if new_is_root is not None:
+                            existing_entity.is_root = new_is_root
 
-            # ── 1. Metadata Updates (Direct DB) ──
-            if new_type:
-                existing_entity.type = new_type
-            if new_is_root is not None:
-                existing_entity.is_root = new_is_root
+                        content_needed = True
+                        if not patch_desc or patch_desc.strip() in ["", "루트로 설정", "is_root 설정", "유형 변경", "Set as root", "Change type"]:
+                            content_needed = False
+                        
+                        if content_needed and existing_entity.summary:
+                            updated_summary = execute_section_patch(
+                                existing_summary=existing_entity.summary,
+                                entity_name=existing_entity.name,
+                                entity_type=existing_entity.type,
+                                patch_description=patch_desc,
+                                source_text=content_text,
+                                llm=llm,
+                                system_prompt=patch_system_prompt,
+                                project_files_text=project_files_text,
+                                project_graph=project_graph
+                            )
+                            existing_entity.summary = updated_summary
+                        
+                        db.commit()
+                        patches_saved += 1
 
-            # ── 2. Content Updates (Optional LLM Call) ──
-            # If the patch only changed metadata (like is_root), and doesn't genuinely need a content edit,
-            # we check if patch_desc is just a placeholder or system instruction.
-            content_needed = True
-            if not patch_desc or patch_desc.strip() in ["", "루트로 설정", "is_root 설정", "유형 변경", "Set as root", "Change type"]:
-                content_needed = False
+            # Edge modifications
+            edge_deletions_list = []
+            edge_patches_list = []
+            for prop in proposals:
+                edge_deletions_list.extend(prop.get("edge_deletions", []))
+                edge_patches_list.extend(prop.get("edge_patches", []))
+                
+            if edge_deletions_list or edge_patches_list:
+                yield f"data: {json.dumps({'type': 'status', 'message': '지식 그래프 관계선 수정 및 삭제 적용 중...'})}\n\n"
+                for ed in edge_deletions_list:
+                    edge_id = ed.get("edge_id")
+                    if edge_id:
+                        db.query(schema.Relationship).filter(schema.Relationship.id == edge_id).delete(synchronize_session=False)
+                        edges_deleted += 1
+                for ep in edge_patches_list:
+                    edge_id = ep.get("edge_id")
+                    new_label = ep.get("new_label")
+                    if edge_id and new_label:
+                        rel = db.query(schema.Relationship).filter(schema.Relationship.id == edge_id).first()
+                        if rel:
+                            rel.context = new_label
+                            edges_modified += 1
+                db.commit()
+
+            yield f"data: {json.dumps({'type': 'done', 'redirect_url': f'/dashboard/project/{project_id}'})}\n\n"
             
-            if content_needed and existing_entity.summary:
-                updated_summary = execute_section_patch(
-                    existing_summary=existing_entity.summary,
-                    entity_name=existing_entity.name,
-                    entity_type=existing_entity.type,
-                    patch_description=patch_desc,
-                    source_text=content_text,
-                    llm=llm,
-                    system_prompt=patch_system_prompt,
-                    project_files_text=project_files_text,
-                    project_graph=project_graph
-                )
-                existing_entity.summary = updated_summary
-            
-            patches_saved += 1
+        except Exception as e:
+            db.rollback()
+            import traceback
+            traceback.print_exc()
+            yield f"data: {json.dumps({'type': 'error', 'message': f'AI 문서 집필 커밋 도중 오류가 발생했습니다: {str(e)}'})}\n\n"
 
-    # ── Process approved edge modifications (patches and deletions) ──────────
-    edges_modified = 0
-    edges_deleted = 0
-    for prop in proposals:
-        # Edge Deletions
-        edge_deletions_data = prop.get("edge_deletions", [])
-        for ed in edge_deletions_data:
-            edge_id = ed.get("edge_id")
-            if edge_id:
-                db.query(schema.Relationship).filter(schema.Relationship.id == edge_id).delete(synchronize_session=False)
-                edges_deleted += 1
-        
-        # Edge Patches
-        edge_patches_data = prop.get("edge_patches", [])
-        for ep in edge_patches_data:
-            edge_id = ep.get("edge_id")
-            new_label = ep.get("new_label")
-            if edge_id and new_label:
-                rel = db.query(schema.Relationship).filter(schema.Relationship.id == edge_id).first()
-                if rel:
-                    rel.context = new_label
-                    edges_modified += 1
-
-    db.commit()
-
-    return {
-        "status": "success",
-        "message": f"Committed {nodes_saved} nodes, {edges_saved} edges (new), {patches_saved} patches, {deletions_processed} deletions, {edges_modified} edge updates, and {edges_deleted} edge deletions."
-    }
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # ──────────────────────────────────────
 # Wiki Endpoints

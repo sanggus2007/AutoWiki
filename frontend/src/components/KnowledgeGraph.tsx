@@ -431,6 +431,12 @@ export const KnowledgeGraph = ({
   const graphRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [graphInstance, setGraphInstance] = useState<any>(null);
+
+  const setGraphInstanceRef = useCallback((el: any) => {
+    graphRef.current = el;
+    setGraphInstance(el);
+  }, []);
   const [graphData, setGraphData] = useState<{ nodes: any[]; links: any[] }>({ nodes: [], links: [] });
   const [metrics, setMetrics] = useState<GraphMetrics | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -634,7 +640,7 @@ export const KnowledgeGraph = ({
     }, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [metrics, settings.layout, settings.ringSpacing, getRadius, settings.dimension]);
+  }, [metrics, settings.layout, settings.ringSpacing, getRadius, settings.dimension, graphInstance]);
 
   const isTreeEdge = useCallback((link: any): boolean => {
     if (!metrics) return false;
@@ -711,7 +717,7 @@ export const KnowledgeGraph = ({
     }, 50);
 
     return () => clearTimeout(timeoutId);
-  }, [settings.layout, settings.chargeStrength, settings.linkDistance, settings.ringSpacing, metrics, isTreeEdge, settings.dimension]);
+  }, [settings.layout, settings.chargeStrength, settings.linkDistance, settings.ringSpacing, metrics, isTreeEdge, settings.dimension, graphInstance]);
 
   // ── Initial zoom ─────────────────────────────────────────
   useEffect(() => {
@@ -761,7 +767,7 @@ export const KnowledgeGraph = ({
 
       {settings.dimension === '3d' ? (
         <ForceGraph3D
-          ref={graphRef}
+          ref={setGraphInstanceRef as any}
           width={dimensions.width}
           height={dimensions.height}
           graphData={graphData}
@@ -786,7 +792,7 @@ export const KnowledgeGraph = ({
             const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: true, transparent: true });
             const sprite = new THREE.Sprite(spriteMaterial);
             
-            const scale = 0.12;
+            const scale = 0.20;
             const img = texture.image as HTMLImageElement;
             sprite.scale.set(img.width * scale, img.height * scale, 1);
 
@@ -796,7 +802,7 @@ export const KnowledgeGraph = ({
               if (!sprite.parent) return;
               _vec.copy(camera.position).sub(sprite.parent.position).normalize();
               _up.copy(camera.up).normalize();
-              sprite.position.copy(_up).multiplyScalar(16).add(_vec.multiplyScalar(8));
+              sprite.position.copy(_up).multiplyScalar(22).add(_vec.multiplyScalar(8));
             };
             
             return sprite;
@@ -806,20 +812,20 @@ export const KnowledgeGraph = ({
           linkStrength={(link: any) => isTreeEdge(link) ? 1.0 : 0.02}
           linkColor={(link: any) => {
             if (isLinkHighlighted(link)) return 'rgba(251,191,36,0.95)';
-            return isTreeEdge(link) ? theme.linkTree : theme.linkDefault.replace(/[\.\d]+\)$/, '0.45)');
+            return isTreeEdge(link) ? theme.linkTree.replace(/[\.\d]+\)$/, '0.85)') : theme.linkDefault.replace(/[\.\d]+\)$/, '0.65)');
           }}
           linkWidth={(link: any) => {
-            if (isLinkHighlighted(link)) return 3.5;
-            return isTreeEdge(link) ? 2 : 1.2;
+            if (isLinkHighlighted(link)) return 4.5;
+            return isTreeEdge(link) ? 3.0 : 1.8;
           }}
           linkDirectionalArrowLength={(link: any) => {
-            if (isLinkHighlighted(link)) return 8;
-            return isTreeEdge(link) ? 7 : 4;
+            if (isLinkHighlighted(link)) return 9;
+            return isTreeEdge(link) ? 8 : 5;
           }}
           linkDirectionalArrowRelPos={0.88}
           linkDirectionalArrowColor={(link: any) => {
             if (isLinkHighlighted(link)) return 'rgba(251,191,36,0.95)';
-            return isTreeEdge(link) ? theme.linkTree : theme.linkDefault.replace(/[\.\d]+\)$/, '0.65)');
+            return isTreeEdge(link) ? theme.linkTree.replace(/[\.\d]+\)$/, '0.85)') : theme.linkDefault.replace(/[\.\d]+\)$/, '0.75)');
           }}
           linkDirectionalParticles={(link: any) => {
             if (!settings.showParticles) return 0;
@@ -850,7 +856,7 @@ export const KnowledgeGraph = ({
         />
       ) : (
         <ForceGraph2D
-          ref={graphRef}
+          ref={setGraphInstanceRef as any}
           width={dimensions.width}
           height={dimensions.height}
           graphData={graphData}

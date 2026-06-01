@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Send, Sparkles, Zap, ChevronDown } from "lucide-react";
+import { Send, Sparkles, Zap, ChevronDown, Settings, X } from "lucide-react";
 
 interface TextInputUIProps {
   onSubmit: (text: string, useSubModel: boolean, includeEntities: boolean, includeGraph: boolean, includeFiles: boolean) => void;
@@ -11,6 +11,7 @@ interface TextInputUIProps {
   buttonText?: string;
   hideHeader?: boolean;
   clearOnSubmit?: boolean;
+  isChat?: boolean;
 }
 
 export const TextInputUI: React.FC<TextInputUIProps> = ({ 
@@ -20,11 +21,13 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
   placeholder, 
   buttonText = "AI에게 전송",
   hideHeader = false,
-  clearOnSubmit = true
+  clearOnSubmit = true,
+  isChat = false
 }) => {
   const [text, setText] = useState("");
   const [useSubModel, setUseSubModel] = useState(false);
   const [showModelInfo, setShowModelInfo] = useState(false);
+  const [showChatOptions, setShowChatOptions] = useState(false);
   
   const [includeEntities, setIncludeEntities] = useState(true);
   const [includeGraph, setIncludeGraph] = useState(true);
@@ -41,9 +44,16 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      handleSubmit();
+    if (e.key === "Enter" && !e.shiftKey) {
+      if (isChat) {
+        // In chat mode, regular Enter sends the message (Ctrl+Enter is also supported)
+        e.preventDefault();
+        handleSubmit();
+      } else if (e.ctrlKey || e.metaKey) {
+        // In regular page mode, Ctrl+Enter sends the message
+        e.preventDefault();
+        handleSubmit();
+      }
     }
   };
 
@@ -56,8 +66,106 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
 
   const defaultPlaceholder = "예시:\n- '양자 컴퓨팅' 개념을 새로 추가해줘.\n- '앨런 튜링' 문서의 소속 항목을 '블레츨리 파크'로 업데이트해줘.\n\n(모바일은 '전송' 버튼 클릭 / PC는 Ctrl+Enter)";
 
+  // ── Render Compact Chat Input Mode ──────────────────────────────────────
+  if (isChat) {
+    return (
+      <div className="w-full space-y-2 font-sans">
+        {/* Collapsible Options Drawer - Placed ABOVE the input box */}
+        {showChatOptions && (
+          <div className="bg-[#f8f9fa] border border-[#eaecf0] rounded-lg p-3 text-[11px] sm:text-[12px] space-y-2.5 animate-in slide-in-from-bottom-2 duration-200 shadow-inner">
+            <div className="flex items-center justify-between border-b border-[#eaecf0] pb-1.5 mb-1 flex-wrap gap-2">
+              <span className="font-bold text-[#202122] flex items-center gap-1.5">
+                <Sparkles size={12} className="text-[#0645ad]" /> AI 모델 및 참고 맥락 구성
+              </span>
+              <button 
+                onClick={() => setShowChatOptions(false)} 
+                className="text-[#888] hover:text-slate-900 p-0.5"
+              >
+                <X size={12} />
+              </button>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-bold text-[#54595d] mr-1">모델 선택:</span>
+              <button
+                onClick={() => setUseSubModel(false)}
+                className={`px-2 py-0.5 rounded-full border text-[11px] font-black transition-colors ${
+                  !useSubModel ? "bg-[#0645ad] text-white border-[#0645ad]" : "bg-white text-[#54595d] border-[#c8ccd1]"
+                }`}
+              >
+                메인 ({mainModel})
+              </button>
+              <button
+                onClick={() => setUseSubModel(true)}
+                className={`px-2 py-0.5 rounded-full border text-[11px] font-black transition-colors ${
+                  useSubModel ? "bg-[#0645ad] text-white border-[#0645ad]" : "bg-white text-[#54595d] border-[#c8ccd1]"
+                }`}
+              >
+                보조 ({subModel})
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span className="font-bold text-[#54595d] mr-1">참고 맥락:</span>
+              <label className="flex items-center gap-1.5 cursor-pointer group">
+                <input type="checkbox" checked={includeEntities} onChange={e => setIncludeEntities(e.target.checked)} className="w-3.5 h-3.5 accent-[#0645ad] cursor-pointer" />
+                <span className="text-[#54595d] group-hover:text-[#202122] transition-colors font-medium">기존 문서</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer group">
+                <input type="checkbox" checked={includeGraph} onChange={e => setIncludeGraph(e.target.checked)} className="w-3.5 h-3.5 accent-[#0645ad] cursor-pointer" />
+                <span className="text-[#54595d] group-hover:text-[#202122] transition-colors font-medium">관계도</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer group">
+                <input type="checkbox" checked={includeFiles} onChange={e => setIncludeFiles(e.target.checked)} className="w-3.5 h-3.5 accent-[#0645ad] cursor-pointer" />
+                <span className="text-[#54595d] group-hover:text-[#202122] transition-colors font-medium">첨부 파일</span>
+              </label>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-end gap-1 sm:gap-1.5 bg-white border border-[#a2a9b1] rounded-lg p-1 sm:p-1.5 focus-within:border-[#0645ad] transition-colors shadow-sm">
+          <textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={1}
+            placeholder={placeholder || "질문을 입력하세요"}
+            className="flex-1 min-w-0 min-h-[36px] max-h-[120px] px-2 py-1.5 sm:px-3 text-[14px] sm:text-[13.5px] text-[#202122] resize-none focus:outline-none leading-relaxed bg-transparent"
+          />
+          
+          <div className="flex items-center gap-0.5 sm:gap-1 shrink-0 pb-0.5">
+            {/* Options Toggle Gear Icon */}
+            <button
+              type="button"
+              onClick={() => setShowChatOptions(p => !p)}
+              className={`p-1.5 sm:p-2 rounded-md transition-colors ${
+                showChatOptions ? "text-[#0645ad] bg-blue-50" : "text-[#54595d] hover:bg-slate-100"
+              }`}
+              title="AI 분석 옵션 설정"
+            >
+              <Settings size={16} className="sm:hidden" />
+              <Settings size={17} className="hidden sm:block" />
+            </button>
+            
+            {/* Send Button */}
+            <button
+              onClick={handleSubmit}
+              disabled={!text.trim()}
+              className="p-1.5 sm:p-2 bg-[#0645ad] text-white rounded-md hover:bg-[#0b0080] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+              title="보내기"
+            >
+              <Send size={14} className="sm:hidden" />
+              <Send size={15} className="hidden sm:block" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Render Normal Page direct-instruct Mode ─────────────────────────────
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4">
+    <div className="w-full max-w-2xl mx-auto space-y-4 font-sans">
       {!hideHeader && (
         <div className="text-center mb-2">
           <h2 className="text-xl font-bold text-[#202122] mb-1">{title}</h2>

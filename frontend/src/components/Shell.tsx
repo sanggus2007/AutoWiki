@@ -88,19 +88,23 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       )}
 
       <aside className={`
-        fixed inset-y-0 left-0 z-[70] w-64 bg-[#f6f6f6] border-r border-[#a2a9b1] flex flex-col transition-transform duration-300 transform
-        lg:relative lg:translate-x-0 lg:w-56 lg:z-auto
+        fixed inset-y-0 left-0 z-[70] w-64 max-w-[85vw] bg-[#f6f6f6] border-r border-[#a2a9b1] flex flex-col transition-transform duration-300 transform
+        lg:relative lg:translate-x-0 lg:w-56 lg:z-auto lg:max-w-none
         ${isOpen ? "translate-x-0" : "-translate-x-full"}
         shrink-0 font-sans text-sm
       `}>
         {/* Mobile Header in Sidebar */}
-        <div className="lg:hidden flex justify-end p-2 border-b border-[#a2a9b1]">
-          <button onClick={onClose} className="p-2 text-[#54595d]">
-            <CloseIcon size={20} />
+        <div className="lg:hidden flex items-center justify-between p-3 border-b border-[#a2a9b1] bg-white shrink-0">
+          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => { router.push("/dashboard"); onClose?.(); }}>
+            <Book size={18} className="text-[#000000]" strokeWidth={1.5} />
+            <span className="text-sm font-serif font-bold text-[#000000] tracking-tight">AutoWiki AI</span>
+          </div>
+          <button onClick={onClose} className="p-1 text-[#54595d] hover:bg-[#eaecf0] rounded-sm">
+            <CloseIcon size={18} />
           </button>
         </div>
 
-        <div className="p-5 pb-3">
+        <div className="hidden lg:block p-5 pb-3 shrink-0">
           <div className="flex flex-col items-center justify-center cursor-pointer mb-2" onClick={() => router.push("/dashboard")}>
             <Book size={40} className="text-[#000000] mb-1" strokeWidth={1} />
             <span className="text-lg font-serif font-medium text-[#000000] tracking-tight">
@@ -140,19 +144,19 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           )}
         </nav>
 
-        <div className="p-3 border-t border-[#a2a9b1] pb-[calc(12px+env(safe-area-inset-bottom))]">
+        <div className="p-2 lg:p-3 border-t border-[#a2a9b1] pb-[calc(8px+env(safe-area-inset-bottom))] lg:pb-3 shrink-0">
           {/* Storage Details */}
-          <div className="mt-3 px-2 mb-3">
+          <div className="mt-1 lg:mt-3 px-2 mb-1 lg:mb-3">
              <div className="flex items-center justify-between mb-1">
-                 <div className="text-[11px] font-bold text-[#54595d] uppercase tracking-wider flex items-center">
-                    <Database size={11} className="mr-1" />
+                 <div className="text-[10px] lg:text-[11px] font-bold text-[#54595d] uppercase tracking-wider flex items-center">
+                    <Database size={10} className="mr-1 w-2.5 h-2.5 lg:w-3 lg:h-3" />
                     저장소 용량 제한
                  </div>
-                 <div className="text-[10px] text-[#54595d]">
+                 <div className="text-[9px] lg:text-[10px] text-[#54595d]">
                     {(storageUsed / 1024).toFixed(1)} / 10240 KB
                  </div>
              </div>
-             <div className="w-full bg-[#eaecf0] h-1.5 rounded-full overflow-hidden">
+             <div className="w-full bg-[#eaecf0] h-1 lg:h-1.5 rounded-full overflow-hidden">
                  <div 
                     className={`h-full ${storageUsed >= storageLimit ? 'bg-red-500' : 'bg-emerald-500'}`} 
                     style={{ width: `${Math.min(100, (storageUsed / storageLimit) * 100)}%` }}
@@ -160,36 +164,36 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
              </div>
           </div>
 
-          <div className="text-[11px] font-bold text-[#54595d] px-2 mt-4 mb-2 uppercase tracking-wider">도구 모음</div>
-          <NavItem icon={<Settings size={15} />} label="환경 설정" href="/dashboard/settings" active={pathname === "/dashboard/settings"} />
+          <div className="text-[10px] lg:text-[11px] font-bold text-[#54595d] px-2 mt-2 mb-1 lg:mt-4 lg:mb-2 uppercase tracking-wider">도구 모음</div>
+          <NavItem icon={<Settings size={14} />} label="환경 설정" href="/dashboard/settings" active={pathname === "/dashboard/settings"} />
           <div
             onClick={() => setShowExportImport(true)}
-            className="flex items-center space-x-2 px-2 py-1.5 rounded-sm cursor-pointer transition-colors text-[13px] text-[#0645ad] hover:bg-[#eaecf0] hover:underline mb-2"
+            className="flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] text-[#0645ad] hover:bg-[#eaecf0] hover:underline mb-1 lg:mb-2"
           >
-            <span className="shrink-0 text-[#0645ad]"><Archive size={15} /></span>
+            <span className="shrink-0 text-[#0645ad] w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center"><Archive size={14} className="w-full h-full" /></span>
             <span className="truncate">내보내기 / 가져오기</span>
           </div>
 
-          <div className="text-[11px] font-bold text-[#54595d] px-2 mb-2 uppercase tracking-wider">계정 관리</div>
+          <div className="text-[10px] lg:text-[11px] font-bold text-[#54595d] px-2 mb-1 lg:mb-2 uppercase tracking-wider">계정 관리</div>
           {user && (
-            <div className="flex items-center justify-between px-2 mb-2">
-              <div className="flex items-center space-x-2 truncate">
+            <div className="flex items-center justify-between px-2 mb-1 lg:mb-2 min-w-0">
+              <div className="flex items-center space-x-2 truncate min-w-0">
                 {user.avatar_url ? (
-                   <img src={user.avatar_url} alt="Profile" className="w-6 h-6 rounded-full border border-[#a2a9b1]" />
+                   <img src={user.avatar_url} alt="Profile" className="w-5 h-5 lg:w-6 lg:h-6 rounded-full border border-[#a2a9b1]" />
                 ) : (
-                   <div className="w-6 h-6 rounded-full bg-[#eaecf0] border border-[#a2a9b1] flex items-center justify-center text-[10px] font-bold text-[#54595d]">
+                   <div className="w-5 h-5 lg:w-6 lg:h-6 rounded-full bg-[#eaecf0] border border-[#a2a9b1] flex items-center justify-center text-[9px] lg:text-[10px] font-bold text-[#54595d] shrink-0">
                      {user.username.charAt(0).toUpperCase()}
                    </div>
                 )}
-                <span className="text-[12px] font-semibold text-[#202122] truncate">{user.username}</span>
+                <span className="text-[11px] lg:text-[12px] font-semibold text-[#202122] truncate min-w-0">{user.username}</span>
               </div>
             </div>
           )}
           <div
             onClick={handleLogout}
-            className="flex items-center space-x-2 px-2 py-1.5 rounded-sm cursor-pointer transition-colors text-[13px] text-red-600 hover:bg-[#eaecf0] hover:underline"
+            className="flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] text-red-600 hover:bg-[#eaecf0] hover:underline"
           >
-            <span className="shrink-0 text-red-600"><LogOut size={15} /></span>
+            <span className="shrink-0 text-red-600 w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center"><LogOut size={14} className="w-full h-full" /></span>
             <span className="truncate">로그아웃</span>
           </div>
         </div>
@@ -197,8 +201,8 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
       {/* Create Project Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={() => setShowCreateModal(false)}>
-          <div className="bg-white border border-[#a2a9b1] shadow-lg p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowCreateModal(false)}>
+          <div className="bg-white border border-[#a2a9b1] shadow-lg p-6 max-w-md w-full my-auto" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-[#000000] mb-4 font-serif">새 프로젝트 만들기</h3>
             <div className="space-y-3">
               <div>
@@ -254,14 +258,14 @@ const NavItem = ({ icon, label, active = false, href }: { icon: React.ReactNode;
   return (
     <div
       onClick={() => href && router.push(href)}
-      className={`flex items-center space-x-2 px-2 py-1.5 rounded-sm cursor-pointer transition-colors text-[13px] ${
+      className={`flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] min-w-0 ${
         active
           ? "bg-[#eaecf0] text-[#000000] font-bold"
           : "text-[#0645ad] hover:bg-[#eaecf0] hover:underline"
       }`}
     >
-      <span className={`shrink-0 ${active ? "text-[#000000]" : "text-[#0645ad]"}`}>{icon}</span>
-      <span className="truncate">{label}</span>
+      <span className={`shrink-0 ${active ? "text-[#000000]" : "text-[#0645ad]"} w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center`}>{icon}</span>
+      <span className="truncate min-w-0">{label}</span>
     </div>
   );
 };
