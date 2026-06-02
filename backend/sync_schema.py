@@ -38,6 +38,11 @@ def sync():
                 print("Adding 'tokens' to 'users' table...")
                 conn.execute(text("ALTER TABLE users ADD COLUMN tokens INTEGER DEFAULT 100"))
 
+            # last_token_reset_at
+            if "last_token_reset_at" not in user_cols:
+                print("Adding 'last_token_reset_at' to 'users' table...")
+                conn.execute(text("ALTER TABLE users ADD COLUMN last_token_reset_at TIMESTAMP"))
+
             # Check 'project_files' table
             pf_cols = [c["name"] for c in inspector.get_columns("project_files")]
             if "is_selected" not in pf_cols:
