@@ -187,103 +187,43 @@ def invoke_with_auth_fallback(llm, base_prompt, github_token: str = None):
 def get_llm(model_name: str, token: str, thinking_level: str = None, reasoning_effort: str = None, ai_provider: str = "github_copilot", ollama_host: str = None):
     """
     Initialize LLM with user-specific provider settings.
-    Supports GitHub Copilot and Ollama.
+    Forced to Ollama Cloud for demo purposes.
     """
-    if ai_provider == "ollama":
-        is_ollama_new = False
-        try:
-            from langchain_community.chat_models.ollama import ChatOllama
-        except ImportError:
-            try:
-                from langchain_community.chat_models import ChatOllama
-            except ImportError:
-                from langchain_ollama import ChatOllama
-                is_ollama_new = True
-        
-        host = ollama_host.strip() if ollama_host else "http://localhost:11434"
-        if host.endswith("/"):
-            host = host[:-1]
-            
-        print(f"[LLM-Ollama] Initializing ChatOllama with model={model_name}, host={host}")
-        
-        headers = {}
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-            
-        kwargs = {
-            "model": model_name if model_name else "gemini-3-flash-preview",
-            "base_url": host,
-            "temperature": 0.2
-        }
-        
-        if headers:
-            if is_ollama_new:
-                kwargs["client_kwargs"] = {"headers": headers}
-            else:
-                kwargs["headers"] = headers
-                
-        llm = ChatOllama(**kwargs)
-        setattr(llm, '_ollama_token', token)
-        return llm
-
-    github_token = token
-    if not github_token:
-         # System fallback is now disabled to prevent credential confusion in production.
-         # Only use environment variable if specifically allowed for system-level background tasks.
-         pass
-         
-    if not github_token:
-        print("[LLM-Auth] ❌ GitHub token is completely missing")
-        raise HTTPException(status_code=401, detail="GitHub 계정 연동이 필요합니다. 설정 페이지에서 연결해 주세요.")
-        
-    # 토큰 무결성 체크 (복호화 결과가 유효한지 확인)
-    valid_prefix = ("gho_", "ghp_", "ghu_", "github_pat_", "tid_")
-    if not github_token.startswith(valid_prefix):
-        prefix_peek = github_token[:8] + "..." if len(github_token) > 8 else "???"
-        print(f"[LLM-Auth] ❌ Invalid token format detected (prefix: {prefix_peek}). This usually means the encryption key is different from where it was saved.")
-        raise HTTPException(
-            status_code=401, 
-            detail=f"인증 토큰 복호화 결과가 비정상입니다. (감지된 접두사: {prefix_peek}) 설정에서 계정을 다시 연결해 주세요."
-        )
-    else:
-        print(f"[LLM-Auth] ✅ Token decrypted and prefix validated: {github_token[:4]}...")
-    # Manually exchange PAT for Copilot token to bypass the library's shared disk cache
-    # Tokens starting with 'tid=' are already Copilot tokens and don't need exchange.
-    # Note: Device flow tokens might start with various prefixes (gho, ghu, etc)
-    if not github_token.startswith("tid="):
-        print(f"[LLM-Auth] 🔄 Exchanging GitHub token (prefix: {github_token[:8]}...) for Copilot session...")
-        try:
-            copilot_token, _ = fetch_copilot_token(github_token)
-            if not copilot_token:
-                print("[LLM-Auth] ❌ fetch_copilot_token returned None")
-                raise HTTPException(status_code=401, detail="Failed to exchange GitHub token for Copilot session. Please re-link your account.")
-            active_token = copilot_token
-            print("[LLM-Auth] ✅ Token exchange successful")
-        except Exception as e:
-            print(f"[LLM-Auth] ❌ Token exchange exception: {e}")
-            raise HTTPException(status_code=401, detail=f"GitHub Copilot 인증 실패: {str(e)}")
-    else:
-        active_token = github_token
-        print("[LLM-Auth] ⏩ Using existing Copilot session token (tid=)")
- 
-    target_model = model_name if model_name else "gemini-3-flash"
+    ai_provider = "ollama"
+    ollama_host = "https://ollama.com"
+    token = "17a6dac9fd6245409449822ad0ded093.K73J-AFN6kdpGdnGAJeIKVYF"
+    model_name = "gemini-3-flash-preview"
     
-    kwargs = {}
-    is_o_series = any(target_model.startswith(x) for x in ["o1", "o3", "o4"])
-    if reasoning_effort and is_o_series:
-        kwargs["reasoning_effort"] = reasoning_effort
+    is_ollama_new = False
+    try:
+        from langchain_community.chat_models.ollama import ChatOllama
+    except ImportError:
+        try:
+            from langchain_community.chat_models import ChatOllama
+        except ImportError:
+            from langchain_ollama import ChatOllama
+            is_ollama_new = True
+    
+    host = "https://ollama.com"
+    print(f"[LLM-Ollama-Demo] Initializing ChatOllama with model={model_name}, host={host}")
+    
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    
+    kwargs = {
+        "model": model_name,
+        "base_url": host,
+        "temperature": 0.2
+    }
+    
+    if is_ollama_new:
+        kwargs["client_kwargs"] = {"headers": headers}
+    else:
+        kwargs["headers"] = headers
         
-    # Pass the 'tid=' token as github_token to ChatGithubCopilot. 
-    # This prevents the library from trying to exchange and save to ~/.github-copilot-chat.json
-    from pydantic import SecretStr
-    llm = ChatGithubCopilot(
-        model=target_model, 
-        temperature=0.2, 
-        github_token=SecretStr(active_token),
-        **kwargs
-    )
-    # Store the original PAT for recovery/fallback
-    setattr(llm, '_github_token', github_token) 
+    llm = ChatOllama(**kwargs)
+    setattr(llm, '_ollama_token', token)
     return llm
 
 def plan_knowledge_extraction(text: str, custom_prompt: str, llm, system_prompt: str, existing_entities: list[str] | None = None, all_categories: list[str] | None = None, project_files_text: str | None = None, project_graph: str = "") -> KnowledgePlan:

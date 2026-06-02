@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Loader2, BookOpen, Check, FileText } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { Proposal } from "./ReviewUI";
+import { useAuthStore } from "@/lib/store";
 
 interface GlassObserverProps {
   projectId: string;
@@ -137,6 +138,16 @@ export function GlassObserver({
           const errText = await res.text();
           throw new Error(errText || "서버와 연결을 설정하지 못했습니다.");
         }
+
+        // Sync tokens immediately upon starting the commit stream
+        apiFetch("/api/users/me")
+          .then(res => res.json())
+          .then(user_data => {
+            if (user_data.tokens !== undefined) {
+              useAuthStore.getState().setTokens(user_data.tokens);
+            }
+          })
+          .catch(err => console.error("Failed to sync tokens:", err));
 
         reader = res.body?.getReader();
         const decoder = new TextDecoder();

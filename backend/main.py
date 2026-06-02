@@ -42,15 +42,16 @@ def init_db():
         print(f"[Startup] DB Migration Notice (might already exist): {e}")
         db.rollback()
     
-    # --- Auto Migration: Ensure ai_provider, ollama_api_key_enc, ollama_host exist ---
+    # --- Auto Migration: Ensure ai_provider, ollama_api_key_enc, ollama_host, tokens exist ---
     try:
         from sqlalchemy import text
-        print("[Startup] Checking for AI provider and Ollama columns in users table...")
+        print("[Startup] Checking for AI provider, Ollama and tokens columns in users table...")
         db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_provider VARCHAR DEFAULT 'github_copilot'"))
         db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_api_key_enc TEXT"))
         db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_host VARCHAR DEFAULT 'https://ollama.com'"))
+        db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS tokens INTEGER DEFAULT 100"))
         db.commit()
-        print("[Startup] DB Migration (AI provider & Ollama) check complete.")
+        print("[Startup] DB Migration (AI provider & Ollama & tokens) check complete.")
     except Exception as e:
         print(f"[Startup] DB Migration Notice for users table (might already exist): {e}")
         db.rollback()
@@ -428,27 +429,8 @@ def get_decrypted_token(user, api_key_fallback: str = "") -> str:
         )
 
 def get_active_provider_and_token(user, api_key_fallback: str = "", model_name: str = ""):
-    provider = getattr(user, 'ai_provider', 'github_copilot') or 'github_copilot'
-    active_token = ""
-    
-    if provider == 'github_copilot':
-        active_token = get_decrypted_token(user, api_key_fallback)
-    elif provider == 'ollama':
-        effective_api_key = ""
-        if api_key_fallback and api_key_fallback.strip() not in ["", "null", "undefined"]:
-            effective_api_key = api_key_fallback.strip()
-            
-        if effective_api_key:
-            print(f"[Auth-Helper] Using provided Ollama API Key (prefix: {effective_api_key[:8]}...)")
-            active_token = effective_api_key
-        elif user and user.ollama_api_key_enc:
-            try:
-                active_token = token_manager.decrypt(user.ollama_api_key_enc, user.encryption_key_version)
-                print(f"[Auth-Helper] Successfully decrypted DB Ollama key (prefix: {active_token[:4]}...)")
-            except Exception as e:
-                print(f"[Auth-Helper] ❌ Ollama Decryption failed: {e}")
-                active_token = ""
-    return provider, active_token
+    # 시연용(데모) 버전: 고정된 Ollama Cloud 제공자와 고정 API 키 반환
+    return "ollama", "17a6dac9fd6245409449822ad0ded093.K73J-AFN6kdpGdnGAJeIKVYF"
 
 # Request already imported from fastapi above
 
@@ -1009,7 +991,18 @@ def get_user_me(user=Depends(get_current_user), db=Depends(get_db)):
         "storage_limit": 10485760,
         "ai_provider": getattr(user, 'ai_provider', 'github_copilot') or 'github_copilot',
         "ollama_host": getattr(user, 'ollama_host', 'https://ollama.com') or 'https://ollama.com',
-        "has_ollama_key": getattr(user, 'ollama_api_key_enc', None) is not None
+        "has_ollama_key": getattr(user, 'ollama_api_key_enc', None) is not None,
+        "tokens": getattr(user, 'tokens', 100)
+    }
+
+@app.post("/api/users/me/reset-tokens")
+def reset_user_tokens(user=Depends(get_current_user), db=Depends(get_db)):
+    user.tokens = 100
+    db.commit()
+    db.refresh(user)
+    return {
+        "status": "success",
+        "tokens": user.tokens
     }
 
 class AISettingsPayload(BaseModel):
@@ -1132,6 +1125,15 @@ class TextAnalysisRequest(BaseModel):
 @app.post("/api/projects/{project_id}/analyze-text")
 def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get_current_user), db=Depends(get_db)):
     print(f"[AnalyzeText] Start request for project {project_id}")
+    # 토큰 검증 및 차감 (기획: 1토큰)
+    required_tokens = 1
+    user_tokens = getattr(user, 'tokens', 100)
+    if user_tokens < required_tokens:
+        raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (기획에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
+
+    user.tokens = user_tokens - required_tokens
+    db.commit()
+
     try:
         project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
         if not project:
@@ -1291,6 +1293,15 @@ class ChatRequest(BaseModel):
 @app.post("/api/projects/{project_id}/chat")
 def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current_user), db=Depends(get_db)):
     print(f"[ProjectChat] Request received for project {project_id}")
+    # 토큰 검증 및 차감 (AI 채팅: 2토큰)
+    required_tokens = 2
+    user_tokens = getattr(user, 'tokens', 100)
+    if user_tokens < required_tokens:
+        raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (AI 채팅에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
+
+    user.tokens = user_tokens - required_tokens
+    db.commit()
+
     try:
         project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
         if not project:
@@ -1452,6 +1463,15 @@ async def upload_files(
     user=Depends(get_current_user),
     db=Depends(get_db)
 ):
+    # 토큰 검증 및 차감 (기획: 1토큰)
+    required_tokens = 1
+    user_tokens = getattr(user, 'tokens', 100)
+    if user_tokens < required_tokens:
+        raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (기획에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
+
+    user.tokens = user_tokens - required_tokens
+    db.commit()
+
     project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -1548,6 +1568,15 @@ async def upload_files(
 
 @app.post("/api/projects/{project_id}/commit")
 async def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current_user), db=Depends(get_db)):
+    # 토큰 검증 및 차감 (문서 작성: 5토큰)
+    required_tokens = 5
+    user_tokens = getattr(user, 'tokens', 100)
+    if user_tokens < required_tokens:
+        raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (문서 작성에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
+
+    user.tokens = user_tokens - required_tokens
+    db.commit()
+
     project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Home, Book, FileText, Settings, Search, Edit3, FolderOpen, Plus, Archive, LogOut, Database, Menu, X as CloseIcon } from "lucide-react";
+import { Home, Book, FileText, Settings, Search, Edit3, FolderOpen, Plus, Archive, LogOut, Database, Menu, Sparkles, X as CloseIcon } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import ExportImportPanel from "./ExportImportPanel";
 import { apiFetch } from "@/lib/api";
@@ -20,17 +20,46 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDesc, setNewProjectDesc] = useState("");
-  const { user, logout } = useAuthStore();
+  const { user, logout, tokens, setTokens } = useAuthStore();
   const [storageUsed, setStorageUsed] = useState(0);
+  const [resetClicks, setResetClicks] = useState(0);
   const storageLimit = 10485760; // 10MB
   const [showExportImport, setShowExportImport] = useState(false);
 
   useEffect(() => {
     apiFetch("/api/users/me")
       .then(res => res.json())
-      .then(data => setStorageUsed(data.storage_used || 0))
+      .then(data => {
+        setStorageUsed(data.storage_used || 0);
+        setTokens(data.tokens ?? 100);
+      })
       .catch(() => {});
   }, [pathname]);
+
+  useEffect(() => {
+    // Reset click count when pathname changes
+    setResetClicks(0);
+  }, [pathname]);
+
+  const handleHomeClick = async () => {
+    const nextClicks = resetClicks + 1;
+    if (nextClicks >= 10) {
+      try {
+        const res = await apiFetch("/api/users/me/reset-tokens", { method: "POST" });
+        if (res.ok) {
+          const data = await res.json();
+          setTokens(data.tokens);
+          alert("🔑 이스터에그 발견! AI 토큰이 100개로 리셋되었습니다.");
+        }
+      } catch (err) {
+        console.error("Failed to reset tokens:", err);
+      }
+      setResetClicks(0);
+    } else {
+      setResetClicks(nextClicks);
+      router.push("/dashboard");
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -116,13 +145,21 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
         <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto custom-scrollbar">
           <div className="text-[11px] font-bold text-[#54595d] dark:text-gray-400 px-2 mb-1 uppercase tracking-wider">탐색</div>
-          <NavItem icon={<Home size={15} />} label="대문" href="/dashboard" active={pathname === "/dashboard"} />
+          <NavItem 
+            icon={<Home size={15} />} 
+            label="대문" 
+            active={pathname === "/dashboard"} 
+            onClick={handleHomeClick}
+          />
           
           <div className="mt-5 mb-1">
             <div className="flex items-center justify-between px-2">
               <div className="text-[11px] font-bold text-[#54595d] dark:text-gray-400 uppercase tracking-wider">프로젝트</div>
               <button 
-                onClick={() => setShowCreateModal(true)}
+                onClick={() => {
+                  setResetClicks(0);
+                  setShowCreateModal(true);
+                }}
                 className="text-[#0645ad] dark:text-blue-400 hover:text-[#0b0080] dark:hover:text-blue-300 p-0.5"
                 title="새 프로젝트 만들기"
               >
@@ -164,10 +201,37 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
              </div>
           </div>
 
+          {/* AI Token Details */}
+          <div className="mt-2 lg:mt-3 px-2 mb-1 lg:mb-3">
+             <div className="flex items-center justify-between mb-1">
+                 <div className="text-[10px] lg:text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center">
+                    <Sparkles size={10} className="mr-1 w-2.5 h-2.5 lg:w-3 lg:h-3 text-purple-500 dark:text-purple-400" />
+                    AI 토큰 잔여량
+                 </div>
+                 <div className="text-[9px] lg:text-[10px] text-[#54595d] dark:text-gray-400 font-bold">
+                    {tokens} / 100 토큰
+                 </div>
+             </div>
+             <div className="w-full bg-[#eaecf0] dark:bg-zinc-800 h-1 lg:h-1.5 rounded-full overflow-hidden">
+                 <div 
+                    className="h-full bg-purple-600 dark:bg-purple-500 transition-all duration-300" 
+                    style={{ width: `${Math.min(100, (tokens / 100) * 100)}%` }}
+                   />
+             </div>
+          </div>
+
           <div className="text-[10px] lg:text-[11px] font-bold text-[#54595d] dark:text-gray-400 px-2 mt-2 mb-1 lg:mt-4 lg:mb-2 uppercase tracking-wider">도구 모음</div>
-          <NavItem icon={<Settings size={14} />} label="환경 설정" href="/dashboard/settings" active={pathname === "/dashboard/settings"} />
+          <NavItem 
+            icon={<Settings size={14} />} 
+            label="환경 설정" 
+            href="/dashboard/settings" 
+            active={pathname === "/dashboard/settings"} 
+          />
           <div
-            onClick={() => setShowExportImport(true)}
+            onClick={() => {
+              setResetClicks(0);
+              setShowExportImport(true);
+            }}
             className="flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] text-[#202122] dark:text-zinc-300 hover:bg-[#eaecf0] dark:hover:bg-zinc-800 mb-1 lg:mb-2"
           >
             <span className="shrink-0 text-[#54595d] dark:text-zinc-400 w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center"><Archive size={14} className="w-full h-full" /></span>
@@ -190,7 +254,10 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             </div>
           )}
           <div
-            onClick={handleLogout}
+            onClick={() => {
+              setResetClicks(0);
+              handleLogout();
+            }}
             className="flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] text-red-600 dark:text-red-400 hover:bg-[#eaecf0] dark:hover:bg-zinc-800"
           >
             <span className="shrink-0 text-red-600 dark:text-red-400 w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center"><LogOut size={14} className="w-full h-full" /></span>
@@ -253,11 +320,14 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   );
 };
 
-const NavItem = ({ icon, label, active = false, href }: { icon: React.ReactNode; label: string; active?: boolean; href?: string }) => {
+const NavItem = ({ icon, label, active = false, href, onClick }: { icon: React.ReactNode; label: string; active?: boolean; href?: string; onClick?: () => void }) => {
   const router = useRouter();
   return (
     <div
-      onClick={() => href && router.push(href)}
+      onClick={() => {
+        if (onClick) onClick();
+        else if (href) router.push(href);
+      }}
       className={`flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] min-w-0 ${
         active
           ? "bg-[#eaecf0] dark:bg-zinc-800 text-[#000000] dark:text-white font-bold"

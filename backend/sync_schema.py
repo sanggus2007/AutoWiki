@@ -33,6 +33,11 @@ def sync():
                 print("Adding 'encryption_key_version' to 'users' table...")
                 conn.execute(text("ALTER TABLE users ADD COLUMN encryption_key_version INTEGER DEFAULT 1"))
 
+            # tokens
+            if "tokens" not in user_cols:
+                print("Adding 'tokens' to 'users' table...")
+                conn.execute(text("ALTER TABLE users ADD COLUMN tokens INTEGER DEFAULT 100"))
+
             # Check 'project_files' table
             pf_cols = [c["name"] for c in inspector.get_columns("project_files")]
             if "is_selected" not in pf_cols:

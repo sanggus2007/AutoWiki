@@ -6,6 +6,7 @@ import { TextInputUI } from "./TextInputUI";
 import { AuthOverlay } from "./AuthOverlay";
 import { apiFetch } from "@/lib/api";
 import { SetupTutorial } from "@/components/SetupTutorial";
+import { useAuthStore } from "@/lib/store";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -266,6 +267,16 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
         localStorage.setItem(`autowiki_last_chat_session_${projectId}`, data.session_id.toString());
       }
       loadSessions(); // refresh the list to show updated title/dates
+      
+      // Refresh global token state
+      apiFetch("/api/users/me")
+        .then(res => res.json())
+        .then(user_data => {
+          if (user_data.tokens !== undefined) {
+            useAuthStore.getState().setTokens(user_data.tokens);
+          }
+        })
+        .catch(err => console.error("Failed to sync tokens:", err));
     } catch (error) {
       console.error(error);
       setMessages(prev => [...prev, { role: "assistant", content: "응답을 받지 못했습니다. 잠시 후 다시 시도해주세요." }]);
