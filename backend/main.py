@@ -42,16 +42,17 @@ def init_db():
         print(f"[Startup] DB Migration Notice (might already exist): {e}")
         db.rollback()
     
-    # --- Auto Migration: Ensure ai_provider, ollama_api_key_enc, ollama_host, tokens exist ---
+    # --- Auto Migration: Ensure ai_provider, ollama_api_key_enc, ollama_host, tokens, last_token_reset_at exist ---
     try:
         from sqlalchemy import text
-        print("[Startup] Checking for AI provider, Ollama and tokens columns in users table...")
+        print("[Startup] Checking for AI provider, Ollama, tokens and reset date columns in users table...")
         db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_provider VARCHAR DEFAULT 'github_copilot'"))
         db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_api_key_enc TEXT"))
         db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_host VARCHAR DEFAULT 'https://ollama.com'"))
         db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS tokens INTEGER DEFAULT 100"))
+        db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_token_reset_at TIMESTAMP"))
         db.commit()
-        print("[Startup] DB Migration (AI provider & Ollama & tokens) check complete.")
+        print("[Startup] DB Migration (AI provider & Ollama & tokens & last_token_reset_at) check complete.")
     except Exception as e:
         print(f"[Startup] DB Migration Notice for users table (might already exist): {e}")
         db.rollback()
@@ -637,6 +638,32 @@ def get_current_user(request: Request, db=Depends(get_db)):
     user = db.query(schema.User).filter(schema.User.id == session.user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다.")
+    
+    # --- 하루에 한 번 토큰 초기화 로직 (KST 기준 날짜가 바뀌었을 때) ---
+    try:
+        now = datetime.datetime.utcnow()
+        # KST = UTC + 9시간
+        kst_now_date = (now + datetime.timedelta(hours=9)).date()
+        
+        last_reset = getattr(user, 'last_token_reset_at', None)
+        should_reset = False
+        
+        if last_reset is None:
+            should_reset = True
+        else:
+            kst_last_reset_date = (last_reset + datetime.timedelta(hours=9)).date()
+            if kst_now_date != kst_last_reset_date:
+                should_reset = True
+                
+        if should_reset:
+            print(f"[Tokens] Resetting tokens to 100 for user {user.username} (last reset date: {last_reset})")
+            user.tokens = 100
+            user.last_token_reset_at = now
+            db.commit()
+            db.refresh(user)
+    except Exception as e:
+        print(f"[Tokens] Automatic reset warning: {e}")
+        db.rollback()
     
     request.state.session_id = session_id
     return user
