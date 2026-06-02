@@ -97,8 +97,16 @@ def invoke_with_auth_fallback(llm, base_prompt, github_token: str = None):
         )
         req.add_header("Content-Type", "application/json")
         
-        if getattr(llm, 'headers', None) and "Authorization" in llm.headers:
-            req.add_header("Authorization", llm.headers["Authorization"])
+        auth_header = None
+        if getattr(llm, '_ollama_token', None):
+            auth_header = f"Bearer {getattr(llm, '_ollama_token')}"
+        elif getattr(llm, 'headers', None) and isinstance(llm.headers, dict) and "Authorization" in llm.headers:
+            auth_header = llm.headers["Authorization"]
+        elif getattr(llm, 'client_kwargs', None) and isinstance(llm.client_kwargs, dict) and "headers" in llm.client_kwargs and "Authorization" in llm.client_kwargs["headers"]:
+            auth_header = llm.client_kwargs["headers"]["Authorization"]
+            
+        if auth_header:
+            req.add_header("Authorization", auth_header)
             
         full_content = ""
         try:
@@ -182,6 +190,7 @@ def get_llm(model_name: str, token: str, thinking_level: str = None, reasoning_e
     Supports GitHub Copilot and Ollama.
     """
     if ai_provider == "ollama":
+        is_ollama_new = False
         try:
             from langchain_community.chat_models.ollama import ChatOllama
         except ImportError:
@@ -189,6 +198,7 @@ def get_llm(model_name: str, token: str, thinking_level: str = None, reasoning_e
                 from langchain_community.chat_models import ChatOllama
             except ImportError:
                 from langchain_ollama import ChatOllama
+                is_ollama_new = True
         
         host = ollama_host.strip() if ollama_host else "http://localhost:11434"
         if host.endswith("/"):
@@ -200,12 +210,20 @@ def get_llm(model_name: str, token: str, thinking_level: str = None, reasoning_e
         if token:
             headers["Authorization"] = f"Bearer {token}"
             
-        llm = ChatOllama(
-            model=model_name if model_name else "gemini-3-flash-preview",
-            base_url=host,
-            headers=headers if headers else None,
-            temperature=0.2
-        )
+        kwargs = {
+            "model": model_name if model_name else "gemini-3-flash-preview",
+            "base_url": host,
+            "temperature": 0.2
+        }
+        
+        if headers:
+            if is_ollama_new:
+                kwargs["client_kwargs"] = {"headers": headers}
+            else:
+                kwargs["headers"] = headers
+                
+        llm = ChatOllama(**kwargs)
+        setattr(llm, '_ollama_token', token)
         return llm
 
     github_token = token
