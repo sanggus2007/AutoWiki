@@ -47,6 +47,7 @@ interface ReviewUIProps {
   proposals: Proposal[];
   onConfirm: (payloads: Proposal[]) => void;
   onReanalyze?: (feedback: string) => void;
+  onCancel?: () => void;
 }
 
 // ── Plan summaries card ───────────────────────────────────────────────────────
@@ -88,7 +89,7 @@ const PlanSummariesCard: React.FC<{ items: { filename: string; summary: string }
 };
 
 // ── Main ReviewUI ──────────────────────────────────────────────────────────────
-export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onReanalyze }) => {
+export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onReanalyze, onCancel }) => {
   const [feedback, setFeedback] = useState("");
 
   // ── Compute merged/deduped display arrays ───────────────────────────────────
@@ -383,13 +384,23 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
           </div>
         )}
 
-        <button
-          onClick={handleConfirm}
-          className="flex items-center px-6 py-3 bg-[#0645ad] dark:bg-zinc-200 dark:text-zinc-900 font-bold rounded-sm hover:bg-[#0b0080] dark:hover:bg-zinc-100 transition-colors shadow-sm text-[15px]"
-        >
-          <Check size={18} className="mr-2" />
-          Confirm &amp; Apply (데이터베이스에 저장)
-        </button>
+        <div className="flex items-center gap-3">
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="flex items-center px-5 py-3 bg-[#eaecf0] hover:bg-[#d5d9de] dark:bg-zinc-800 dark:hover:bg-zinc-700 text-[#54595d] dark:text-zinc-300 font-bold rounded-sm transition-colors text-[15px]"
+            >
+              기획 취소
+            </button>
+          )}
+          <button
+            onClick={handleConfirm}
+            className="flex items-center px-6 py-3 bg-[#0645ad] dark:bg-zinc-200 dark:text-zinc-900 font-bold rounded-sm hover:bg-[#0b0080] dark:hover:bg-zinc-100 transition-colors shadow-sm text-[15px]"
+          >
+            <Check size={18} className="mr-2" />
+            Confirm &amp; Apply (데이터베이스에 저장)
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -52,6 +52,8 @@ export default function ProjectUploadPage() {
   const params = useParams();
   const projectId = params.id as string;
 
+  const { activeProcess, setActiveProcess } = useAuthStore();
+
   const [appState, setAppState] = useState<AppState>("UPLOAD");
   const [inputMode, setInputMode] = useState<InputMode>("file");
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -77,16 +79,58 @@ export default function ProjectUploadPage() {
       .catch((err) => console.error("Failed to fetch user settings:", err));
   }, []);
 
+  useEffect(() => {
+    if (activeProcess && activeProcess.projectId === projectId) {
+      if (activeProcess.status === "RUNNING") {
+        if (activeProcess.type === "INGEST") {
+          if (appState !== "LOADING") {
+            setAppState("LOADING");
+          }
+        } else if (activeProcess.type === "COMMIT") {
+          if (appState !== "COMMITTING") {
+            setAppState("COMMITTING");
+            if (activeProcess.userPrompt !== undefined && userPrompt !== activeProcess.userPrompt) {
+              setUserPrompt(activeProcess.userPrompt);
+            }
+          }
+        }
+      } else if (activeProcess.status === "SUCCESS") {
+        if (activeProcess.type === "INGEST") {
+          if (appState !== "REVIEW" && appState !== "COMMITTING") {
+            setProposals(activeProcess.proposals || []);
+            setAppState("REVIEW");
+          }
+        } else if (activeProcess.type === "COMMIT") {
+          setActiveProcess(null);
+          router.push(`/dashboard/project/${projectId}`);
+        }
+      } else if (activeProcess.status === "ERROR") {
+        alert(`AI 분석 또는 반영 실패: ${activeProcess.error}`);
+        setAppState("UPLOAD");
+        setActiveProcess(null);
+      }
+    } else {
+      if (appState === "LOADING" || appState === "COMMITTING") {
+        setAppState("UPLOAD");
+      }
+    }
+  }, [activeProcess, projectId, router, setActiveProcess, appState, userPrompt]);
+
   const getModelKeys = () => ({
     model: localStorage.getItem("autowiki_llm_model") || "gemini-3.1-pro-preview",
     subModel: localStorage.getItem("autowiki_llm_sub_model") || "gemini-3-flash-preview",
     thinkingLevel: localStorage.getItem("autowiki_llm_thinking_level") || "HIGH",
     reasoningEffort: localStorage.getItem("autowiki_llm_reasoning_effort") || "high",
-    key: "",
+    key: localStorage.getItem("autowiki_llm_key") || "",
   });
 
   // ── File upload analysis ────────────────────────────────────────────────────
   const runUpload = useCallback(async (files: File[], customPrompt: string, includeEntities: boolean, includeGraph: boolean, includeFiles: boolean) => {
+    useAuthStore.getState().setActiveProcess({
+      projectId,
+      type: "INGEST",
+      status: "RUNNING"
+    });
     setAppState("LOADING");
     const { model, subModel, thinkingLevel, reasoningEffort, key } = getModelKeys();
 
@@ -110,6 +154,7 @@ export default function ProjectUploadPage() {
       if (!res.ok) {
         const errText = await res.text();
         if (is401(res.status, errText)) {
+          useAuthStore.getState().setActiveProcess(null);
           setPendingAction({ action: "upload", files, customPrompt, includeEntities, includeGraph, includeFiles });
           if (errText.includes("GitHub") || errText.includes("Token") || errText.includes("key")) {
             alert(`AI 분석 인증 오류: ${errText}`);
@@ -122,23 +167,27 @@ export default function ProjectUploadPage() {
           return;
         }
         // 토큰 한도 초과 에러 처리
+        let errorMsg = errText;
         if (errText.includes("token") && (errText.includes("limit") || errText.includes("exceed"))) {
-          alert("입력한 데이터와 선택된 맥락이 AI의 처리 한도를 초과했습니다. 하단의 'AI 분석 시 참고할 맥락' 체크박스(기존 문서 등)를 조절하여 맥락의 크기를 줄여보세요.");
-          setAppState("UPLOAD");
-          return;
+          errorMsg = "입력한 데이터와 선택된 맥락이 AI의 처리 한도를 초과했습니다. 하단의 'AI 분석 시 참고할 맥락' 체크박스(기존 문서 등)를 조절하여 맥락의 크기를 줄여보세요.";
+        } else if (res.status === 413) {
+          errorMsg = "파일 용량이 너무 큽니다. 서버의 데이터 처리 제한을 초과했습니다. 더 작은 파일로 나누어 업로드해주세요.";
         }
-
-        if (res.status === 413) {
-          alert("파일 용량이 너무 큽니다. 서버의 데이터 처리 제한을 초과했습니다. 더 작은 파일로 나누어 업로드해주세요.");
-        } else {
-          alert(`분석 실패: ${errText}`);
-        }
-        setAppState("UPLOAD");
+        useAuthStore.getState().setActiveProcess({
+          projectId,
+          type: "INGEST",
+          status: "ERROR",
+          error: errorMsg
+        });
         return;
       }
       const data = await res.json();
-      setProposals(data.proposals || []);
-      setAppState("REVIEW");
+      useAuthStore.getState().setActiveProcess({
+        projectId,
+        type: "INGEST",
+        status: "SUCCESS",
+        proposals: data.proposals || []
+      });
 
       // Refresh global token state
       apiFetch("/api/users/me")
@@ -149,14 +198,24 @@ export default function ProjectUploadPage() {
           }
         })
         .catch(err => console.error("Failed to sync tokens:", err));
-    } catch (err) {
+    } catch (err: any) {
       console.error("Network error:", err);
-      setAppState("UPLOAD");
+      useAuthStore.getState().setActiveProcess({
+        projectId,
+        type: "INGEST",
+        status: "ERROR",
+        error: err.message || "네트워크 오류"
+      });
     }
   }, [projectId]);
 
   // ── Text-only analysis ──────────────────────────────────────────────────────
   const runTextAnalysis = useCallback(async (text: string, useSubModel: boolean, includeEntities: boolean, includeGraph: boolean, includeFiles: boolean) => {
+    useAuthStore.getState().setActiveProcess({
+      projectId,
+      type: "INGEST",
+      status: "RUNNING"
+    });
     setAppState("LOADING");
     const { model, subModel, thinkingLevel, reasoningEffort, key } = getModelKeys();
     const chosenModel = useSubModel ? subModel : model;
@@ -182,6 +241,7 @@ export default function ProjectUploadPage() {
       if (!res.ok) {
         const errText = await res.text();
         if (is401(res.status, errText)) {
+          useAuthStore.getState().setActiveProcess(null);
           setPendingAction({ action: "text", text, useSubModel, includeEntities, includeGraph, includeFiles });
           if (errText.includes("GitHub") || errText.includes("Token") || errText.includes("key")) {
             alert(`AI 분석 인증 오류: ${errText}`);
@@ -194,20 +254,25 @@ export default function ProjectUploadPage() {
           return;
         }
         // 토큰 한도 초과 에러 처리
+        let errorMsg = errText;
         if (errText.includes("token") && (errText.includes("limit") || errText.includes("exceed"))) {
-          alert("입력한 데이터와 선택된 맥락이 AI의 처리 한도를 초과했습니다. 분석 도구 하단의 체크박스(기존 문서, 관계도, 첨부 파일 등)를 일부 해제하여 맥락을 줄인 뒤 다시 시도해 주세요.");
-          setAppState("UPLOAD");
-          return;
+          errorMsg = "입력한 데이터와 선택된 맥락이 AI의 처리 한도를 초과했습니다. 분석 도구 하단의 체크박스(기존 문서, 관계도, 첨부 파일 등)를 일부 해제하여 맥락을 줄인 뒤 다시 시도해 주세요.";
         }
-        
-        console.error("Text analysis failed", errText);
-        alert(`분석 실패: ${errText}`);
-        setAppState("UPLOAD");
+        useAuthStore.getState().setActiveProcess({
+          projectId,
+          type: "INGEST",
+          status: "ERROR",
+          error: errorMsg
+        });
         return;
       }
       const data = await res.json();
-      setProposals(data.proposals || []);
-      setAppState("REVIEW");
+      useAuthStore.getState().setActiveProcess({
+        projectId,
+        type: "INGEST",
+        status: "SUCCESS",
+        proposals: data.proposals || []
+      });
 
       // Refresh global token state
       apiFetch("/api/users/me")
@@ -218,14 +283,25 @@ export default function ProjectUploadPage() {
           }
         })
         .catch(err => console.error("Failed to sync tokens:", err));
-    } catch (err) {
+    } catch (err: any) {
       console.error("Network error:", err);
-      setAppState("UPLOAD");
+      useAuthStore.getState().setActiveProcess({
+        projectId,
+        type: "INGEST",
+        status: "ERROR",
+        error: err.message || "네트워크 오류"
+      });
     }
   }, [projectId]);
 
   // ── Commit ──────────────────────────────────────────────────────────────────
   const runCommit = useCallback(async (finalProposals: Proposal[]) => {
+    useAuthStore.getState().setActiveProcess({
+      projectId,
+      type: "COMMIT",
+      status: "RUNNING",
+      userPrompt
+    });
     setAppState("COMMITTING");
     const { model, subModel, thinkingLevel, reasoningEffort, key } = getModelKeys();
 
@@ -246,18 +322,36 @@ export default function ProjectUploadPage() {
           }),
         }
       );
-      if (res.ok) { router.push(`/dashboard/project/${projectId}`); return; }
+      if (res.ok) {
+        useAuthStore.getState().setActiveProcess({
+          projectId,
+          type: "COMMIT",
+          status: "SUCCESS"
+        });
+        return;
+      }
       const errText = await res.text();
       if (is401(res.status, errText)) {
+        useAuthStore.getState().setActiveProcess(null);
         setPendingAction({ action: "commit", finalProposals });
         setShowAuthOverlay(true);
         return;
       }
       console.error("Commit failed", errText);
-      setAppState("REVIEW");
-    } catch (err) {
+      useAuthStore.getState().setActiveProcess({
+        projectId,
+        type: "COMMIT",
+        status: "ERROR",
+        error: errText
+      });
+    } catch (err: any) {
       console.error("Commit network error", err);
-      setAppState("REVIEW");
+      useAuthStore.getState().setActiveProcess({
+        projectId,
+        type: "COMMIT",
+        status: "ERROR",
+        error: err.message || "네트워크 오류"
+      });
     }
   }, [projectId, userPrompt]);
 
@@ -281,7 +375,19 @@ export default function ProjectUploadPage() {
 
   const handleConfirm = (finalProposals: Proposal[]) => {
     setProposals(finalProposals);
+    setActiveProcess({
+      projectId,
+      type: "COMMIT",
+      status: "RUNNING",
+      userPrompt
+    });
     setAppState("COMMITTING");
+  };
+
+  const handleCancelPlanning = () => {
+    setActiveProcess(null);
+    setProposals([]);
+    setAppState("UPLOAD");
   };
 
   const handleReanalyze = (feedback: string) => {
@@ -373,9 +479,13 @@ export default function ProjectUploadPage() {
           thinkingLevel={getModelKeys().thinkingLevel}
           reasoningEffort={getModelKeys().reasoningEffort}
           apiKey={getModelKeys().key}
-          onComplete={() => router.push(`/dashboard/project/${projectId}`)}
+          onComplete={() => {
+            setActiveProcess(null);
+            router.push(`/dashboard/project/${projectId}`);
+          }}
           onCancel={(errorMsg) => {
             alert(errorMsg);
+            setActiveProcess(null);
             setAppState("REVIEW");
           }}
         />
@@ -383,7 +493,7 @@ export default function ProjectUploadPage() {
 
       {/* ── Review ────────────────────────────────────────────────────── */}
       {appState === "REVIEW" && (
-        <ReviewUI proposals={proposals} onConfirm={handleConfirm} onReanalyze={handleReanalyze} />
+        <ReviewUI proposals={proposals} onConfirm={handleConfirm} onReanalyze={handleReanalyze} onCancel={handleCancelPlanning} />
       )}
 
       {showAuthOverlay && <AuthOverlay onSuccess={handleAuthSuccess} />}

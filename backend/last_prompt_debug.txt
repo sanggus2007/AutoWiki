@@ -39,11 +39,11 @@
 - 전체 edges 수는 nodes 수를 초과하지 않도록 절제하세요.
 - 제공된 텍스트가 기존 문서들에 이미 충분히 반영되어 있거나, 추가적인 가치가 있는 새로운 정보가 없다면 억지로 추출하지 마세요. 이 경우 nodes와 patches를 빈 배열([])로 반환하는 것이 올바른 대응입니다.
 - 단순히 텍스트에 언급되었다고 해서 모두 추출하는 것이 아니라, 위키 문서로서 독자적인 가치를 지닐 만큼의 유의미한 정보가 포함된 경우에만 추출하세요.
-- 분류는 최대한 '인물', '사물', '개념', '단체', '사건' 이 다섯 개로 통일하세요. 사용자가 제3의 분류를 추가하라고 별도로 지침하거나, 저 분류에 속하지 않는 문서에 경우 다른 분류를 사용하세요.
+- 분류는 최대한 '인물', '사물', '개념', '단체', '장소', '사건' 이 다섯 개로 통일하세요. 사용자가 제3의 분류를 추가하라고 별도로 지침하거나, 저 분류에 속하지 않는 문서에 경우 다른 분류를 사용하세요.
 
 [Perfect JSON Example - 이 구조를 100% 따르세요]
 {
-  "plan_summary": "인공지능 및 앨런 튜링에 관한 새 문서를 생성하고, 중복된 기존 '알바스 코퍼레이션' 문서를 삭제할 계획입니다.",
+  "plan_summary": "인공지능 및 앨런 튜링에 관한 새 문서를 생성하고, 중복된 기존 '양자 컴퓨팅' 문서를 삭제할 계획입니다.",
   "patches": [
     {"entity_slug": "origin-wiki", "entity_name": "기존 문서", "changes": "최신 연구 내용을 역사 섹션에 보강함", "new_is_root": true}
   ],
@@ -59,4 +59,73 @@
 }
 
 분석할 텍스트:
-양자 컴퓨팅을 주제로 문서 10개 내외로 기획해줘
+Project Atlas / Vega 통합 운영 기록
+본 문서는 2023~2025년 사이에 분산 저장된 내부 회의록, 이메일 조각, API 로그, 벤더 계약서 메모, Jira
+티켓 일부를 재조합한 것이다. 일부 정보는 상충되며, 날짜/버전/담당자가 누락되어 있다. 등장 조직: Helios
+Dynamics, Novacore Labs, Mirae Logistics APAC, Kestrel Mobility.
+1. Slack 발췌
+[2024-11-03 09:14 KST] Ethan Cole: “Project Vega에서 사용하는 Redwood Gateway 아직
+살아있나? 지난주에 Sora Kim이 폐기한다고 했던 것 같은데.”
+[2024-11-03 09:17 KST] 박재윤: “폐기 아님. Tokyo-3 리전에만 남겨둠. Zurich Mirror Node는
+이미 종료.”
+참고: Redwood Gateway = 내부 문서에는 RW-GW, RedGate, Vega Edge Proxy 등으로 혼용됨.
+2. 이메일 조각
+From: Maria Gonzales <m.gonzales@novacore.io>
+To: Daniel Rhee, Ops-Infra, “Phoenix Working Group”
+Subject: Re: DeltaLake Migration / Urgent
+“BlueHarbor 계약 아직 종료 안 됐습니다. Oracle Cloud Singapore tenancy도 살아있고, Lighthouse-7
+bucket은 삭제 금지입니다. 지난번 QA dump가 남아있습니다.”
+첨부 없음. 단, 본문 하단에 “Refer to issue NV-8821” 메모 존재.
+3. API 로그 일부
+2025-01-12T14:11:22Z POST /v2/atlas/sync
+actor=svc_vega_runtime_03
+region=ap-northeast-2
+payload_size=18.4MB
+warning=“orphan-reference-detected”
+2025-01-12T14:11:25Z GET /legacy/userMap?id=882-AX-KR
+upstream=helios-identity-v1
+status=206 Partial Content
+
+4. 회의 메모
+- “Raven Consortium” 관련 데이터는 별도 보관.
+- Mirae Logistics APAC가 제공한 운송 로그와 Kestrel Mobility 차량 텔레메트리 포맷 충돌 발생.
+- “Nightingale Index”라는 표현이 여러 번 등장하지만 정확한 시스템인지 코드명인지 불명.
+- Julia Weber가 “Athena Patch 이후 checksum mismatch 증가” 언급.
+5. Jira 티켓 요약
+Ticket: OPS-4471
+Reporter: Liam O’Connor
+Priority: P1
+“Berlin failover 이후 Cassandra cluster 일부가 read-only 상태 진입. 단, Grafana에는 정상으로
+표시됨. Prometheus exporter 버전 차이 의심.”
+Related:
+- OPS-4419
+- NV-8821
+- LEGACY-MAP-223
+6. 벤더 계약 메모
+계약 상대: Orion BioSystems GmbH
+위치: Frankfurt / Incheon / Seattle
+조항 4.2: “Aegis Vault에 저장되는 고객 메타데이터는 계약 종료 후 180일 보관.”
+비고: - 실제 보관 위치는 문서마다 다르게 기재됨. - 일부 문서에서는 “Aegis”, “AEGIS-V”,
+“Vault-X” 혼용.
+7. 용어 혼용 테이블
+시스템
+별칭
+비고
+Redwood Gateway
+RW-GW / RedGate
+Vega 관련 프록시
+Nightingale Index
+NG-Index
+정체 불명
+Athena Patch
+ATH-P-19
+checksum mismatch 언급
+Aegis Vault
+Vault-X
+보관 정책 충돌
+
+8. 추가 단편 정보
+추가 참고: - “Project Atlas”와 “Project Vega”의 관계는 일부 문서에서 동일 프로젝트로
+표현되지만, 다른 문서에서는 별개 플랫폼으로 분리되어 있다. - 2024년 12월 이후 “Zurich Mirror
+Node” 관련 로그가 급감. - 내부 감사 문서에는 “Operation Sandglass”라는 표현 존재. - 사용자 ID
+포맷: KR-882-AX, APAC-7711-Z, helios-temp-004 등 규칙 불일치.

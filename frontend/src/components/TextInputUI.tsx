@@ -14,11 +14,11 @@ interface TextInputUIProps {
   isChat?: boolean;
 }
 
-export const TextInputUI: React.FC<TextInputUIProps> = ({ 
-  onSubmit, 
-  title = "AI에게 직접 지시", 
-  description, 
-  placeholder, 
+export const TextInputUI: React.FC<TextInputUIProps> = ({
+  onSubmit,
+  title = "기획자 AI에게 직접 지시",
+  description,
+  placeholder,
   buttonText = "AI에게 전송",
   hideHeader = false,
   clearOnSubmit = true,
@@ -28,13 +28,13 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
   const [useSubModel, setUseSubModel] = useState(false);
   const [showModelInfo, setShowModelInfo] = useState(false);
   const [showChatOptions, setShowChatOptions] = useState(false);
-  
+
   const [includeEntities, setIncludeEntities] = useState(true);
   const [includeGraph, setIncludeGraph] = useState(true);
   const [includeFiles, setIncludeFiles] = useState(true);
 
   const mainModel = (typeof window !== "undefined" && localStorage.getItem("autowiki_llm_model")) || "gpt-4o";
-  const subModel  = (typeof window !== "undefined" && localStorage.getItem("autowiki_llm_sub_model")) || "gpt-4o-mini";
+  const subModel = (typeof window !== "undefined" && localStorage.getItem("autowiki_llm_sub_model")) || "gpt-4o-mini";
 
   const handleSubmit = () => {
     const trimmed = text.trim();
@@ -64,7 +64,7 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
     </>
   );
 
-  const defaultPlaceholder = "예시:\n- '양자 컴퓨팅' 개념을 새로 추가해줘.\n- '앨런 튜링' 문서의 소속 항목을 '블레츨리 파크'로 업데이트해줘.\n\n(모바일은 '전송' 버튼 클릭 / PC는 Ctrl+Enter)";
+  const defaultPlaceholder = "예시:\n- '양자 컴퓨팅'을 주제로 문서 10개 내외로 기획해줘.\n- 문서를 추가하지는 말고, 기존에 있는 문서들의 내용을 좀 보완해줘.";
 
   // ── Render Compact Chat Input Mode ──────────────────────────────────────
   if (isChat) {
@@ -77,29 +77,27 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
               <span className="font-bold text-[#202122] dark:text-gray-100 flex items-center gap-1.5">
                 <Sparkles size={12} className="text-[#0645ad] dark:text-zinc-400" /> AI 모델 및 참고 맥락 구성
               </span>
-              <button 
-                onClick={() => setShowChatOptions(false)} 
+              <button
+                onClick={() => setShowChatOptions(false)}
                 className="text-[#888] hover:text-slate-900 dark:hover:text-white p-0.5"
               >
                 <X size={12} />
               </button>
             </div>
-            
+
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="font-bold text-[#54595d] dark:text-zinc-300 mr-1">모델 선택:</span>
               <button
                 onClick={() => setUseSubModel(false)}
-                className={`px-2 py-0.5 rounded-full border text-[11px] font-black transition-colors ${
-                  !useSubModel ? "bg-[#0645ad] dark:bg-zinc-200 dark:text-zinc-900 border-[#0645ad] dark:border-zinc-200" : "bg-white dark:bg-zinc-900 text-[#54595d] dark:text-zinc-400 border-[#c8ccd1] dark:border-zinc-800"
-                }`}
+                className={`px-2 py-0.5 rounded-full border text-[11px] font-black transition-colors ${!useSubModel ? "bg-[#0645ad] text-white dark:bg-zinc-200 dark:text-zinc-900 border-[#0645ad] dark:border-zinc-200" : "bg-white dark:bg-zinc-900 text-[#54595d] dark:text-zinc-400 border-[#c8ccd1] dark:border-zinc-800"
+                  }`}
               >
                 메인 ({mainModel})
               </button>
               <button
                 onClick={() => setUseSubModel(true)}
-                className={`px-2 py-0.5 rounded-full border text-[11px] font-black transition-colors ${
-                  useSubModel ? "bg-[#0645ad] dark:bg-zinc-200 dark:text-zinc-900 border-[#0645ad] dark:border-zinc-200" : "bg-white dark:bg-zinc-900 text-[#54595d] dark:text-zinc-400 border-[#c8ccd1] dark:border-zinc-800"
-                }`}
+                className={`px-2 py-0.5 rounded-full border text-[11px] font-black transition-colors ${useSubModel ? "bg-[#0645ad] text-white dark:bg-zinc-200 dark:text-zinc-900 border-[#0645ad] dark:border-zinc-200" : "bg-white dark:bg-zinc-900 text-[#54595d] dark:text-zinc-400 border-[#c8ccd1] dark:border-zinc-800"
+                  }`}
               >
                 보조 ({subModel})
               </button>
@@ -117,7 +115,7 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
               </label>
               <label className="flex items-center gap-1.5 cursor-pointer group">
                 <input type="checkbox" checked={includeFiles} onChange={e => setIncludeFiles(e.target.checked)} className="w-3.5 h-3.5 accent-[#0645ad] dark:accent-zinc-500 cursor-pointer" />
-                <span className="text-[#54595d] dark:text-zinc-300 group-hover:text-[#202122] dark:group-hover:text-white transition-colors font-medium">첨부 파일</span>
+                <span className="text-[#54595d] dark:text-zinc-300 group-hover:text-[#202122] dark:group-hover:text-white transition-colors font-medium">예전에 첨부한 파일</span>
               </label>
             </div>
           </div>
@@ -132,21 +130,20 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
             placeholder={placeholder || "질문을 입력하세요"}
             className="flex-1 min-w-0 min-h-[36px] max-h-[120px] px-2 py-1.5 sm:px-3 text-[14px] sm:text-[13.5px] text-[#202122] dark:text-zinc-200 resize-none focus:outline-none leading-relaxed bg-transparent"
           />
-          
+
           <div className="flex items-center gap-0.5 sm:gap-1 shrink-0 pb-0.5">
             {/* Options Toggle Gear Icon */}
             <button
               type="button"
               onClick={() => setShowChatOptions(p => !p)}
-              className={`p-1.5 sm:p-2 rounded-md transition-colors ${
-                showChatOptions ? "text-[#0645ad] dark:text-zinc-200 bg-blue-50 dark:bg-zinc-800" : "text-[#54595d] dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
-              }`}
+              className={`p-1.5 sm:p-2 rounded-md transition-colors ${showChatOptions ? "text-[#0645ad] dark:text-zinc-200 bg-blue-50 dark:bg-zinc-800" : "text-[#54595d] dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                }`}
               title="AI 분석 옵션 설정"
             >
               <Settings size={16} className="sm:hidden" />
               <Settings size={17} className="hidden sm:block" />
             </button>
-            
+
             {/* Send Button */}
             <button
               onClick={handleSubmit}
@@ -190,18 +187,16 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
             <div className="flex items-center gap-1 border-r border-[#eaecf0] dark:border-zinc-800 pr-3 mr-1">
               <button
                 onClick={() => setUseSubModel(false)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-bold transition-colors border ${
-                  !useSubModel ? "bg-[#0645ad] dark:bg-zinc-200 dark:text-zinc-900 border-[#0645ad] dark:border-zinc-200" : "bg-white dark:bg-zinc-900 text-[#54595d] dark:text-zinc-400 border-[#c8ccd1] dark:border-zinc-800 hover:border-[#0645ad] dark:hover:border-zinc-500"
-                }`}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-bold transition-colors border ${!useSubModel ? "bg-[#0645ad] text-white dark:bg-zinc-200 dark:text-zinc-900 border-[#0645ad] dark:border-zinc-200" : "bg-white dark:bg-zinc-900 text-[#54595d] dark:text-zinc-400 border-[#c8ccd1] dark:border-zinc-800 hover:border-[#0645ad] dark:hover:border-zinc-500"
+                  }`}
               >
                 <Sparkles size={11} />
                 메인 모델
               </button>
               <button
                 onClick={() => setUseSubModel(true)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-bold transition-colors border ${
-                  useSubModel ? "bg-[#0645ad] dark:bg-zinc-200 dark:text-zinc-900 border-[#0645ad] dark:border-zinc-200" : "bg-white dark:bg-zinc-900 text-[#54595d] dark:text-zinc-400 border-[#c8ccd1] dark:border-zinc-800 hover:border-[#0645ad] dark:hover:border-zinc-500"
-                }`}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-bold transition-colors border ${useSubModel ? "bg-[#0645ad] text-white dark:bg-zinc-200 dark:text-zinc-900 border-[#0645ad] dark:border-zinc-200" : "bg-white dark:bg-zinc-900 text-[#54595d] dark:text-zinc-400 border-[#c8ccd1] dark:border-zinc-800 hover:border-[#0645ad] dark:hover:border-zinc-500"
+                  }`}
               >
                 <Zap size={11} />
                 보조 모델
@@ -228,7 +223,7 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer group">
                   <input type="checkbox" checked={includeFiles} onChange={e => setIncludeFiles(e.target.checked)} className="w-3.5 h-3.5 accent-[#0645ad] dark:accent-zinc-500 cursor-pointer" />
-                  <span className="text-[12px] text-[#54595d] dark:text-zinc-300 group-hover:text-[#202122] dark:group-hover:text-white transition-colors" title="첨부 파일 본문을 참고합니다.">첨부 파일</span>
+                  <span className="text-[12px] text-[#54595d] dark:text-zinc-300 group-hover:text-[#202122] dark:group-hover:text-white transition-colors" title="예전에 첨부한 파일 본문을 참고합니다.">예전에 첨부한 파일</span>
                 </label>
               </div>
             </div>
@@ -237,7 +232,7 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
           <button
             onClick={handleSubmit}
             disabled={!text.trim()}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0645ad] dark:bg-zinc-200 dark:text-zinc-900 font-bold text-[13px] rounded-sm hover:bg-[#0b0080] dark:hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0645ad] text-white dark:bg-zinc-200 dark:text-zinc-900 font-bold text-[13px] rounded-sm hover:bg-[#0b0080] dark:hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
           >
             <Send size={13} />
             {buttonText}

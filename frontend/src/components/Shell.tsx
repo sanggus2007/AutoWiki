@@ -185,11 +185,11 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           {/* Storage Details */}
           <div className="mt-1 lg:mt-3 px-2 mb-1 lg:mb-3">
             <div className="flex items-center justify-between mb-1">
-              <div className="text-[10px] lg:text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center">
+              <div className="text-[10px] lg:text-[11px] font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider flex items-center">
                 <Database size={10} className="mr-1 w-2.5 h-2.5 lg:w-3 lg:h-3" />
                 저장소 용량 제한
               </div>
-              <div className="text-[9px] lg:text-[10px] text-[#54595d] dark:text-gray-400">
+              <div className="text-[9px] lg:text-[10px] font-semibold text-[#54595d] dark:text-gray-400">
                 {(storageUsed / 1024).toFixed(1)} / 10240 KB
               </div>
             </div>
@@ -204,11 +204,11 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           {/* AI Token Details */}
           <div className="mt-2 lg:mt-3 px-2 mb-1 lg:mb-3">
             <div className="flex items-center justify-between mb-1">
-              <div className="text-[10px] lg:text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center">
-                <Sparkles size={10} className="mr-1 w-2.5 h-2.5 lg:w-3 lg:h-3 text-purple-500 dark:text-purple-400" />
+              <div className="text-[10px] lg:text-[11px] font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider flex items-center">
+                <Sparkles size={10} className="mr-1 w-2.5 h-2.5 lg:w-3 lg:h-3" />
                 AI 토큰 잔여량
               </div>
-              <div className="text-[9px] lg:text-[10px] text-[#54595d] dark:text-gray-400 font-bold">
+              <div className="text-[9px] lg:text-[10px] font-semibold text-[#54595d] dark:text-gray-400">
                 {tokens} / 100 토큰
               </div>
             </div>
@@ -218,7 +218,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 style={{ width: `${Math.min(100, (tokens / 100) * 100)}%` }}
               />
             </div>
-            <div className="text-[9px] text-gray-500 dark:text-gray-400 text-right">
+            <div className="text-[9px] text-gray-600 dark:text-gray-400 text-right">
               매일 자정 초기화
             </div>
           </div>

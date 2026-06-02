@@ -49,13 +49,12 @@ export const UploadUI: React.FC<UploadUIProps> = ({ onStartIngestion }) => {
     <div className="w-full max-w-2xl mx-auto flex flex-col items-center font-sans">
       <div className="text-center mb-10">
         <h1 className="text-4xl font-bold text-[#000000] dark:text-[#eaecf0] mb-3 tracking-tight">나만의 지식백과 구축하기</h1>
-        <p className="text-gray-600 dark:text-gray-400">회의록, 논문 PDF, 파편화된 메모들을 업로드하세요.<br/>AI가 분석하여 서로 연결된 위키 문서로 생성합니다.</p>
+        <p className="text-gray-600 dark:text-gray-400">회의록, 논문 PDF, 파편화된 메모들을 업로드하세요.<br />AI가 분석하여 서로 연결된 위키 문서로 생성합니다.</p>
       </div>
 
       <div
-        className={`w-full p-10 bg-white dark:bg-[#1a1b1c] border-2 border-dashed rounded-lg transition-all duration-200 relative overflow-hidden flex flex-col items-center justify-center ${
-          isDragging ? "border-[#0645ad] dark:border-blue-400 bg-[#f0f4f8] dark:bg-blue-950/20" : "border-[#aaaaaa] dark:border-[#54595d] hover:border-[#666666] dark:hover:border-gray-400 shadow-sm"
-        }`}
+        className={`w-full p-10 bg-white dark:bg-[#1a1b1c] border-2 border-dashed rounded-lg transition-all duration-200 relative overflow-hidden flex flex-col items-center justify-center ${isDragging ? "border-[#0645ad] dark:border-blue-400 bg-[#f0f4f8] dark:bg-blue-950/20" : "border-[#aaaaaa] dark:border-[#54595d] hover:border-[#666666] dark:hover:border-gray-400 shadow-sm"
+          }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -73,7 +72,7 @@ export const UploadUI: React.FC<UploadUIProps> = ({ onStartIngestion }) => {
             <h3 className="text-[#000000] dark:text-[#eaecf0] font-bold text-sm">업로드 준비된 파일 목록 ({files.length})</h3>
             <button onClick={() => setFiles([])} className="text-xs text-[#0645ad] dark:text-blue-400 hover:underline">모두 지우기</button>
           </div>
-          
+
           <div className="space-y-2 max-h-[250px] overflow-y-auto mb-5 custom-scrollbar">
             {files.map((file, i) => (
               <div key={i} className="flex items-center justify-between p-2 rounded bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800">
@@ -107,7 +106,7 @@ export const UploadUI: React.FC<UploadUIProps> = ({ onStartIngestion }) => {
               </label>
               <label className="flex items-center gap-2 cursor-pointer group">
                 <input type="checkbox" checked={includeFiles} onChange={e => setIncludeFiles(e.target.checked)} className="w-4 h-4 accent-[#0645ad] dark:accent-blue-400 cursor-pointer" />
-                <span className="text-sm font-medium text-[#54595d] dark:text-gray-400 group-hover:text-[#202122] dark:group-hover:text-[#eaecf0] transition-colors">첨부 파일</span>
+                <span className="text-sm font-medium text-[#54595d] dark:text-gray-400 group-hover:text-[#202122] dark:group-hover:text-[#eaecf0] transition-colors">예전에 첨부한 파일</span>
               </label>
             </div>
           </div>

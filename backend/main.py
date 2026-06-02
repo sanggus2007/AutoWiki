@@ -1621,7 +1621,7 @@ async def upload_files(
     }
 
 @app.post("/api/projects/{project_id}/commit")
-async def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current_user), db=Depends(get_db)):
+def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current_user), db=Depends(get_db)):
     # 토큰 검증 및 차감 (문서 작성: 5토큰)
     required_tokens = 5
     user_tokens = getattr(user, 'tokens', 100)
@@ -1675,7 +1675,7 @@ async def commit_changes(project_id: int, payload_data: dict, user=Depends(get_c
         ollama_host=host
     )
 
-    async def event_generator():
+    def event_generator():
         nodes_saved = 0
         edges_saved = 0
         patches_saved = 0

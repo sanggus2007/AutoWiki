@@ -530,7 +530,22 @@ async def extract_proposals(filename: str, full_text: str, custom_prompt: str, m
     if not full_text.strip():
         raise HTTPException(status_code=400, detail="텍스트를 추출할 수 없습니다.")
     llm = get_llm(model_name, api_key, thinking_level, reasoning_effort, ai_provider=ai_provider, ollama_host=ollama_host)
-    plan = plan_knowledge_extraction(full_text, custom_prompt, llm, system_prompt, existing_entities, all_categories, project_files_text, project_graph=project_graph)
+    
+    import asyncio
+    loop = asyncio.get_running_loop()
+    plan = await loop.run_in_executor(
+        None,
+        plan_knowledge_extraction,
+        full_text,
+        custom_prompt,
+        llm,
+        system_prompt,
+        existing_entities,
+        all_categories,
+        project_files_text,
+        project_graph
+    )
+    
     return {
         "filename": filename,
         "content_text": full_text,
