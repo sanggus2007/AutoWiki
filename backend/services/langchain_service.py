@@ -188,7 +188,17 @@ def get_llm(model_name: str, token: str, thinking_level: str = None, reasoning_e
             try:
                 from langchain_community.chat_models import ChatOllama
             except ImportError:
-                from langchain_ollama import ChatOllama
+                try:
+                    from langchain_ollama import ChatOllama
+                except ImportError:
+                    # Bulletproof fallback: define a mock ChatOllama class so the app doesn't crash
+                    # on startup and falls back gracefully to standard custom HTTP stream execution.
+                    class ChatOllama:
+                        def __init__(self, model, base_url, headers=None, temperature=0.2):
+                            self.model = model
+                            self.base_url = base_url
+                            self.headers = headers
+                            self.temperature = temperature
         
         host = ollama_host.strip() if ollama_host else "http://localhost:11434"
         if host.endswith("/"):
@@ -341,8 +351,12 @@ def execute_batch_knowledge_generation_stream(nodes_batch: list[dict], text: str
         }
         host = llm.base_url.rstrip('/')
         url = f"{host}/api/chat" if not host.endswith("/api") else f"{host}/chat"
+        headers = {"Content-Type": "application/json"}
+        if getattr(llm, 'headers', None) and "Authorization" in llm.headers:
+            headers["Authorization"] = llm.headers["Authorization"]
+            
         try:
-            with httpx.stream("POST", url, json=payload, headers={"Content-Type": "application/json"}, timeout=30.0) as r:
+            with httpx.stream("POST", url, json=payload, headers=headers, timeout=30.0) as r:
                 for line in r.iter_lines():
                     if line:
                         chunk = json.loads(line)
