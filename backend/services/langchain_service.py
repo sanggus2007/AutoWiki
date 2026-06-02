@@ -182,7 +182,13 @@ def get_llm(model_name: str, token: str, thinking_level: str = None, reasoning_e
     Supports GitHub Copilot and Ollama.
     """
     if ai_provider == "ollama":
-        from langchain_community.chat_models import ChatOllama
+        try:
+            from langchain_community.chat_models.ollama import ChatOllama
+        except ImportError:
+            try:
+                from langchain_community.chat_models import ChatOllama
+            except ImportError:
+                from langchain_ollama import ChatOllama
         
         host = ollama_host.strip() if ollama_host else "http://localhost:11434"
         if host.endswith("/"):
@@ -195,7 +201,7 @@ def get_llm(model_name: str, token: str, thinking_level: str = None, reasoning_e
             headers["Authorization"] = f"Bearer {token}"
             
         llm = ChatOllama(
-            model=model_name if model_name else "llama3",
+            model=model_name if model_name else "gemini-3-flash-preview",
             base_url=host,
             headers=headers if headers else None,
             temperature=0.2

@@ -4,7 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
-import { Edit3, Save, Share2, Trash2, ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
+import { Edit3, Save, Share2, Trash2, ArrowLeft, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
@@ -137,6 +137,51 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
   // name → slug map for wiki links that actually exist in DB
   const [validLinkMap, setValidLinkMap] = useState<Record<string, string>>({});
 
+  const [title, setTitle] = useState(initialTitle);
+  const [tags, setTags] = useState(initialTags);
+  const [selectedCategory, setSelectedCategory] = useState(initialTags[0] || "개념");
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const [docCategories, setDocCategories] = useState<{ name: string; slug: string }[]>(categories || []);
+  const [projectTypes, setProjectTypes] = useState<string[]>([]);
+
+  useEffect(() => {
+    setTitle(initialTitle);
+  }, [initialTitle]);
+
+  useEffect(() => {
+    setTags(initialTags);
+    setSelectedCategory(initialTags[0] || "개념");
+  }, [initialTags]);
+
+  useEffect(() => {
+    setDocCategories(categories || []);
+  }, [categories]);
+
+  // Fetch project entity types (classifications) on mount/projectId change
+  useEffect(() => {
+    if (projectId) {
+      apiFetch(`/api/projects/${projectId}/types`)
+        .then(res => {
+          if (res.ok) return res.json();
+          return [];
+        })
+        .then(data => setProjectTypes(data))
+        .catch(err => console.error("Failed to fetch project types", err));
+    }
+  }, [projectId]);
+
+  const displayTypes = useMemo(() => {
+    const combined = new Set([...projectTypes]);
+    if (selectedCategory) {
+      combined.add(selectedCategory);
+    }
+    if (combined.size === 0) {
+      return ["개념", "인물", "단체", "장소", "사건", "사물"];
+    }
+    return Array.from(combined);
+  }, [projectTypes, selectedCategory]);
+
   const parsed = useMemo(() => parseWikiSections(content), [content]);
 
   // On mount (or when content changes), bulk-resolve all [[링크]] names
@@ -163,6 +208,38 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
       const label = p1.trim();
       return `[${label}](/dashboard/wiki/__resolve__/${encodeURIComponent(label)})`;
     }), []);
+
+  const handleSave = async () => {
+    if (isEditing) {
+      setIsSaving(true);
+      try {
+        const res = await apiFetch(`/api/entities/${slug}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: title.trim(),
+            type: selectedCategory,
+            summary: content
+          })
+        });
+        
+        if (res.ok) {
+          setTags([selectedCategory]);
+          setIsEditing(false);
+        } else {
+          const errText = await res.text();
+          alert(`저장에 실패했습니다: ${errText}`);
+        }
+      } catch (err) {
+        console.error("Save error:", err);
+        alert("서버에 연결할 수 없습니다.");
+      } finally {
+        setIsSaving(false);
+      }
+    } else {
+      setIsEditing(true);
+    }
+  };
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -332,11 +409,17 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
           </button>
           <div className="border-l border-[#a2a9b1] dark:border-zinc-700 h-4 mx-0.5 sm:mx-1" />
           <button
-            onClick={() => setIsEditing(!isEditing)}
-            className={`flex items-center justify-center p-1.5 sm:px-3 sm:py-1.5 rounded-sm font-bold text-[13px] border ${isEditing ? "bg-[#0645ad] dark:bg-indigo-600 text-white border-[#0645ad] dark:border-indigo-600 hover:bg-[#0b0080] dark:hover:bg-indigo-700" : "bg-[#f8f9fa] dark:bg-zinc-800 text-[#202122] dark:text-zinc-300 border-[#a2a9b1] dark:border-zinc-700 hover:bg-[#eaecf0] dark:hover:bg-zinc-700"}`}
+            onClick={handleSave}
+            disabled={isSaving}
+            className={`flex items-center justify-center p-1.5 sm:px-3 sm:py-1.5 rounded-sm font-bold text-[13px] border ${isEditing ? "bg-[#0645ad] dark:bg-indigo-600 text-white border-[#0645ad] dark:border-indigo-600 hover:bg-[#0b0080] dark:hover:bg-indigo-700" : "bg-[#f8f9fa] dark:bg-zinc-800 text-[#202122] dark:text-zinc-300 border-[#a2a9b1] dark:border-zinc-700 hover:bg-[#eaecf0] dark:hover:bg-zinc-700"} disabled:opacity-50`}
             title={isEditing ? "변경사항 저장" : "편집"}
           >
-            {isEditing ? (
+            {isSaving ? (
+              <>
+                <Loader2 size={14} className="animate-spin sm:mr-1.5" />
+                <span className="hidden sm:inline">저장 중...</span>
+              </>
+            ) : isEditing ? (
               <>
                 <Save size={14} className="sm:mr-1.5" />
                 <span className="hidden sm:inline">변경사항 저장</span>
@@ -356,7 +439,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onClick={() => setShowDeleteConfirm(false)}>
           <div className="bg-white dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 shadow-lg p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-[#000000] dark:text-white mb-2 font-serif">문서 삭제 확인</h3>
-            <p className="text-[14px] text-[#202122] dark:text-gray-200 mb-1"><strong>「{initialTitle}」</strong> 문서를 정말 삭제하시겠습니까?</p>
+            <p className="text-[14px] text-[#202122] dark:text-gray-200 mb-1"><strong>「{title}」</strong> 문서를 정말 삭제하시겠습니까?</p>
             <p className="text-[12px] text-[#54595d] dark:text-gray-400 mb-5">이 작업은 되돌릴 수 없습니다.</p>
             <div className="flex justify-end space-x-2">
               <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-1.5 text-[13px] border border-[#a2a9b1] dark:border-gray-700 bg-[#f8f9fa] dark:bg-gray-800 text-[#202122] dark:text-gray-300 hover:bg-[#eaecf0] dark:hover:bg-gray-700 font-bold">취소</button>
@@ -367,12 +450,53 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
       )}
 
       {/* Title */}
-      <div className="mb-4 border-b border-[#a2a9b1] dark:border-gray-800 pb-2">
-        <h1 className="text-3xl font-serif text-[#000000] dark:text-white mb-1 leading-tight">{initialTitle}</h1>
-        <div className="flex items-center text-[12px] text-[#54595d] dark:text-gray-400">
-          분류:
-          {initialTags.map(tag => <span key={tag} className="ml-1 text-[#0645ad] dark:text-blue-400 hover:underline cursor-pointer">{tag}</span>)}
-        </div>
+      <div className="mb-6 border-b border-[#a2a9b1] dark:border-gray-800 pb-4">
+        {isEditing ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-[#54595d] dark:text-gray-400 uppercase tracking-wider mb-1.5">
+                문서 제목
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full text-xl font-serif px-3 py-2 bg-white dark:bg-zinc-950 border border-[#a2a9b1] dark:border-zinc-800 rounded-sm text-[#000000] dark:text-white focus:outline-none focus:border-[#0645ad] dark:focus:border-indigo-500 shadow-inner"
+                placeholder="문서 제목을 입력하세요..."
+              />
+            </div>
+            
+            <div>
+              <label className="block text-xs font-bold text-[#54595d] dark:text-gray-400 uppercase tracking-wider mb-1.5">
+                분류
+              </label>
+              <div className="relative inline-block w-48">
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full text-[13px] px-3 py-2 bg-[#f8f9fa] dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 rounded-sm text-[#202122] dark:text-zinc-200 font-bold focus:outline-none cursor-pointer appearance-none"
+                >
+                  {displayTypes.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none text-[#54595d] dark:text-gray-400">
+                  <ChevronDown size={14} />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <h1 className="text-3xl font-serif text-[#000000] dark:text-white mb-1 leading-tight">{title}</h1>
+            <div className="flex items-center text-[12px] text-[#54595d] dark:text-gray-400">
+                  분류:
+              {tags.map(tag => <span key={tag} className="ml-1 text-[#0645ad] dark:text-blue-400 hover:underline cursor-pointer">{tag}</span>)}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Content */}
@@ -406,7 +530,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
               </div>
               {parsed.infoBox && (
                 <div className="border border-[#a2a9b1] dark:border-zinc-800 bg-[#f8f9fa] dark:bg-zinc-800/50 self-start">
-                  <div className="bg-[#eaecf0] dark:bg-zinc-800 border-b border-[#a2a9b1] dark:border-zinc-700 px-3 py-1.5 font-bold text-[13px] text-center text-[#202122] dark:text-white">{initialTitle}</div>
+                  <div className="bg-[#eaecf0] dark:bg-zinc-800 border-b border-[#a2a9b1] dark:border-zinc-700 px-3 py-1.5 font-bold text-[13px] text-center text-[#202122] dark:text-white">{title}</div>
                   <div className="text-[13px]">
                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                       ...mdComponents,
@@ -428,11 +552,11 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
       )}
 
       {/* Categories */}
-      {categories.length > 0 && (
+      {docCategories.length > 0 && (
         <div className="mt-12 pt-4 border-t border-[#a2a9b1] dark:border-zinc-800">
           <div className="bg-[#f8f9fa] dark:bg-zinc-800/40 border border-[#a2a9b1] dark:border-zinc-800 p-3 text-[12px] text-slate-800 dark:text-gray-300">
-            <span className="font-bold mr-2">분류:</span>
-            {categories.map((c, i) => (
+            <span className="font-bold mr-2">카테고리:</span>
+            {docCategories.map((c, i) => (
               <React.Fragment key={c.slug}>
                 {i > 0 && <span className="text-[#54595d] dark:text-gray-600 mx-1">|</span>}
                 <a onClick={() => router.push(`/dashboard/category/${c.slug}`)} className="text-[#0645ad] dark:text-blue-400 hover:underline cursor-pointer">{c.name}</a>

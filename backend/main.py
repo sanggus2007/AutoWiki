@@ -1810,6 +1810,18 @@ async def commit_changes(project_id: int, payload_data: dict, user=Depends(get_c
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+@app.get("/api/projects/{project_id}/categories")
+def get_project_categories(project_id: int, db=Depends(get_db)):
+    """프로젝트 내에 존재하는 모든 분류(카테고리) 목록 조회"""
+    categories = db.query(schema.Category).join(schema.Category.entities).filter(schema.Entity.project_id == project_id).distinct().all()
+    return [{"id": c.id, "name": c.name, "slug": c.slug} for c in categories]
+
+@app.get("/api/projects/{project_id}/types")
+def get_project_entity_types(project_id: int, db=Depends(get_db)):
+    """프로젝트 내에 존재하는 모든 엔티티 타입(분류) 목록 조회"""
+    types = db.query(schema.Entity.type).filter(schema.Entity.project_id == project_id).distinct().all()
+    return [t[0] for t in types if t[0]]
+
 # ──────────────────────────────────────
 # Wiki Endpoints
 # ──────────────────────────────────────
@@ -2004,10 +2016,12 @@ class EntityUpdate(BaseModel):
     name: str
     type: str
     is_root: Optional[bool] = None
+    summary: Optional[str] = None
+    category_id: Optional[int] = None
 
 @app.patch("/api/entities/{slug}")
 def update_entity(slug: str, payload: EntityUpdate, db=Depends(get_db)):
-    """노드 이름/타입 수정"""
+    """노드 이름/타입/내용/분류 수정"""
     entity = db.query(schema.Entity).filter(schema.Entity.slug == slug).first()
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
@@ -2021,9 +2035,25 @@ def update_entity(slug: str, payload: EntityUpdate, db=Depends(get_db)):
                 schema.Entity.id != entity.id
             ).update({ "is_root": False }, synchronize_session=False)
         entity.is_root = payload.is_root
+    if payload.summary is not None:
+        entity.summary = payload.summary
+    if payload.category_id is not None:
+        if payload.category_id > 0:
+            cat = db.query(schema.Category).filter(schema.Category.id == payload.category_id).first()
+            if cat:
+                entity.categories = [cat]
+            else:
+                entity.categories = []
+        else:
+            entity.categories = []
     db.commit()
     db.refresh(entity)
-    return {"slug": entity.slug, "name": entity.name, "type": entity.type}
+    return {
+        "slug": entity.slug,
+        "name": entity.name,
+        "type": entity.type,
+        "categories": [{"name": c.name, "slug": c.slug} for c in entity.categories]
+    }
 
 class RelationshipCreate(BaseModel):
     source: str

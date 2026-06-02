@@ -45,8 +45,8 @@ export default function SettingsPage() {
   // Provider-specific model states
   const [copilotModel, setCopilotModel] = useState("gemini-3.1-pro-preview");
   const [copilotSubModel, setCopilotSubModel] = useState("gemini-3-flash-preview");
-  const [ollamaModel, setOllamaModel] = useState("llama3");
-  const [ollamaSubModel, setOllamaSubModel] = useState("llama3");
+  const [ollamaModel, setOllamaModel] = useState("gemini-3-flash-preview");
+  const [ollamaSubModel, setOllamaSubModel] = useState("gemini-3-flash-preview");
   const [prompts, setPrompts] = useState<{key: string, name: string, content: string, description: string}[]>([]);
   const [promptsLoading, setPromptsLoading] = useState(true);
   const [promptsSaved, setPromptsSaved] = useState(false);
@@ -78,11 +78,9 @@ export default function SettingsPage() {
       "gemini-3-flash-preview";
 
     const savedOllamaModel = localStorage.getItem("autowiki_llm_model_ollama") || 
-      (savedModel && !(savedModel.includes("gemini") || savedModel.includes("gpt") || savedModel.includes("o1")) ? savedModel : null) || 
-      "llama3";
+      "gemini-3-flash-preview";
     const savedOllamaSubModel = localStorage.getItem("autowiki_llm_sub_model_ollama") || 
-      (savedSubModel && !(savedSubModel.includes("gemini") || savedSubModel.includes("gpt") || savedSubModel.includes("o1")) ? savedSubModel : null) || 
-      "llama3";
+      "gemini-3-flash-preview";
 
     setCopilotModel(savedCopilotModel);
     setCopilotSubModel(savedCopilotSubModel);
@@ -110,8 +108,8 @@ export default function SettingsPage() {
           setModel(savedCopilotModel || data.model || "gemini-3.1-pro-preview");
           setSubModel(savedCopilotSubModel || data.sub_model || "gemini-3-flash-preview");
         } else {
-          setModel(savedOllamaModel || data.model || "llama3");
-          setSubModel(savedOllamaSubModel || data.sub_model || "llama3");
+          setModel(savedOllamaModel || data.model || "gemini-3-flash-preview");
+          setSubModel(savedOllamaSubModel || data.sub_model || "gemini-3-flash-preview");
         }
         
         if (!data.is_github_linked && provider === "github_copilot") {
@@ -252,8 +250,8 @@ export default function SettingsPage() {
     if (confirm("모든 모델 구성을 기본값으로 초기화하시겠습니까?")) {
       const defaultCopilotModel = "gemini-3.1-pro-preview";
       const defaultCopilotSubModel = "gemini-3-flash-preview";
-      const defaultOllamaModel = "llama3";
-      const defaultOllamaSubModel = "llama3";
+      const defaultOllamaModel = "gemini-3-flash-preview";
+      const defaultOllamaSubModel = "gemini-3-flash-preview";
       const defaultThinking = "HIGH";
       const defaultReasoning = "high";
 
@@ -694,13 +692,13 @@ export default function SettingsPage() {
                           setOllamaModel(val);
                         }
                       }}
-                      placeholder={aiProvider === "github_copilot" ? "예: gemini-3.1-pro-preview" : "예: llama3, mistral"}
+                      placeholder={aiProvider === "github_copilot" ? "예: gemini-3.1-pro-preview" : "예: gemini-3-flash-preview, mistral"}
                       className="w-full bg-white dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 text-[#202122] dark:text-white rounded-sm px-3 py-2 cursor-text focus:outline-none focus:border-[#0645ad] dark:focus:border-zinc-500 transition-all font-mono text-[16px] sm:text-sm shadow-inner"
                     />
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      <span className="text-[10px] text-[#54595d] dark:text-gray-400 py-0.5">추천 모델:</span>
-                      {aiProvider === "github_copilot" ? (
-                        ["gemini-3.1-pro-preview", "gemini-3-pro", "o1-mini", "gpt-4o"].map(m => (
+                    {aiProvider === "github_copilot" && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <span className="text-[10px] text-[#54595d] dark:text-gray-400 py-0.5">추천 모델:</span>
+                        {["gemini-3.1-pro-preview", "gemini-3-pro", "o1-mini", "gpt-4o"].map(m => (
                           <button
                             key={m}
                             type="button"
@@ -712,23 +710,9 @@ export default function SettingsPage() {
                           >
                             {m}
                           </button>
-                        ))
-                      ) : (
-                        ["llama3", "llama3:70b", "mistral", "qwen2.5", "phi3"].map(m => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => {
-                              setModel(m);
-                              setOllamaModel(m);
-                            }}
-                            className="text-[10px] text-[#0645ad] dark:text-zinc-300 hover:underline bg-[#f8f9fa] dark:bg-zinc-800 border border-[#a2a9b1]/30 dark:border-zinc-700 rounded-sm px-1.5 py-0.5 animate-in fade-in"
-                          >
-                            {m}
-                          </button>
-                        ))
-                      )}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Sub Model */}
@@ -750,13 +734,13 @@ export default function SettingsPage() {
                           setOllamaSubModel(val);
                         }
                       }}
-                      placeholder={aiProvider === "github_copilot" ? "예: gemini-3-flash-preview" : "예: llama3, gemma2:2b"}
+                      placeholder={aiProvider === "github_copilot" ? "예: gemini-3-flash-preview" : "예: gemini-3-flash-preview, gemma2:2b"}
                       className="w-full bg-white dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 text-[#202122] dark:text-white rounded-sm px-3 py-2 cursor-text focus:outline-none focus:border-[#0645ad] dark:focus:border-zinc-500 transition-all font-mono text-[16px] sm:text-sm shadow-inner"
                     />
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      <span className="text-[10px] text-[#54595d] dark:text-gray-400 py-0.5">추천 모델:</span>
-                      {aiProvider === "github_copilot" ? (
-                        ["gemini-3-flash-preview", "gemini-3-flash", "gpt-4o-mini"].map(m => (
+                    {aiProvider === "github_copilot" && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <span className="text-[10px] text-[#54595d] dark:text-gray-400 py-0.5">추천 모델:</span>
+                        {["gemini-3-flash-preview", "gemini-3-flash", "gpt-4o-mini"].map(m => (
                           <button
                             key={m}
                             type="button"
@@ -768,23 +752,9 @@ export default function SettingsPage() {
                           >
                             {m}
                           </button>
-                        ))
-                      ) : (
-                        ["llama3", "gemma2", "phi3", "qwen2.5:1.5b"].map(m => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => {
-                              setSubModel(m);
-                              setOllamaSubModel(m);
-                            }}
-                            className="text-[10px] text-[#0645ad] dark:text-zinc-300 hover:underline bg-[#f8f9fa] dark:bg-zinc-800 border border-[#a2a9b1]/30 dark:border-zinc-700 rounded-sm px-1.5 py-0.5 animate-in fade-in"
-                          >
-                            {m}
-                          </button>
-                        ))
-                      )}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Advanced Reasoning Controls */}
