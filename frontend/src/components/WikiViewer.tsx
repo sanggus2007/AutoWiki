@@ -56,11 +56,11 @@ function parseAlertType(text: string): "note" | "tip" | "important" | "warning" 
 }
 
 const ALERT_STYLES: Record<string, { border: string; bg: string; title: string; titleColor: string; icon: string }> = {
-  note:      { border: "border-[#3b82f6]", bg: "bg-[#eff6ff]", title: "참고",   titleColor: "text-[#1d4ed8]", icon: "ℹ️" },
-  tip:       { border: "border-[#22c55e]", bg: "bg-[#f0fdf4]", title: "팁",     titleColor: "text-[#15803d]", icon: "💡" },
-  important: { border: "border-[#8b5cf6]", bg: "bg-[#f5f3ff]", title: "중요",   titleColor: "text-[#7c3aed]", icon: "⚡" },
-  warning:   { border: "border-[#f59e0b]", bg: "bg-[#fffbeb]", title: "주의",   titleColor: "text-[#b45309]", icon: "⚠️" },
-  caution:   { border: "border-[#ef4444]", bg: "bg-[#fef2f2]", title: "경고",   titleColor: "text-[#b91c1c]", icon: "🚫" },
+  note:      { border: "border-[#3b82f6]", bg: "bg-[#eff6ff] dark:bg-blue-950/20", title: "참고",   titleColor: "text-[#1d4ed8] dark:text-blue-400", icon: "ℹ️" },
+  tip:       { border: "border-[#22c55e]", bg: "bg-[#f0fdf4] dark:bg-green-950/20", title: "팁",     titleColor: "text-[#15803d] dark:text-green-400", icon: "💡" },
+  important: { border: "border-[#8b5cf6]", bg: "bg-[#f5f3ff] dark:bg-purple-950/20", title: "중요",   titleColor: "text-[#7c3aed] dark:text-purple-400", icon: "⚡" },
+  warning:   { border: "border-[#f59e0b]", bg: "bg-[#fffbeb] dark:bg-amber-950/20", title: "주의",   titleColor: "text-[#b45309] dark:text-amber-400", icon: "⚠️" },
+  caution:   { border: "border-[#ef4444]", bg: "bg-[#fef2f2] dark:bg-red-950/20", title: "경고",   titleColor: "text-[#b91c1c] dark:text-red-400", icon: "🚫" },
 };
 
 function parseWikiSections(md: string) {
@@ -108,16 +108,16 @@ const CollapseBlock: React.FC<{ title: string; body: string; components: any; pr
   ({ title, body, components, processLinks }) => {
     const [open, setOpen] = useState(false);
     return (
-      <div className="my-4 border border-[#a2a9b1] rounded-sm overflow-hidden">
+      <div className="my-4 border border-[#a2a9b1] dark:border-zinc-800 rounded-sm overflow-hidden">
         <button
           onClick={() => setOpen(o => !o)}
-          className="w-full flex items-center justify-between px-4 py-2.5 bg-[#f8f9fa] hover:bg-[#eaecf0] transition-colors text-left border-b border-[#a2a9b1]"
+          className="w-full flex items-center justify-between px-4 py-2.5 bg-[#f8f9fa] dark:bg-zinc-800 hover:bg-[#eaecf0] dark:hover:bg-zinc-700 transition-colors text-left border-b border-[#a2a9b1] dark:border-zinc-700"
         >
-          <span className="font-bold text-[13px] text-[#202122]">{title}</span>
-          {open ? <ChevronDown size={14} className="text-[#54595d]" /> : <ChevronRight size={14} className="text-[#54595d]" />}
+          <span className="font-bold text-[13px] text-[#202122] dark:text-zinc-200">{title}</span>
+          {open ? <ChevronDown size={14} className="text-[#54595d] dark:text-gray-400" /> : <ChevronRight size={14} className="text-[#54595d] dark:text-gray-400" />}
         </button>
         {open && (
-          <div className="px-4 py-3 text-[14px] text-[#202122] bg-white">
+          <div className="px-4 py-3 text-[14px] text-[#202122] dark:text-gray-300 bg-white dark:bg-zinc-900">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
               {processLinks(body)}
             </ReactMarkdown>
@@ -178,14 +178,14 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
   const mdComponents: any = {
     h2: ({ node, children, ...props }: any) => {
       const id = String(children).toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9가-힣\-]/g, "");
-      return <h2 id={id} className="text-xl font-sans font-bold text-[#000000] mt-7 mb-3 pb-1 border-b border-[#eaecf0] scroll-mt-4" {...props}>{children}</h2>;
+      return <h2 id={id} className="text-xl font-sans font-bold text-slate-900 dark:text-white mt-7 mb-3 pb-1 border-b border-[#eaecf0] dark:border-gray-800 scroll-mt-4" {...props}>{children}</h2>;
     },
     h3: ({ node, children, ...props }: any) => {
       const id = String(children).toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9가-힣\-]/g, "");
-      return <h3 id={id} className="text-[17px] font-sans font-bold text-[#000000] mt-5 mb-2 scroll-mt-4" {...props}>{children}</h3>;
+      return <h3 id={id} className="text-[17px] font-sans font-bold text-slate-900 dark:text-white mt-5 mb-2 scroll-mt-4" {...props}>{children}</h3>;
     },
     h4: ({ node, children, ...props }: any) => (
-      <h4 className="text-[15px] font-sans font-semibold text-[#202122] mt-4 mb-1.5 scroll-mt-4" {...props}>{children}</h4>
+      <h4 className="text-[15px] font-sans font-semibold text-[#202122] dark:text-gray-200 mt-4 mb-1.5 scroll-mt-4" {...props}>{children}</h4>
     ),
     p: ({ node, children, ...props }: any) => {
       // Handle collapse sentinel lines
@@ -193,88 +193,88 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
       if (text.match(/^__COLLAPSE_\d+__$/)) {
         return <>{children}</>;
       }
-      return <p className="mb-4 leading-relaxed" {...props}>{children}</p>;
+      return <p className="mb-4 leading-relaxed text-[#202122] dark:text-gray-300" {...props}>{children}</p>;
     },
-    ul: ({ node, ...props }: any) => <ul className="list-disc list-outside pl-6 mb-4 space-y-1" {...props} />,
-    ol: ({ node, ...props }: any) => <ol className="list-decimal list-outside pl-6 mb-4 space-y-1" {...props} />,
-    li: ({ node, ...props }: any) => <li className="pl-1 leading-relaxed" {...props} />,
-    hr: () => <hr className="my-6 border-0 border-t border-[#eaecf0]" />,
-    strong: ({ node, ...props }: any) => <strong className="font-bold text-[#000000]" {...props} />,
-    em: ({ node, ...props }: any) => <em className="italic text-[#202122]" {...props} />,
-
+    ul: ({ node, ...props }: any) => <ul className="list-disc list-outside pl-6 mb-4 space-y-1 text-[#202122] dark:text-gray-300" {...props} />,
+    ol: ({ node, ...props }: any) => <ol className="list-decimal list-outside pl-6 mb-4 space-y-1 text-[#202122] dark:text-gray-300" {...props} />,
+    li: ({ node, ...props }: any) => <li className="pl-1 leading-relaxed text-[#202122] dark:text-gray-300" {...props} />,
+    hr: () => <hr className="my-6 border-0 border-t border-[#eaecf0] dark:border-gray-800" />,
+    strong: ({ node, ...props }: any) => <strong className="font-bold text-slate-900 dark:text-white" {...props} />,
+    em: ({ node, ...props }: any) => <em className="italic text-[#202122] dark:text-gray-200" {...props} />,
+ 
     // ── Alert boxes: pre-processed, never hit this blockquote renderer
     // Regular blockquote → styled quote card
     blockquote: ({ node, children, ...props }: any) => (
-      <blockquote className="my-5 border-l-4 border-[#0645ad] bg-[#f8f9fa] pl-5 pr-4 py-3 text-[#202122] italic rounded-sm">
+      <blockquote className="my-5 border-l-4 border-[#0645ad] dark:border-indigo-600 bg-[#f8f9fa] dark:bg-zinc-800 pl-5 pr-4 py-3 text-[#202122] dark:text-zinc-300 italic rounded-sm">
         {children}
-        <div className="mt-2 text-[#a2a9b1] text-[18px] leading-none select-none text-right">&ldquo;</div>
+        <div className="mt-2 text-[#a2a9b1] dark:text-zinc-600 text-[18px] leading-none select-none text-right">&ldquo;</div>
       </blockquote>
     ),
-
+ 
     // ── Code blocks ───────────────────────────────────────────────────────────
     code: ({ node, className, children, ...props }: any) => {
       const match = /language-(\w+)/.exec(className || "");
       if (!match) {
-        return <code className="bg-[#eaecf0] text-[#000000] px-1 py-0.5 rounded-sm text-[13px] font-mono border border-[#c8ccd1]" {...props}>{children}</code>;
+        return <code className="bg-[#eaecf0] dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 px-1 py-0.5 rounded-sm text-[13px] font-mono border border-[#c8ccd1] dark:border-zinc-700" {...props}>{children}</code>;
       }
       return (
-        <div className="my-4 border border-[#c8ccd1] rounded-sm overflow-hidden">
-          <div className="bg-[#eaecf0] px-3 py-1 text-[11px] font-bold text-[#54595d] font-mono border-b border-[#c8ccd1] flex items-center justify-between">
+        <div className="my-4 border border-[#c8ccd1] dark:border-zinc-700 rounded-sm overflow-hidden">
+          <div className="bg-[#eaecf0] dark:bg-zinc-800 px-3 py-1 text-[11px] font-bold text-[#54595d] dark:text-gray-400 font-mono border-b border-[#c8ccd1] dark:border-zinc-700 flex items-center justify-between">
             <span>{match[1]}</span>
           </div>
-          <pre className="p-4 overflow-x-auto text-[13px] font-mono text-[#000000] bg-[#f8f9fa]"><code {...props}>{children}</code></pre>
+          <pre className="p-4 overflow-x-auto text-[13px] font-mono text-slate-700 dark:text-gray-200 bg-[#f8f9fa] dark:bg-gray-900"><code {...props}>{children}</code></pre>
         </div>
       );
     },
-
+ 
     // ── Tables ────────────────────────────────────────────────────────────────
     table: ({ node, ...props }: any) => (
-      <div className="overflow-x-auto my-5 border border-[#a2a9b1] rounded-sm">
-        <table className="w-full text-left text-[13px] border-collapse bg-white" {...props} />
+      <div className="overflow-x-auto my-5 border border-[#a2a9b1] dark:border-zinc-800 rounded-sm">
+        <table className="w-full text-left text-[13px] border-collapse bg-white dark:bg-zinc-950" {...props} />
       </div>
     ),
-    th: ({ node, ...props }: any) => <th className="px-3 py-2 border-b border-[#a2a9b1] bg-[#eaecf0] font-bold text-[#202122] whitespace-nowrap" {...props} />,
-    td: ({ node, ...props }: any) => <td className="px-3 py-2 border-b border-[#eaecf0] text-[#202122]" {...props} />,
-    tr: ({ node, ...props }: any) => <tr className="hover:bg-[#f8f9fa] transition-colors" {...props} />,
-
+    th: ({ node, ...props }: any) => <th className="px-3 py-2 border-b border-[#a2a9b1] dark:border-zinc-700 bg-[#eaecf0] dark:bg-zinc-800 font-bold text-[#202122] dark:text-gray-200 whitespace-nowrap" {...props} />,
+    td: ({ node, ...props }: any) => <td className="px-3 py-2 border-b border-[#eaecf0] dark:border-zinc-800 text-[#202122] dark:text-gray-300" {...props} />,
+    tr: ({ node, ...props }: any) => <tr className="hover:bg-[#f8f9fa] dark:hover:bg-zinc-800/40 transition-colors" {...props} />,
+ 
     // ── Links ─────────────────────────────────────────────────────────────────
     a: ({ node, href, children, ...props }: any) => {
       if (href?.startsWith("/dashboard/wiki/__resolve__/")) {
         const label = decodeURIComponent(href.replace("/dashboard/wiki/__resolve__/", ""));
         const slug = validLinkMap[label];
-
+ 
         // Entity does NOT exist → render as plain text (no hyperlink)
         if (!slug) {
-          return <span className="text-[#202122]">{children}</span>;
+          return <span className="text-[#202122] dark:text-gray-300">{children}</span>;
         }
-
+ 
         // Entity exists → clickable wiki link
         return (
           <a
             onClick={(e) => { e.preventDefault(); router.push(`/dashboard/wiki/${slug}${projectId ? `?projectId=${projectId}` : ""}`); }}
-            className="text-[#0645ad] hover:text-[#0b0080] hover:underline cursor-pointer"
+            className="text-[#0645ad] dark:text-blue-400 hover:text-[#0b0080] dark:hover:text-blue-300 hover:underline cursor-pointer"
             {...props}
           >
             {children}
           </a>
         );
       }
-      return <a href={href} className="text-[#0645ad] hover:text-[#0b0080] hover:underline" target="_blank" rel="noopener noreferrer" {...props} />;
+      return <a href={href} className="text-[#0645ad] dark:text-blue-400 hover:text-[#0b0080] dark:hover:text-blue-300 hover:underline" target="_blank" rel="noopener noreferrer" {...props} />;
     },
-
+ 
     // ── Collapse sentinels are rendered as plain text — we intercept in body render
     text: ({ children }: any) => {
       if (String(children).match(/^__COLLAPSE_\d+__$/)) return null;
       return <>{children}</>;
     },
   };
-
+ 
   // ── Body renderer with alert + collapse block injection ──────────────────────
   const renderBody = (rawBody: string) => {
     const { md: noCollapses, map: collapseMap } = extractCollapseBlocks(rawBody);
     const { md: noAlerts,   map: alertMap }     = extractAlertBlocks(noCollapses);
     const withLinks = processWikiLinks(noAlerts);
-
+ 
     // Split on all sentinels
     const parts = withLinks.split(/(__COLLAPSE_\d+__|__ALERT_\d+__)/);
     return parts.map((part, i) => {
@@ -293,7 +293,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
             <div className={`px-4 py-2 font-bold text-[12px] ${s.titleColor} flex items-center gap-1.5 border-b border-black/5`}>
               <span>{s.icon}</span>{s.title}
             </div>
-            <div className="px-4 py-3 text-[13px] text-[#202122] leading-relaxed">
+            <div className="px-4 py-3 text-[13px] text-[#202122] dark:text-gray-300 leading-relaxed">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
                 {processWikiLinks(content)}
               </ReactMarkdown>
@@ -312,28 +312,28 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
   };
 
   return (
-    <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 pb-32 font-sans bg-white min-h-screen border-x border-[#a2a9b1]">
+    <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 pb-32 font-sans bg-white dark:bg-zinc-900 min-h-screen border-x border-[#a2a9b1] dark:border-zinc-800">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <button onClick={() => router.back()} className="text-[#0645ad] hover:underline text-[13px] flex items-center">
+        <button onClick={() => router.back()} className="text-[#0645ad] dark:text-blue-400 hover:underline text-[13px] flex items-center">
           <ArrowLeft size={14} className="mr-1" /> 뒤로 가기
         </button>
         <div className="flex items-center space-x-1.5 sm:space-x-2">
           <button 
             onClick={() => setShowDeleteConfirm(true)} 
-            className="flex items-center justify-center p-1.5 sm:px-3 sm:py-1.5 rounded-sm font-bold text-[13px] border border-[#c8ccd1] bg-[#fff3f3] text-[#cc0000] hover:bg-[#fee7e6]"
+            className="flex items-center justify-center p-1.5 sm:px-3 sm:py-1.5 rounded-sm font-bold text-[13px] border border-[#c8ccd1] dark:border-red-900/50 bg-[#fff3f3] dark:bg-red-950/20 text-[#cc0000] dark:text-red-450 hover:bg-[#fee7e6] dark:hover:bg-red-950/40"
             title="삭제"
           >
             <Trash2 size={14} className="sm:mr-1.5" />
             <span className="hidden sm:inline">삭제</span>
           </button>
-          <button className="p-1.5 rounded-sm bg-[#f8f9fa] text-[#54595d] hover:bg-[#eaecf0] border border-[#a2a9b1]" title="공유">
+          <button className="p-1.5 rounded-sm bg-[#f8f9fa] dark:bg-zinc-800 text-[#54595d] dark:text-gray-400 hover:bg-[#eaecf0] dark:hover:bg-zinc-700 border border-[#a2a9b1] dark:border-zinc-700" title="공유">
             <Share2 size={14} />
           </button>
-          <div className="border-l border-[#a2a9b1] h-4 mx-0.5 sm:mx-1" />
+          <div className="border-l border-[#a2a9b1] dark:border-zinc-700 h-4 mx-0.5 sm:mx-1" />
           <button
             onClick={() => setIsEditing(!isEditing)}
-            className={`flex items-center justify-center p-1.5 sm:px-3 sm:py-1.5 rounded-sm font-bold text-[13px] border ${isEditing ? "bg-[#0645ad] text-white border-[#0645ad] hover:bg-[#0b0080]" : "bg-[#f8f9fa] text-[#202122] border-[#a2a9b1] hover:bg-[#eaecf0]"}`}
+            className={`flex items-center justify-center p-1.5 sm:px-3 sm:py-1.5 rounded-sm font-bold text-[13px] border ${isEditing ? "bg-[#0645ad] dark:bg-indigo-600 text-white border-[#0645ad] dark:border-indigo-600 hover:bg-[#0b0080] dark:hover:bg-indigo-700" : "bg-[#f8f9fa] dark:bg-zinc-800 text-[#202122] dark:text-zinc-300 border-[#a2a9b1] dark:border-zinc-700 hover:bg-[#eaecf0] dark:hover:bg-zinc-700"}`}
             title={isEditing ? "변경사항 저장" : "편집"}
           >
             {isEditing ? (
@@ -353,13 +353,13 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
 
       {/* Delete Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="bg-white border border-[#a2a9b1] shadow-lg p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-[#000000] mb-2 font-serif">문서 삭제 확인</h3>
-            <p className="text-[14px] text-[#202122] mb-1"><strong>「{initialTitle}」</strong> 문서를 정말 삭제하시겠습니까?</p>
-            <p className="text-[12px] text-[#54595d] mb-5">이 작업은 되돌릴 수 없습니다.</p>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="bg-white dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 shadow-lg p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-[#000000] dark:text-white mb-2 font-serif">문서 삭제 확인</h3>
+            <p className="text-[14px] text-[#202122] dark:text-gray-200 mb-1"><strong>「{initialTitle}」</strong> 문서를 정말 삭제하시겠습니까?</p>
+            <p className="text-[12px] text-[#54595d] dark:text-gray-400 mb-5">이 작업은 되돌릴 수 없습니다.</p>
             <div className="flex justify-end space-x-2">
-              <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-1.5 text-[13px] border border-[#a2a9b1] bg-[#f8f9fa] text-[#202122] hover:bg-[#eaecf0] font-bold">취소</button>
+              <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-1.5 text-[13px] border border-[#a2a9b1] dark:border-gray-700 bg-[#f8f9fa] dark:bg-gray-800 text-[#202122] dark:text-gray-300 hover:bg-[#eaecf0] dark:hover:bg-gray-700 font-bold">취소</button>
               <button onClick={handleDelete} disabled={isDeleting} className="px-4 py-1.5 text-[13px] border border-[#cc0000] bg-[#cc0000] text-white hover:bg-[#aa0000] font-bold disabled:opacity-50">{isDeleting ? "삭제 중..." : "삭제 실행"}</button>
             </div>
           </div>
@@ -367,11 +367,11 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
       )}
 
       {/* Title */}
-      <div className="mb-4 border-b border-[#a2a9b1] pb-2">
-        <h1 className="text-3xl font-serif text-[#000000] mb-1 leading-tight">{initialTitle}</h1>
-        <div className="flex items-center text-[12px] text-[#54595d]">
+      <div className="mb-4 border-b border-[#a2a9b1] dark:border-gray-800 pb-2">
+        <h1 className="text-3xl font-serif text-[#000000] dark:text-white mb-1 leading-tight">{initialTitle}</h1>
+        <div className="flex items-center text-[12px] text-[#54595d] dark:text-gray-400">
           분류:
-          {initialTags.map(tag => <span key={tag} className="ml-1 text-[#0645ad] hover:underline cursor-pointer">{tag}</span>)}
+          {initialTags.map(tag => <span key={tag} className="ml-1 text-[#0645ad] dark:text-blue-400 hover:underline cursor-pointer">{tag}</span>)}
         </div>
       </div>
 
@@ -380,7 +380,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
         <textarea
           value={content}
           onChange={e => setContent(e.target.value)}
-          className="w-full min-h-[600px] bg-white text-[#000000] border border-[#a2a9b1] p-3 font-mono text-[13px] focus:outline-none focus:border-[#0645ad] resize-y shadow-inner"
+          className="w-full min-h-[600px] bg-white dark:bg-gray-900 text-[#000000] dark:text-gray-100 border border-[#a2a9b1] dark:border-gray-800 p-3 font-mono text-[13px] focus:outline-none focus:border-[#0645ad] dark:focus:border-indigo-500 resize-y shadow-inner"
           placeholder="마크다운 소스를 입력하세요..."
         />
       ) : (
@@ -388,14 +388,14 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
           {/* ToC + Info-box grid */}
           {(parsed.toc.length > 0 || parsed.infoBox) && (
             <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-4 mb-6">
-              <div className="border border-[#a2a9b1] bg-[#f8f9fa] p-4 self-start">
-                <div className="font-bold text-[14px] border-b border-[#a2a9b1] pb-1 mb-2">목차</div>
-                <ol className="list-decimal list-inside text-[13px] space-y-1">
+              <div className="border border-[#a2a9b1] dark:border-zinc-800 bg-[#f8f9fa] dark:bg-zinc-800/50 p-4 self-start">
+                <div className="font-bold text-[14px] border-b border-[#a2a9b1] dark:border-zinc-700 pb-1 mb-2 text-slate-800 dark:text-slate-100">목차</div>
+                <ol className="list-decimal list-inside text-[13px] space-y-1 text-slate-700 dark:text-gray-300">
                   {parsed.toc.map((entry, i) => (
                     <li key={i}>
                       <a
                         href={`#${entry.id}`}
-                        className="text-[#0645ad] hover:underline hover:text-[#0b0080]"
+                        className="text-[#0645ad] dark:text-blue-400 hover:underline hover:text-[#0b0080] dark:hover:text-blue-300"
                         onClick={e => { e.preventDefault(); document.getElementById(entry.id)?.scrollIntoView({ behavior: "smooth" }); }}
                       >
                         {entry.label}
@@ -405,14 +405,14 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
                 </ol>
               </div>
               {parsed.infoBox && (
-                <div className="border border-[#a2a9b1] bg-[#f8f9fa] self-start">
-                  <div className="bg-[#eaecf0] border-b border-[#a2a9b1] px-3 py-1.5 font-bold text-[13px] text-center">{initialTitle}</div>
+                <div className="border border-[#a2a9b1] dark:border-zinc-800 bg-[#f8f9fa] dark:bg-zinc-800/50 self-start">
+                  <div className="bg-[#eaecf0] dark:bg-zinc-800 border-b border-[#a2a9b1] dark:border-zinc-700 px-3 py-1.5 font-bold text-[13px] text-center text-[#202122] dark:text-white">{initialTitle}</div>
                   <div className="text-[13px]">
                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                       ...mdComponents,
                       table: ({ node, ...props }: any) => <table className="w-full text-[13px] border-collapse" {...props} />,
-                      th: ({ node, ...props }: any) => <th className="px-2 py-1.5 border-b border-[#c8ccd1] bg-[#eaecf0] text-left font-bold text-[#202122] text-[12px]" {...props} />,
-                      td: ({ node, ...props }: any) => <td className="px-2 py-1.5 border-b border-[#eaecf0] text-[#202122] text-[12px]" {...props} />,
+                      th: ({ node, ...props }: any) => <th className="px-2 py-1.5 border-b border-[#c8ccd1] dark:border-zinc-700 bg-[#eaecf0] dark:bg-zinc-800 text-left font-bold text-[#202122] dark:text-[#eaecf0] text-[12px]" {...props} />,
+                      td: ({ node, ...props }: any) => <td className="px-2 py-1.5 border-b border-[#eaecf0] dark:border-zinc-800 text-[#202122] dark:text-gray-300 text-[12px]" {...props} />,
                     }}>{processWikiLinks(parsed.infoBox)}</ReactMarkdown>
                   </div>
                 </div>
@@ -421,7 +421,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
           )}
 
           {/* Body */}
-          <div className="markdown-body max-w-none break-words text-[14.2px] leading-relaxed text-[#202122] space-y-0">
+          <div className="markdown-body max-w-none break-words text-[14.2px] leading-relaxed text-[#202122] dark:text-zinc-200 space-y-0">
             {renderBody(parsed.body)}
           </div>
         </>
@@ -429,20 +429,20 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
 
       {/* Categories */}
       {categories.length > 0 && (
-        <div className="mt-12 pt-4 border-t border-[#a2a9b1]">
-          <div className="bg-[#f8f9fa] border border-[#a2a9b1] p-3 text-[12px]">
+        <div className="mt-12 pt-4 border-t border-[#a2a9b1] dark:border-zinc-800">
+          <div className="bg-[#f8f9fa] dark:bg-zinc-800/40 border border-[#a2a9b1] dark:border-zinc-800 p-3 text-[12px] text-slate-800 dark:text-gray-300">
             <span className="font-bold mr-2">분류:</span>
             {categories.map((c, i) => (
               <React.Fragment key={c.slug}>
-                {i > 0 && <span className="text-[#54595d] mx-1">|</span>}
-                <a onClick={() => router.push(`/dashboard/category/${c.slug}`)} className="text-[#0645ad] hover:underline cursor-pointer">{c.name}</a>
+                {i > 0 && <span className="text-[#54595d] dark:text-gray-600 mx-1">|</span>}
+                <a onClick={() => router.push(`/dashboard/category/${c.slug}`)} className="text-[#0645ad] dark:text-blue-400 hover:underline cursor-pointer">{c.name}</a>
               </React.Fragment>
             ))}
           </div>
         </div>
       )}
 
-      <div className="mt-12 pt-6 border-t border-[#a2a9b1] flex justify-between text-[11px] text-[#54595d]">
+      <div className="mt-12 pt-6 border-t border-[#a2a9b1] dark:border-zinc-800 flex justify-between text-[11px] text-[#54595d] dark:text-gray-400">
         <span>이 문서는 자유 라이선스 아래 배포됩니다.</span>
         <span>개인정보처리방침 • AutoWiki AI 소개 • 면책 조항</span>
       </div>

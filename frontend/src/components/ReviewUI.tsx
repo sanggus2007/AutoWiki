@@ -54,29 +54,29 @@ const PlanSummariesCard: React.FC<{ items: { filename: string; summary: string }
   const [expanded, setExpanded] = useState(true);
   if (items.length === 0) return null;
   return (
-    <div className="border border-[#a2a9b1] rounded-sm overflow-hidden mb-4">
+    <div className="border border-[#a2a9b1] dark:border-zinc-800 rounded-sm overflow-hidden mb-4">
       <button
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center justify-between px-4 py-2.5 bg-[#f0f4f8] hover:bg-[#e8eef5] transition-colors text-left"
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-[#f0f4f8] dark:bg-zinc-900/40 hover:bg-[#e8eef5] dark:hover:bg-zinc-800 transition-colors text-left"
       >
         <div className="flex items-center gap-2">
-          <BrainCircuit size={16} className="text-[#0645ad] shrink-0" />
-          <span className="font-bold text-[13px] text-[#0645ad]">AI 분석 계획</span>
-          <span className="text-[11px] text-[#54595d] font-normal">— AI가 무엇을 어떻게 처리할지 설명합니다</span>
+          <BrainCircuit size={16} className="text-[#0645ad] dark:text-zinc-400 shrink-0" />
+          <span className="font-bold text-[13px] text-[#0645ad] dark:text-zinc-200">AI 분석 계획</span>
+          <span className="text-[11px] text-[#54595d] dark:text-gray-400 font-normal">— AI가 무엇을 어떻게 처리할지 설명합니다</span>
         </div>
-        {expanded ? <ChevronUp size={14} className="text-[#54595d]" /> : <ChevronDown size={14} className="text-[#54595d]" />}
+        {expanded ? <ChevronUp size={14} className="text-[#54595d] dark:text-gray-400" /> : <ChevronDown size={14} className="text-[#54595d] dark:text-gray-400" />}
       </button>
       {expanded && (
-        <div className="bg-white p-4 space-y-3">
+        <div className="bg-white dark:bg-zinc-900 p-4 space-y-3">
           {items.map((item, i) => (
             <div key={i}>
               {items.length > 1 && (
                 <div className="flex items-center gap-1.5 mb-1">
-                  <Files size={12} className="text-[#54595d]" />
-                  <span className="text-[11px] text-[#54595d] font-mono">{item.filename}</span>
+                  <Files size={12} className="text-[#54595d] dark:text-gray-400" />
+                  <span className="text-[11px] text-[#54595d] dark:text-gray-400 font-mono">{item.filename}</span>
                 </div>
               )}
-              <div className="bg-[#f8f9fa] border-l-4 border-[#0645ad] px-4 py-2.5 text-[13px] text-[#202122] leading-relaxed rounded-sm">
+              <div className="bg-[#f8f9fa] dark:bg-zinc-800 border-l-4 border-[#0645ad] dark:border-zinc-500 px-4 py-2.5 text-[13px] text-[#202122] dark:text-gray-200 leading-relaxed rounded-sm">
                 {item.summary}
               </div>
             </div>
@@ -195,12 +195,12 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
     <div className="w-full max-w-4xl mx-auto font-sans">
       {/* Header */}
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-[#000000] mb-2">변경 사항 검토 (Review)</h2>
-        <p className="text-[#54595d] text-[14px]">
+        <h2 className="text-2xl font-bold text-[#000000] dark:text-white mb-2">변경 사항 검토 (Review)</h2>
+        <p className="text-[#54595d] dark:text-gray-300 text-[14px]">
           AI가 추출한 내용을 확인하세요. 저장하지 않을 항목은 체크를 해제하세요.
         </p>
         {proposals.length > 1 && (
-          <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-[#f0f4f8] border border-[#a2a9b1] rounded-full text-[12px] text-[#54595d]">
+          <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-[#f0f4f8] dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 rounded-full text-[12px] text-[#54595d] dark:text-zinc-300">
             <Files size={12} />
             {proposals.length}개 파일에서 취합된 결과입니다
           </div>
@@ -220,8 +220,8 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
             count={checkedDeletionCount}
             total={allDeletions.length}
             icon={<Trash2 size={15} className="text-[#dc2626]" />}
-            titleColor="text-[#dc2626]"
-            borderColor="border-[#fca5a5]"
+            titleColor="text-[#dc2626] dark:text-red-400"
+            borderColor="border-[#fca5a5] dark:border-red-900/50"
             onToggleAll={() => toggleAll(allDeletions.map(d => d.entity_slug), checkedDeletions, setCheckedDeletions)}
           >
             <div className="space-y-2">
@@ -230,18 +230,18 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
                 return (
                   <div
                     key={dl.entity_slug}
-                    className={`flex items-start p-3 border rounded-sm cursor-pointer transition-colors ${isChecked ? 'border-[#fca5a5] bg-[#fef2f2]' : 'border-[#c8ccd1] bg-[#f8f9fa] opacity-60'}`}
+                    className={`flex items-start p-3 border rounded-sm cursor-pointer transition-colors ${isChecked ? 'border-[#fca5a5] dark:border-red-900/50 bg-[#fef2f2] dark:bg-red-950/20' : 'border-[#c8ccd1] dark:border-zinc-800 bg-[#f8f9fa] dark:bg-zinc-900/55 opacity-60'}`}
                     onClick={() => setCheckedDeletions(prev => ({ ...prev, [dl.entity_slug]: !prev[dl.entity_slug] }))}
                   >
-                    <div className="mt-0.5 mr-2.5 text-[#dc2626] shrink-0">
-                      {isChecked ? <CheckSquare size={16} /> : <Square size={16} className="text-[#a2a9b1]" />}
+                    <div className="mt-0.5 mr-2.5 text-[#dc2626] dark:text-red-400 shrink-0">
+                      {isChecked ? <CheckSquare size={16} /> : <Square size={16} className="text-[#a2a9b1] dark:text-gray-600" />}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-baseline gap-2">
-                        <span className="font-bold text-[13px] text-[#000000] line-through decoration-[#dc2626]">{dl.entity_name}</span>
-                        <span className="text-[11px] text-[#78716c] font-mono">[{dl.entity_slug}]</span>
+                        <span className="font-bold text-[13px] text-[#000000] dark:text-white line-through decoration-[#dc2626] dark:decoration-red-400">{dl.entity_name}</span>
+                        <span className="text-[11px] text-[#78716c] dark:text-gray-400 font-mono">[{dl.entity_slug}]</span>
                       </div>
-                      <p className="text-[12px] text-[#54595d] mt-1 leading-relaxed"><strong className="text-[#dc2626]">삭제 사유:</strong> {dl.reason}</p>
+                      <p className="text-[12px] text-[#54595d] dark:text-gray-300 mt-1 leading-relaxed"><strong className="text-[#dc2626] dark:text-red-400">삭제 사유:</strong> {dl.reason}</p>
                     </div>
                   </div>
                 );
@@ -258,8 +258,8 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
             count={checkedPatchCount}
             total={allPatches.length}
             icon={<PencilLine size={15} className="text-[#b45309]" />}
-            titleColor="text-[#b45309]"
-            borderColor="border-[#fcd34d]"
+            titleColor="text-[#b45309] dark:text-amber-400"
+            borderColor="border-[#fcd34d] dark:border-amber-900/50"
             onToggleAll={() => toggleAll(allPatches.map(p => p.entity_slug), checkedPatches, setCheckedPatches)}
           >
             <div className="space-y-2">
@@ -268,18 +268,18 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
                 return (
                   <div
                     key={pt.entity_slug}
-                    className={`flex items-start p-3 border rounded-sm cursor-pointer transition-colors ${isChecked ? 'border-[#fcd34d] bg-[#fffbeb]' : 'border-[#c8ccd1] bg-[#f8f9fa] opacity-60'}`}
+                    className={`flex items-start p-3 border rounded-sm cursor-pointer transition-colors ${isChecked ? 'border-[#fcd34d] dark:border-amber-900/50 bg-[#fffbeb] dark:bg-amber-950/20' : 'border-[#c8ccd1] dark:border-zinc-800 bg-[#f8f9fa] dark:bg-zinc-900/55 opacity-60'}`}
                     onClick={() => setCheckedPatches(prev => ({ ...prev, [pt.entity_slug]: !prev[pt.entity_slug] }))}
                   >
-                    <div className="mt-0.5 mr-2.5 text-[#b45309] shrink-0">
-                      {isChecked ? <CheckSquare size={16} /> : <Square size={16} className="text-[#a2a9b1]" />}
+                    <div className="mt-0.5 mr-2.5 text-[#b45309] dark:text-amber-500 shrink-0">
+                      {isChecked ? <CheckSquare size={16} /> : <Square size={16} className="text-[#a2a9b1] dark:text-gray-600" />}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-baseline gap-2">
-                        <span className="font-bold text-[13px] text-[#000000]">{pt.entity_name}</span>
-                        <span className="text-[11px] text-[#78716c] font-mono">[{pt.entity_slug}]</span>
+                        <span className="font-bold text-[13px] text-[#000000] dark:text-white">{pt.entity_name}</span>
+                        <span className="text-[11px] text-[#78716c] dark:text-gray-400 font-mono">[{pt.entity_slug}]</span>
                       </div>
-                      <p className="text-[12px] text-[#54595d] mt-1 leading-relaxed">{pt.changes}</p>
+                      <p className="text-[12px] text-[#54595d] dark:text-gray-300 mt-1 leading-relaxed">{pt.changes}</p>
                     </div>
                   </div>
                 );
@@ -293,7 +293,7 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
           title="새로 생성될 문서"
           count={checkedNodeCount}
           total={allNodes.length}
-          borderColor="border-[#93c5fd]"
+          borderColor="border-[#93c5fd] dark:border-blue-900/55"
           onToggleAll={() => toggleAll(allNodes.map(n => n.id), checkedNodes, setCheckedNodes)}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -302,20 +302,20 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
               return (
                 <div
                   key={n.id}
-                  className={`flex items-start p-2 border rounded-sm cursor-pointer transition-colors ${isChecked ? 'border-[#0645ad] bg-[#f0f4f8]' : 'border-[#c8ccd1] bg-[#f8f9fa] opacity-60'}`}
+                  className={`flex items-start p-2 border rounded-sm cursor-pointer transition-colors ${isChecked ? 'border-[#0645ad] dark:border-zinc-500 bg-[#f0f4f8] dark:bg-zinc-800/40' : 'border-[#c8ccd1] dark:border-zinc-800 bg-[#f8f9fa] dark:bg-zinc-900/55 opacity-60'}`}
                   onClick={() => setCheckedNodes(prev => ({ ...prev, [n.id]: !prev[n.id] }))}
                 >
-                  <div className="mt-0.5 mr-2 text-[#0645ad]">
-                    {isChecked ? <CheckSquare size={16} /> : <Square size={16} className="text-[#a2a9b1]" />}
+                  <div className="mt-0.5 mr-2 text-[#0645ad] dark:text-zinc-300">
+                    {isChecked ? <CheckSquare size={16} /> : <Square size={16} className="text-[#a2a9b1] dark:text-gray-600" />}
                   </div>
                   <div>
-                    <div className="font-bold text-[13px] text-[#000000]">{n.name}</div>
-                    <div className="text-[11px] text-[#54595d]">{n.type}</div>
+                    <div className="font-bold text-[13px] text-[#000000] dark:text-white">{n.name}</div>
+                    <div className="text-[11px] text-[#54595d] dark:text-gray-400">{n.type}</div>
                   </div>
                 </div>
               );
             })}
-            {allNodes.length === 0 && <div className="text-sm text-[#54595d] italic">추출된 노드가 없습니다.</div>}
+            {allNodes.length === 0 && <div className="text-sm text-[#54595d] dark:text-gray-400 italic">추출된 노드가 없습니다.</div>}
           </div>
         </Section>
 
@@ -324,7 +324,7 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
           title="새로 형성될 관계"
           count={checkedEdgeCount}
           total={allEdges.length}
-          borderColor="border-[#6ee7b7]"
+          borderColor="border-[#6ee7b7] dark:border-emerald-900/55"
           onToggleAll={() => toggleAll(allEdges.map(e => e._key), checkedEdges, setCheckedEdges)}
         >
           <div className="space-y-2">
@@ -333,21 +333,21 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
               return (
                 <div
                   key={e._key}
-                  className={`flex items-center p-2 border rounded-sm cursor-pointer transition-colors ${isChecked ? 'border-[#0645ad] bg-[#f0f4f8]' : 'border-[#c8ccd1] bg-[#f8f9fa] opacity-60'}`}
+                  className={`flex items-center p-2 border rounded-sm cursor-pointer transition-colors ${isChecked ? 'border-[#0645ad] dark:border-zinc-500 bg-[#f0f4f8] dark:bg-zinc-800/40' : 'border-[#c8ccd1] dark:border-zinc-800 bg-[#f8f9fa] dark:bg-zinc-900/55 opacity-60'}`}
                   onClick={() => setCheckedEdges(prev => ({ ...prev, [e._key]: !prev[e._key] }))}
                 >
-                  <div className="mr-3 text-[#0645ad]">
-                    {isChecked ? <CheckSquare size={16} /> : <Square size={16} className="text-[#a2a9b1]" />}
+                  <div className="mr-3 text-[#0645ad] dark:text-zinc-300">
+                    {isChecked ? <CheckSquare size={16} /> : <Square size={16} className="text-[#a2a9b1] dark:text-gray-600" />}
                   </div>
-                  <div className="text-[13px] text-[#202122] flex items-center space-x-2">
-                    <span className="font-bold text-[#0645ad]">{e.source}</span>
-                    <span className="text-[#54595d] text-[11px]">→ ({e.label}) →</span>
-                    <span className="font-bold text-[#0645ad]">{e.target}</span>
+                  <div className="text-[13px] text-[#202122] dark:text-gray-200 flex items-center space-x-2">
+                    <span className="font-bold text-[#0645ad] dark:text-zinc-200">{e.source}</span>
+                    <span className="text-[#54595d] dark:text-gray-400 text-[11px]">→ ({e.label}) →</span>
+                    <span className="font-bold text-[#0645ad] dark:text-zinc-200">{e.target}</span>
                   </div>
                 </div>
               );
             })}
-            {allEdges.length === 0 && <div className="text-sm text-[#54595d] italic">추출된 관계가 없습니다.</div>}
+            {allEdges.length === 0 && <div className="text-sm text-[#54595d] dark:text-gray-400 italic">추출된 관계가 없습니다.</div>}
           </div>
         </Section>
       </div>
@@ -356,11 +356,11 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
       <div className="mt-8 flex flex-col items-center gap-4">
 
         {onReanalyze && (
-          <div className="w-full max-w-2xl border border-[#e0c97a] rounded-sm bg-white shadow-sm">
-            <div className="bg-[#fffbeb] border-b border-[#e0c97a] px-4 py-2.5 flex items-center gap-2">
-              <MessageSquare size={15} className="text-[#b45309] shrink-0" />
-              <span className="font-bold text-[13px] text-[#b45309]">AI에게 개선 요청</span>
-              <span className="text-[11px] text-[#78716c]">— 피드백을 입력하고 추출을 다시 요청합니다</span>
+          <div className="w-full max-w-2xl border border-[#e0c97a] dark:border-amber-900/50 rounded-sm bg-white dark:bg-zinc-900 shadow-sm">
+            <div className="bg-[#fffbeb] dark:bg-amber-950/20 border-b border-[#e0c97a] dark:border-amber-900/50 px-4 py-2.5 flex items-center gap-2">
+              <MessageSquare size={15} className="text-[#b45309] dark:text-amber-400 shrink-0" />
+              <span className="font-bold text-[13px] text-[#b45309] dark:text-amber-400">AI에게 개선 요청</span>
+              <span className="text-[11px] text-[#78716c] dark:text-gray-400">— 피드백을 입력하고 추출을 다시 요청합니다</span>
             </div>
             <div className="p-4">
               <textarea
@@ -368,13 +368,13 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
                 onChange={e => setFeedback(e.target.value)}
                 rows={3}
                 placeholder="예: 관계를 더 세분화해 줘. 불필요한 항목은 빼줘."
-                className="w-full border border-[#a2a9b1] rounded-sm px-3 py-2 text-[13px] text-[#202122] focus:outline-none focus:border-[#b45309] resize-none"
+                className="w-full border border-[#a2a9b1] dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-sm px-3 py-2 text-[13px] text-[#202122] dark:text-white focus:outline-none focus:border-[#b45309] dark:focus:border-amber-500 resize-none"
               />
               <div className="flex justify-end mt-2">
                 <button
                   onClick={() => { if (!feedback.trim()) return; onReanalyze(feedback.trim()); setFeedback(""); }}
                   disabled={!feedback.trim()}
-                  className="flex items-center px-4 py-2 bg-[#b45309] text-white font-bold text-[13px] rounded-sm hover:bg-[#92400e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex items-center px-4 py-2 bg-[#b45309] dark:bg-amber-700 text-white font-bold text-[13px] rounded-sm hover:bg-[#92400e] dark:hover:bg-amber-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <RefreshCw size={14} className="mr-1.5" />다시 분석 요청
                 </button>
@@ -385,7 +385,7 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
 
         <button
           onClick={handleConfirm}
-          className="flex items-center px-6 py-3 bg-[#0645ad] text-white font-bold rounded-sm hover:bg-[#0b0080] transition-colors shadow-sm text-[15px]"
+          className="flex items-center px-6 py-3 bg-[#0645ad] dark:bg-zinc-200 dark:text-zinc-900 font-bold rounded-sm hover:bg-[#0b0080] dark:hover:bg-zinc-100 transition-colors shadow-sm text-[15px]"
         >
           <Check size={18} className="mr-2" />
           Confirm &amp; Apply (데이터베이스에 저장)
@@ -406,22 +406,22 @@ const Section: React.FC<{
   borderColor?: string;
   onToggleAll: () => void;
   children: React.ReactNode;
-}> = ({ title, subtitle, count, total, icon, titleColor = "text-[#202122]", borderColor = "border-[#a2a9b1]", onToggleAll, children }) => (
+}> = ({ title, subtitle, count, total, icon, titleColor = "text-[#202122] dark:text-zinc-200", borderColor = "border-[#a2a9b1] dark:border-zinc-700", onToggleAll, children }) => (
   <div className={`border ${borderColor} rounded-sm overflow-hidden`}>
-    <div className={`bg-[#f8f9fa] border-b ${borderColor} px-4 py-2.5 flex items-center justify-between`}>
+    <div className={`bg-[#f8f9fa] dark:bg-zinc-800 border-b ${borderColor} px-4 py-2.5 flex items-center justify-between`}>
       <div className="flex items-center gap-2">
         {icon}
         <span className={`font-bold text-[14px] ${titleColor}`}>{title}</span>
-        {subtitle && <span className="text-[11px] text-[#78716c] font-normal">{subtitle}</span>}
-        <span className="text-[12px] text-[#54595d] font-mono ml-1">{count}/{total}건 선택됨</span>
+        {subtitle && <span className="text-[11px] text-[#78716c] dark:text-gray-400 font-normal">{subtitle}</span>}
+        <span className="text-[12px] text-[#54595d] dark:text-gray-400 font-mono ml-1">{count}/{total}건 선택됨</span>
       </div>
       <button
         onClick={onToggleAll}
-        className="text-[12px] text-[#0645ad] hover:underline whitespace-nowrap"
+        className="text-[12px] text-[#0645ad] dark:text-zinc-300 hover:underline whitespace-nowrap"
       >
         {count === total ? "전체 해제" : "전체 선택"}
       </button>
     </div>
-    <div className="p-4">{children}</div>
+    <div className="p-4 bg-white dark:bg-zinc-900">{children}</div>
   </div>
 );

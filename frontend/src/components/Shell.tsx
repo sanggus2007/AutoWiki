@@ -88,26 +88,26 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       )}
 
       <aside className={`
-        fixed inset-y-0 left-0 z-[70] w-64 max-w-[85vw] bg-[#f6f6f6] border-r border-[#a2a9b1] flex flex-col transition-transform duration-300 transform
+        fixed inset-y-0 left-0 z-[70] w-64 max-w-[85vw] bg-[#f6f6f6] dark:bg-black border-r border-[#a2a9b1] dark:border-gray-700 flex flex-col transition-transform duration-300 transform
         lg:relative lg:translate-x-0 lg:w-56 lg:z-auto lg:max-w-none
         ${isOpen ? "translate-x-0" : "-translate-x-full"}
         shrink-0 font-sans text-sm
       `}>
         {/* Mobile Header in Sidebar */}
-        <div className="lg:hidden flex items-center justify-between p-3 border-b border-[#a2a9b1] bg-white shrink-0">
+        <div className="lg:hidden flex items-center justify-between p-3 border-b border-[#a2a9b1] dark:border-gray-700 bg-white dark:bg-black shrink-0">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => { router.push("/dashboard"); onClose?.(); }}>
-            <Book size={18} className="text-[#000000]" strokeWidth={1.5} />
-            <span className="text-sm font-serif font-bold text-[#000000] tracking-tight">AutoWiki AI</span>
+            <Book size={18} className="text-[#000000] dark:text-white" strokeWidth={1.5} />
+            <span className="text-sm font-serif font-bold text-[#000000] dark:text-white tracking-tight">AutoWiki AI</span>
           </div>
-          <button onClick={onClose} className="p-1 text-[#54595d] hover:bg-[#eaecf0] rounded-sm">
+          <button onClick={onClose} className="p-1 text-[#54595d] dark:text-gray-400 hover:bg-[#eaecf0] dark:hover:bg-gray-800 rounded-sm">
             <CloseIcon size={18} />
           </button>
         </div>
 
         <div className="hidden lg:block p-5 pb-3 shrink-0">
           <div className="flex flex-col items-center justify-center cursor-pointer mb-2" onClick={() => router.push("/dashboard")}>
-            <Book size={40} className="text-[#000000] mb-1" strokeWidth={1} />
-            <span className="text-lg font-serif font-medium text-[#000000] tracking-tight">
+            <Book size={40} className="text-[#000000] dark:text-white mb-1" strokeWidth={1} />
+            <span className="text-lg font-serif font-medium text-[#000000] dark:text-white tracking-tight">
               AutoWiki AI
             </span>
             <span className="text-[9px] text-[#54595d] mt-0.5 tracking-wider uppercase">자동 생성 백과사전</span>
@@ -115,15 +115,15 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         </div>
 
         <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto custom-scrollbar">
-          <div className="text-[11px] font-bold text-[#54595d] px-2 mb-1 uppercase tracking-wider">탐색</div>
+          <div className="text-[11px] font-bold text-[#54595d] dark:text-gray-400 px-2 mb-1 uppercase tracking-wider">탐색</div>
           <NavItem icon={<Home size={15} />} label="대문" href="/dashboard" active={pathname === "/dashboard"} />
           
           <div className="mt-5 mb-1">
             <div className="flex items-center justify-between px-2">
-              <div className="text-[11px] font-bold text-[#54595d] uppercase tracking-wider">프로젝트</div>
+              <div className="text-[11px] font-bold text-[#54595d] dark:text-gray-400 uppercase tracking-wider">프로젝트</div>
               <button 
                 onClick={() => setShowCreateModal(true)}
-                className="text-[#0645ad] hover:text-[#0b0080] p-0.5"
+                className="text-[#0645ad] dark:text-blue-400 hover:text-[#0b0080] dark:hover:text-blue-300 p-0.5"
                 title="새 프로젝트 만들기"
               >
                 <Plus size={14} />
@@ -140,60 +140,60 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             />
           ))}
           {projects.length === 0 && (
-            <div className="px-2 py-2 text-[11px] text-[#54595d] italic">아직 프로젝트가 없습니다.</div>
+            <div className="px-2 py-2 text-[11px] text-gray-500 italic">아직 프로젝트가 없습니다.</div>
           )}
         </nav>
 
-        <div className="p-2 lg:p-3 border-t border-[#a2a9b1] pb-[calc(8px+env(safe-area-inset-bottom))] lg:pb-3 shrink-0">
+        <div className="p-2 lg:p-3 border-t border-gray-700 pb-[calc(8px+env(safe-area-inset-bottom))] lg:pb-3 shrink-0">
           {/* Storage Details */}
           <div className="mt-1 lg:mt-3 px-2 mb-1 lg:mb-3">
              <div className="flex items-center justify-between mb-1">
-                 <div className="text-[10px] lg:text-[11px] font-bold text-[#54595d] uppercase tracking-wider flex items-center">
+                 <div className="text-[10px] lg:text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center">
                     <Database size={10} className="mr-1 w-2.5 h-2.5 lg:w-3 lg:h-3" />
                     저장소 용량 제한
                  </div>
-                 <div className="text-[9px] lg:text-[10px] text-[#54595d]">
+                 <div className="text-[9px] lg:text-[10px] text-[#54595d] dark:text-gray-400">
                     {(storageUsed / 1024).toFixed(1)} / 10240 KB
                  </div>
              </div>
-             <div className="w-full bg-[#eaecf0] h-1 lg:h-1.5 rounded-full overflow-hidden">
+             <div className="w-full bg-[#eaecf0] dark:bg-zinc-800 h-1 lg:h-1.5 rounded-full overflow-hidden">
                  <div 
                     className={`h-full ${storageUsed >= storageLimit ? 'bg-red-500' : 'bg-emerald-500'}`} 
                     style={{ width: `${Math.min(100, (storageUsed / storageLimit) * 100)}%` }}
-                 />
+                   />
              </div>
           </div>
 
-          <div className="text-[10px] lg:text-[11px] font-bold text-[#54595d] px-2 mt-2 mb-1 lg:mt-4 lg:mb-2 uppercase tracking-wider">도구 모음</div>
+          <div className="text-[10px] lg:text-[11px] font-bold text-[#54595d] dark:text-gray-400 px-2 mt-2 mb-1 lg:mt-4 lg:mb-2 uppercase tracking-wider">도구 모음</div>
           <NavItem icon={<Settings size={14} />} label="환경 설정" href="/dashboard/settings" active={pathname === "/dashboard/settings"} />
           <div
             onClick={() => setShowExportImport(true)}
-            className="flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] text-[#0645ad] hover:bg-[#eaecf0] hover:underline mb-1 lg:mb-2"
+            className="flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] text-[#202122] dark:text-zinc-300 hover:bg-[#eaecf0] dark:hover:bg-zinc-800 mb-1 lg:mb-2"
           >
-            <span className="shrink-0 text-[#0645ad] w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center"><Archive size={14} className="w-full h-full" /></span>
+            <span className="shrink-0 text-[#54595d] dark:text-zinc-400 w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center"><Archive size={14} className="w-full h-full" /></span>
             <span className="truncate">내보내기 / 가져오기</span>
           </div>
 
-          <div className="text-[10px] lg:text-[11px] font-bold text-[#54595d] px-2 mb-1 lg:mb-2 uppercase tracking-wider">계정 관리</div>
+          <div className="text-[10px] lg:text-[11px] font-bold text-[#54595d] dark:text-gray-400 px-2 mb-1 lg:mb-2 uppercase tracking-wider">계정 관리</div>
           {user && (
             <div className="flex items-center justify-between px-2 mb-1 lg:mb-2 min-w-0">
               <div className="flex items-center space-x-2 truncate min-w-0">
                 {user.avatar_url ? (
-                   <img src={user.avatar_url} alt="Profile" className="w-5 h-5 lg:w-6 lg:h-6 rounded-full border border-[#a2a9b1]" />
+                   <img src={user.avatar_url} alt="Profile" className="w-5 h-5 lg:w-6 lg:h-6 rounded-full border border-[#a2a9b1] dark:border-zinc-700" />
                 ) : (
-                   <div className="w-5 h-5 lg:w-6 lg:h-6 rounded-full bg-[#eaecf0] border border-[#a2a9b1] flex items-center justify-center text-[9px] lg:text-[10px] font-bold text-[#54595d] shrink-0">
+                   <div className="w-5 h-5 lg:w-6 lg:h-6 rounded-full bg-[#eaecf0] dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 flex items-center justify-center text-[9px] lg:text-[10px] font-bold text-[#54595d] dark:text-gray-300 shrink-0">
                      {user.username.charAt(0).toUpperCase()}
                    </div>
                 )}
-                <span className="text-[11px] lg:text-[12px] font-semibold text-[#202122] truncate min-w-0">{user.username}</span>
+                <span className="text-[11px] lg:text-[12px] font-semibold text-[#202122] dark:text-[#eaecf0] truncate min-w-0">{user.username}</span>
               </div>
             </div>
           )}
           <div
             onClick={handleLogout}
-            className="flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] text-red-600 hover:bg-[#eaecf0] hover:underline"
+            className="flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] text-red-600 dark:text-red-400 hover:bg-[#eaecf0] dark:hover:bg-zinc-800"
           >
-            <span className="shrink-0 text-red-600 w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center"><LogOut size={14} className="w-full h-full" /></span>
+            <span className="shrink-0 text-red-600 dark:text-red-400 w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center"><LogOut size={14} className="w-full h-full" /></span>
             <span className="truncate">로그아웃</span>
           </div>
         </div>
@@ -201,42 +201,42 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
       {/* Create Project Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowCreateModal(false)}>
-          <div className="bg-white border border-[#a2a9b1] shadow-lg p-6 max-w-md w-full my-auto" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-[#000000] mb-4 font-serif">새 프로젝트 만들기</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[200] flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowCreateModal(false)}>
+          <div className="bg-white dark:bg-zinc-900 border border-[#a2a9b1] dark:border-zinc-800 shadow-lg p-6 max-w-md w-full my-auto" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-[#000000] dark:text-white mb-4 font-serif">새 프로젝트 만들기</h3>
             <div className="space-y-3">
               <div>
-                <label className="block text-[13px] font-bold mb-1">프로젝트 이름 *</label>
+                <label className="block text-[13px] font-bold mb-1 dark:text-gray-300">프로젝트 이름 *</label>
                 <input
                   type="text"
                   value={newProjectName}
                   onChange={e => setNewProjectName(e.target.value)}
                   placeholder="예: Q2 마케팅 전략"
-                  className="w-full border border-[#a2a9b1] px-3 py-2 text-sm focus:outline-none focus:border-[#0645ad]"
+                  className="w-full border border-[#a2a9b1] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white px-3 py-2 text-sm focus:outline-none focus:border-[#0645ad] dark:focus:border-blue-400"
                   autoFocus
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-bold mb-1">설명 (선택)</label>
+                <label className="block text-[13px] font-bold mb-1 dark:text-gray-300">설명 (선택)</label>
                 <textarea
                   value={newProjectDesc}
                   onChange={e => setNewProjectDesc(e.target.value)}
                   placeholder="이 프로젝트에 대한 간략한 설명"
-                  className="w-full border border-[#a2a9b1] px-3 py-2 text-sm focus:outline-none focus:border-[#0645ad] resize-none h-20"
+                  className="w-full border border-[#a2a9b1] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white px-3 py-2 text-sm focus:outline-none focus:border-[#0645ad] dark:focus:border-blue-400 resize-none h-20"
                 />
               </div>
             </div>
             <div className="flex justify-end space-x-2 mt-5">
               <button 
                 onClick={() => setShowCreateModal(false)}
-                className="px-4 py-1.5 text-[13px] border border-[#a2a9b1] bg-[#f8f9fa] text-[#202122] hover:bg-[#eaecf0] font-bold"
+                className="px-4 py-1.5 text-[13px] border border-[#a2a9b1] dark:border-zinc-700 bg-[#f8f9fa] dark:bg-zinc-800 text-[#202122] dark:text-[#eaecf0] hover:bg-[#eaecf0] dark:hover:bg-zinc-700 font-bold"
               >
                 취소
               </button>
               <button 
                 onClick={handleCreateProject}
                 disabled={!newProjectName.trim()}
-                className="px-4 py-1.5 text-[13px] border border-[#0645ad] bg-[#0645ad] text-white hover:bg-[#0b0080] font-bold disabled:opacity-40"
+                className="px-4 py-1.5 text-[13px] border border-[#0645ad] dark:border-blue-600 bg-[#0645ad] dark:bg-blue-600 text-white hover:bg-[#0b0080] dark:hover:bg-blue-700 font-bold disabled:opacity-40 disabled:bg-slate-300 dark:disabled:bg-zinc-800"
               >
                 프로젝트 생성
               </button>
@@ -260,11 +260,11 @@ const NavItem = ({ icon, label, active = false, href }: { icon: React.ReactNode;
       onClick={() => href && router.push(href)}
       className={`flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] min-w-0 ${
         active
-          ? "bg-[#eaecf0] text-[#000000] font-bold"
-          : "text-[#0645ad] hover:bg-[#eaecf0] hover:underline"
+          ? "bg-[#eaecf0] dark:bg-zinc-800 text-[#000000] dark:text-white font-bold"
+          : "text-[#202122] dark:text-zinc-300 hover:bg-[#eaecf0] dark:hover:bg-zinc-800"
       }`}
     >
-      <span className={`shrink-0 ${active ? "text-[#000000]" : "text-[#0645ad]"} w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center`}>{icon}</span>
+      <span className={`shrink-0 ${active ? "text-[#000000] dark:text-white" : "text-[#54595d] dark:text-zinc-400"} w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center`}>{icon}</span>
       <span className="truncate min-w-0">{label}</span>
     </div>
   );
@@ -303,11 +303,11 @@ export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
   }, [searchQuery]);
 
   return (
-    <header className="h-[calc(3.5rem+env(safe-area-inset-top))] bg-[#ffffff] border-b border-[#a2a9b1] flex items-center justify-between px-4 shrink-0 font-sans z-40 relative pt-[env(safe-area-inset-top)]">
-      <div className="flex items-center space-x-2 lg:space-x-6 text-[#0645ad] text-sm">
+    <header className="h-[calc(3.5rem+env(safe-area-inset-top))] bg-[#ffffff] dark:bg-black border-b border-[#a2a9b1] dark:border-gray-700 flex items-center justify-between px-4 shrink-0 font-sans z-40 relative pt-[env(safe-area-inset-top)]">
+      <div className="flex items-center space-x-2 lg:space-x-6 text-[#0645ad] dark:text-blue-400 text-sm">
         <button 
           onClick={onMenuClick}
-          className="lg:hidden p-1 -ml-1 text-[#54595d] hover:bg-[#eaecf0] rounded-sm"
+          className="lg:hidden p-1 -ml-1 text-[#54595d] dark:text-gray-400 hover:bg-[#eaecf0] dark:hover:bg-gray-800 rounded-sm"
         >
           <Menu size={20} />
         </button>
@@ -321,14 +321,14 @@ export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => searchQuery.trim() && setShowResults(true)}
             placeholder="AutoWiki AI 검색"
-            className="w-full bg-[#ffffff] text-[#000000] border border-[#a2a9b1] pl-3 pr-8 py-1.5 text-[16px] sm:text-sm focus:outline-none focus:border-[#0645ad] transition-all"
+            className="w-full bg-[#ffffff] dark:bg-zinc-900 text-[#000000] dark:text-white border border-[#a2a9b1] dark:border-gray-700 pl-3 pr-8 py-1.5 text-[16px] sm:text-sm focus:outline-none focus:border-[#0645ad] dark:focus:border-blue-500 transition-all"
           />
-          <Search className={`absolute right-2 ${isSearching ? 'animate-pulse text-[#0645ad]' : 'text-[#54595d]'}`} size={16} />
+          <Search className={`absolute right-2 ${isSearching ? 'animate-pulse text-[#0645ad] dark:text-blue-400' : 'text-[#54595d] dark:text-gray-400'}`} size={16} />
         </div>
 
         {/* Search Results Dropdown */}
         {showResults && (
-          <div className="absolute top-full right-0 w-full mt-1 bg-white border border-[#a2a9b1] shadow-xl rounded-sm overflow-hidden z-[100] max-h-80 overflow-y-auto">
+          <div className="absolute top-full right-0 w-full mt-1 bg-white dark:bg-zinc-900 border border-[#a2a9b1] dark:border-zinc-800 shadow-xl rounded-sm overflow-hidden z-[100] max-h-80 overflow-y-auto">
             {searchResults.length > 0 ? (
               <div className="py-1">
                 {searchResults.map((result, idx) => (
@@ -339,30 +339,30 @@ export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
                       setSearchQuery("");
                       setShowResults(false);
                     }}
-                    className="px-4 py-2 hover:bg-[#eaecf0] cursor-pointer flex items-center gap-2 border-b border-[#f0f0f0] last:border-0"
+                    className="px-4 py-2 hover:bg-[#eaecf0] dark:hover:bg-zinc-800 cursor-pointer flex items-center gap-2 border-b border-[#f0f0f0] dark:border-zinc-800 last:border-0"
                   >
                     {result.type === "project" ? (
-                      <FolderOpen size={14} className="text-[#0645ad]" />
+                      <FolderOpen size={14} className="text-[#0645ad] dark:text-blue-400" />
                     ) : (
-                      <FileText size={14} className="text-[#54595d]" />
+                      <FileText size={14} className="text-[#54595d] dark:text-gray-400" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="text-[13px] font-bold text-[#202122] truncate">{result.name}</div>
-                      <div className="text-[10px] text-[#54595d] uppercase tracking-tighter">{result.type === "project" ? "프로젝트" : "위키 문서"}</div>
+                      <div className="text-[13px] font-bold text-[#202122] dark:text-[#eaecf0] truncate">{result.name}</div>
+                      <div className="text-[10px] text-[#54595d] dark:text-gray-400 uppercase tracking-tighter">{result.type === "project" ? "프로젝트" : "위키 문서"}</div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="p-4 text-center text-xs text-[#54595d] italic">
+              <div className="p-4 text-center text-xs text-[#54595d] dark:text-gray-400 italic">
                 검색 결과가 없습니다.
               </div>
             )}
             <div 
-              className="p-1 px-4 text-right bg-[#f8f9fa] border-t border-[#f0f0f0]"
+              className="p-1 px-4 text-right bg-[#f8f9fa] dark:bg-zinc-900 border-t border-[#f0f0f0] dark:border-zinc-800"
               onClick={() => setShowResults(false)}
             >
-              <span className="text-[10px] text-[#0645ad] cursor-pointer hover:underline font-bold">닫기</span>
+              <span className="text-[10px] text-[#0645ad] dark:text-blue-400 cursor-pointer hover:underline font-bold">닫기</span>
             </div>
           </div>
         )}

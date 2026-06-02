@@ -48,23 +48,23 @@ function LocalFlow({ onSuccess, onBack }: { onSuccess: () => void, onBack: () =>
   return (
     <form onSubmit={handleSubmit} className="py-2 space-y-3 animate-in slide-in-from-right-2 duration-300">
       {mode === "register" && (
-        <input value={username} onChange={e => setUsername(e.target.value)} required placeholder="닉네임" className="w-full border border-[#d0d7de] rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#0645ad]"/>
+        <input value={username} onChange={e => setUsername(e.target.value)} required placeholder="닉네임" className="w-full border border-[#d0d7de] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#0645ad] dark:focus:border-blue-400"/>
       )}
-      <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="이메일" className="w-full border border-[#d0d7de] rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#0645ad]"/>
+      <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="이메일" className="w-full border border-[#d0d7de] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#0645ad] dark:focus:border-blue-400"/>
       <div className="relative">
-        <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="비밀번호" className="w-full border border-[#d0d7de] rounded-md px-3 py-2 pr-10 text-sm focus:outline-none focus:border-[#0645ad]"/>
-        <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#54595d]">
+        <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="비밀번호" className="w-full border border-[#d0d7de] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-black dark:text-white rounded-md px-3 py-2 pr-10 text-sm focus:outline-none focus:border-[#0645ad] dark:focus:border-blue-400"/>
+        <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#54595d] dark:text-gray-400">
           {showPw ? <EyeOff size={15}/> : <Eye size={15}/>}
         </button>
       </div>
-      {error && <p className="text-red-600 text-xs">{error}</p>}
-      <button type="submit" disabled={loading} className="w-full bg-[#0645ad] hover:bg-[#0b0080] text-white font-bold py-2.5 rounded-md text-sm transition-colors flex items-center justify-center gap-2">
+      {error && <p className="text-red-650 dark:text-red-400 text-xs">{error}</p>}
+      <button type="submit" disabled={loading} className="w-full bg-[#0645ad] dark:bg-blue-600 hover:bg-[#0b0080] dark:hover:bg-blue-700 text-white font-bold py-2.5 rounded-md text-sm transition-colors flex items-center justify-center gap-2">
         {loading && <Loader2 size={14} className="animate-spin"/>}
         {mode === "login" ? "로그인" : "회원가입"}
       </button>
       <div className="flex justify-between items-center text-[12px]">
-        <button type="button" onClick={onBack} className="text-[#54595d] hover:underline">← 다른 방법 선택</button>
-        <button type="button" onClick={() => { setMode(m => m === "login" ? "register" : "login"); setError(""); }} className="text-[#0645ad] font-semibold underline">
+        <button type="button" onClick={onBack} className="text-[#54595d] dark:text-gray-400 hover:underline">← 다른 방법 선택</button>
+        <button type="button" onClick={() => { setMode(m => m === "login" ? "register" : "login"); setError(""); }} className="text-[#0645ad] dark:text-blue-400 font-semibold underline">
           {mode === "login" ? "회원가입" : "로그인"}
         </button>
       </div>
@@ -89,24 +89,24 @@ export function AuthOverlay({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <div className="bg-white max-w-sm w-full p-10 shadow-2xl border border-[#a2a9b1] rounded-3xl relative overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-zinc-900 max-w-sm w-full p-10 shadow-2xl border border-[#a2a9b1] dark:border-zinc-800 rounded-3xl relative overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Accent Bar */}
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#0645ad] to-[#3b82f6]"/>
         
         {/* Header */}
         <div className="text-center mb-10 pt-2">
-          <div className="w-16 h-16 bg-[#f0f7ff] rounded-2xl flex items-center justify-center mx-auto mb-5 rotate-3 shadow-sm border border-[#0645ad]/10">
-            <Key size={30} className="text-[#0645ad] -rotate-3"/>
+          <div className="w-16 h-16 bg-[#f0f7ff] dark:bg-blue-950/30 rounded-2xl flex items-center justify-center mx-auto mb-5 rotate-3 shadow-sm border border-[#0645ad]/10 dark:border-blue-800/10">
+            <Key size={30} className="text-[#0645ad] dark:text-blue-400 -rotate-3"/>
           </div>
-          <h2 className="text-2xl font-black text-[#1a1a1a] tracking-tight">AutoWiki 로그인</h2>
-          <p className="text-sm text-[#64748b] mt-2 font-medium">안전하게 시작하고 지식을 연결하세요</p>
+          <h2 className="text-2xl font-black text-[#1a1a1a] dark:text-white tracking-tight">AutoWiki 로그인</h2>
+          <p className="text-sm text-[#64748b] dark:text-gray-400 mt-2 font-medium">안전하게 시작하고 지식을 연결하세요</p>
         </div>
 
         {provider === "select" ? (
           <div className="space-y-4">
             <button 
               onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center gap-3 py-3.5 border-2 border-[#f1f5f9] rounded-xl font-bold text-[15px] hover:bg-[#f8fafc] hover:border-[#e2e8f0] transition-all active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-3 py-3.5 border-2 border-[#f1f5f9] dark:border-zinc-800 rounded-xl font-bold text-[15px] bg-white dark:bg-zinc-800 text-[#1a1a1a] dark:text-white hover:bg-[#f8fafc] dark:hover:bg-zinc-700 hover:border-[#e2e8f0] dark:hover:border-zinc-700 transition-all active:scale-[0.98]"
             >
               <GoogleIcon/> Google 계정으로 계속하기
             </button>
@@ -115,7 +115,7 @@ export function AuthOverlay({ onSuccess }: { onSuccess: () => void }) {
             {isLocalhost && (
               <button 
                 onClick={() => setProvider("local")}
-                className="w-full flex items-center justify-center gap-3 py-3.5 bg-[#f8fafc] text-[#64748b] border border-dashed border-[#cbd5e1] rounded-xl font-bold text-[15px] hover:bg-[#f1f5f9] transition-all"
+                className="w-full flex items-center justify-center gap-3 py-3.5 bg-[#f8fafc] dark:bg-zinc-800 text-[#64748b] dark:text-gray-300 border border-dashed border-[#cbd5e1] dark:border-zinc-700 rounded-xl font-bold text-[15px] hover:bg-[#f1f5f9] dark:hover:bg-zinc-700 transition-all"
               >
                 <Mail size={18}/> [테스트용] 이메일로 계속하기
               </button>
@@ -126,8 +126,8 @@ export function AuthOverlay({ onSuccess }: { onSuccess: () => void }) {
           <LocalFlow onSuccess={onSuccess} onBack={() => setProvider("select")}/>
         )}
 
-        <div className="mt-10 pt-6 border-t border-[#f1f5f9] text-center">
-          <p className="text-[11px] text-[#94a3b8] leading-relaxed">
+        <div className="mt-10 pt-6 border-t border-[#f1f5f9] dark:border-zinc-800 text-center">
+          <p className="text-[11px] text-[#94a3b8] dark:text-gray-500 leading-relaxed">
             로그인 시 AutoWiki의 <span className="underline cursor-pointer">이용 약관</span> 및 <br/>
             <span className="underline cursor-pointer">개인정보 처리방침</span>에 동의하게 됩니다.
           </p>

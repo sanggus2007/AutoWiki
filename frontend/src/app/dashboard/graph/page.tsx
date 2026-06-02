@@ -24,8 +24,8 @@ const ToggleBtn = ({
     onClick={onClick}
     className={`flex-1 text-xs py-2 rounded-md border transition-all leading-none ${
       active
-        ? 'bg-[#a855f7]/20 border-[#a855f7]/55 text-[#c084fc]'
-        : 'bg-[#151515] border-[#2a2a2a] text-[#666] hover:border-[#444] hover:text-[#999]'
+        ? 'bg-purple-50 dark:bg-[#a855f7]/20 border-purple-250 dark:border-[#a855f7]/55 text-purple-700 dark:text-[#c084fc]'
+        : 'bg-slate-50 dark:bg-[#151515] border-slate-200 dark:border-[#2a2a2a] text-slate-500 dark:text-[#666] hover:border-slate-300 dark:hover:border-[#444] hover:text-slate-700 dark:hover:text-[#999]'
     }`}
   >
     {children}
@@ -58,7 +58,7 @@ const Slider = ({
   return (
     <div>
       <div className="flex justify-between items-center mb-1.5 min-h-[16px]">
-        <span className="text-[11px] text-[#666]">{label}</span>
+        <span className="text-[11px] text-slate-500 dark:text-[#666]">{label}</span>
         {isEditing ? (
           <div className="flex items-center gap-1">
             <input
@@ -68,14 +68,14 @@ const Slider = ({
               onBlur={handleManualCommit}
               onKeyDown={e => e.key === 'Enter' && handleManualCommit()}
               autoFocus
-              className="w-12 bg-[#1a1a1a] border border-[#a855f7]/50 text-[#a855f7] text-[10px] px-1 text-right rounded focus:outline-none"
+              className="w-12 bg-slate-100 dark:bg-[#1a1a1a] border border-purple-200 dark:border-[#a855f7]/50 text-purple-600 dark:text-[#a855f7] text-[10px] px-1 text-right rounded focus:outline-none"
             />
-            <span className="text-[10px] text-[#555]">{unit}</span>
+            <span className="text-[10px] text-slate-400 dark:text-[#555]">{unit}</span>
           </div>
         ) : (
           <span
             onClick={() => setIsEditing(true)}
-            className="text-[11px] text-[#888] tabular-nums cursor-text hover:text-[#a855f7] transition-colors"
+            className="text-[11px] text-slate-500 dark:text-[#888] tabular-nums cursor-text hover:text-purple-600 dark:hover:text-[#a855f7] transition-colors"
           >
             {localVal}{unit}
           </span>
@@ -90,7 +90,7 @@ const Slider = ({
           onCh(v);
         }}
         className="w-full h-1 rounded-full cursor-pointer accent-[#a855f7]"
-        style={{ background: `linear-gradient(to right, #a855f7 ${((localVal - min) / (max - min)) * 100}%, #2a2a2a ${((localVal - min) / (max - min)) * 100}%)` }}
+        style={{ background: `linear-gradient(to right, #a855f7 ${((localVal - min) / (max - min)) * 100}%, var(--slider-track, #2a2a2a) ${((localVal - min) / (max - min)) * 100}%)` }}
       />
     </div>
   );
@@ -98,11 +98,11 @@ const Slider = ({
 
 const Toggle = ({ label, value, onToggle }: { label: string; value: boolean; onToggle: () => void }) => (
   <label className="flex items-center justify-between cursor-pointer select-none">
-    <span className="text-xs text-[#999]">{label}</span>
+    <span className="text-xs text-slate-500 dark:text-[#999]">{label}</span>
     <div
       onClick={onToggle}
       className={`w-9 h-[18px] rounded-full border transition-all relative flex-shrink-0 ${
-        value ? 'bg-[#a855f7]/50 border-[#a855f7]/60' : 'bg-[#1a1a1a] border-[#333]'
+        value ? 'bg-purple-400/50 dark:bg-[#a855f7]/50 border-purple-500/60 dark:border-[#a855f7]/60' : 'bg-slate-100 dark:bg-[#1a1a1a] border-slate-250 dark:border-[#333]'
       }`}
     >
       <div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-transform duration-200 ${
@@ -133,13 +133,13 @@ function SettingsPanel({
   ] as const;
 
   return (
-    <div className="fixed inset-y-0 right-0 w-[85%] max-w-[300px] md:relative md:w-72 h-full flex flex-col bg-[#0e0e0e] border-l border-[#222] z-50 shadow-2xl animate-in slide-in-from-right duration-300">
+    <div className="fixed inset-y-0 right-0 w-[85%] max-w-[300px] md:relative md:w-72 h-full flex flex-col bg-white dark:bg-[#0e0e0e] border-l border-slate-200 dark:border-[#222] z-50 shadow-2xl animate-in slide-in-from-right duration-300">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e] flex-shrink-0">
-        <span className="text-[#ccc] text-sm font-semibold flex items-center gap-2">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-[#1e1e1e] flex-shrink-0">
+        <span className="text-slate-700 dark:text-[#ccc] text-sm font-semibold flex items-center gap-2">
           <Settings2 size={13} className="text-[#a855f7]" /> 그래프 설정
         </span>
-        <button onClick={onClose} className="text-[#555] hover:text-[#aaa] transition-colors">
+        <button onClick={onClose} className="text-slate-400 dark:text-[#555] hover:text-slate-600 dark:hover:text-[#aaa] transition-colors">
           <X size={14} />
         </button>
       </div>
@@ -148,7 +148,7 @@ function SettingsPanel({
 
         {/* Dimension */}
         <section>
-          <div className="text-[10px] text-[#555] uppercase tracking-widest mb-3 font-bold">차원 (Dimension)</div>
+          <div className="text-[10px] text-slate-400 dark:text-[#555] uppercase tracking-widest mb-3 font-bold">차원 (Dimension)</div>
           <div className="flex gap-2">
             <ToggleBtn active={settings.dimension === '2d'} onClick={() => set({ dimension: '2d' })}>
               2D (평면)
@@ -161,7 +161,7 @@ function SettingsPanel({
 
         {/* Layout */}
         <section>
-          <div className="text-[10px] text-[#555] uppercase tracking-widest mb-3 font-bold">레이아웃</div>
+          <div className="text-[10px] text-slate-400 dark:text-[#555] uppercase tracking-widest mb-3 font-bold">레이아웃</div>
           <div className="flex gap-2">
             <ToggleBtn active={settings.layout === 'radial'} onClick={() => set({ layout: 'radial' })}>
               🌐 방사형 마인드맵
@@ -174,7 +174,7 @@ function SettingsPanel({
 
         {/* Node Size */}
         <section>
-          <div className="text-[10px] text-[#555] uppercase tracking-widest mb-3 font-bold">노드 크기</div>
+          <div className="text-[10px] text-slate-400 dark:text-[#555] uppercase tracking-widest mb-3 font-bold">노드 크기</div>
           <div className="flex gap-2">
             <ToggleBtn active={settings.nodeSizeMode === 'dynamic'} onClick={() => set({ nodeSizeMode: 'dynamic' })}>
               연결 수 비례
@@ -187,7 +187,7 @@ function SettingsPanel({
 
         {/* Label */}
         <section>
-          <div className="text-[10px] text-[#555] uppercase tracking-widest mb-3 font-bold">레이블 표시</div>
+          <div className="text-[10px] text-slate-400 dark:text-[#555] uppercase tracking-widest mb-3 font-bold">레이블 표시</div>
           <div className="flex gap-1.5">
             {(['always', 'hover', 'hidden'] as const).map(m => (
               <ToggleBtn key={m} active={settings.labelMode === m} onClick={() => set({ labelMode: m })}>
@@ -199,7 +199,7 @@ function SettingsPanel({
 
         {/* Theme */}
         <section>
-          <div className="text-[10px] text-[#555] uppercase tracking-widest mb-3 font-bold">배경 테마</div>
+          <div className="text-[10px] text-slate-400 dark:text-[#555] uppercase tracking-widest mb-3 font-bold">배경 테마</div>
           <div className="grid grid-cols-2 gap-2">
             {themes.map(t => (
               <button
@@ -207,12 +207,12 @@ function SettingsPanel({
                 onClick={() => set({ theme: t.id })}
                 className={`flex items-center gap-2 px-3 py-2.5 rounded-md border text-xs transition-all ${
                   settings.theme === t.id
-                    ? 'border-[#a855f7]/55 text-white bg-[#a855f7]/10'
-                    : 'border-[#2a2a2a] text-[#666] hover:border-[#444] hover:text-[#999]'
+                    ? 'border-purple-350 dark:border-[#a855f7]/55 text-purple-900 dark:text-white bg-purple-50 dark:bg-[#a855f7]/10'
+                    : 'border-slate-200 dark:border-[#2a2a2a] text-slate-500 dark:text-[#666] hover:border-slate-350 dark:hover:border-[#444] hover:text-slate-700 dark:hover:text-[#999]'
                 }`}
               >
                 <span
-                  className="w-3.5 h-3.5 rounded-full flex-shrink-0 border border-[#444]"
+                  className="w-3.5 h-3.5 rounded-full flex-shrink-0 border border-slate-300 dark:border-[#444]"
                   style={{ background: t.swatch }}
                 />
                 {t.label}
@@ -223,7 +223,7 @@ function SettingsPanel({
 
         {/* Sliders */}
         <section className="space-y-4">
-          <div className="text-[10px] text-[#555] uppercase tracking-widest font-bold">물리 설정</div>
+          <div className="text-[10px] text-slate-400 dark:text-[#555] uppercase tracking-widest font-bold">물리 설정</div>
           <Slider
             label="반발력 (Charge)"
             value={settings.chargeStrength}
@@ -248,7 +248,7 @@ function SettingsPanel({
 
         {/* Toggles */}
         <section className="space-y-3">
-          <div className="text-[10px] text-[#555] uppercase tracking-widest font-bold">표시 옵션</div>
+          <div className="text-[10px] text-slate-400 dark:text-[#555] uppercase tracking-widest font-bold">표시 옵션</div>
           <Toggle
             label="파티클 효과"
             value={settings.showParticles}
@@ -264,7 +264,7 @@ function SettingsPanel({
         {/* Reset */}
         <button
           onClick={() => onChange(DEFAULT_SETTINGS)}
-          className="w-full flex items-center justify-center gap-2 text-[11px] text-[#555] hover:text-[#888] py-2.5 border border-[#222] hover:border-[#333] rounded-md transition-all"
+          className="w-full flex items-center justify-center gap-2 text-[11px] text-slate-500 dark:text-[#555] hover:text-slate-750 dark:hover:text-[#888] py-2.5 border border-slate-250 dark:border-[#222] hover:border-slate-350 dark:hover:border-[#333] rounded-md transition-all"
         >
           <RotateCcw size={11} /> 기본값으로 초기화
         </button>
@@ -494,7 +494,7 @@ function GraphPageInner() {
           삭제 확인
         </button>
         <button onClick={onCancel}
-          className="flex-1 bg-[#181818] hover:bg-[#222] border border-[#2a2a2a] text-[#777] text-xs py-1.5 rounded-md transition-all">
+          className="flex-1 bg-slate-50 hover:bg-slate-100 dark:bg-[#181818] dark:hover:bg-[#222] border border-slate-250 dark:border-[#2a2a2a] text-slate-500 dark:text-[#777] text-xs py-1.5 rounded-md transition-all">
           취소
         </button>
       </div>
@@ -503,10 +503,10 @@ function GraphPageInner() {
 
   const SidePanel = ({ children, title, onClose }: { children: React.ReactNode; title: string; onClose: () => void }) => (
     <div className="absolute left-5 top-1/2 -translate-y-1/2 z-20 w-68" style={{ animation: 'slideIn .18s ease' }}>
-      <div className="bg-[#0e0e0e] border border-[#252525] rounded-xl shadow-2xl overflow-hidden w-64">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e]">
-          <span className="text-[#ccc] text-sm font-semibold">{title}</span>
-          <button onClick={onClose} className="text-[#555] hover:text-[#aaa] transition-colors"><X size={14} /></button>
+      <div className="bg-white dark:bg-[#0e0e0e] border border-slate-200 dark:border-[#252525] rounded-xl shadow-2xl overflow-hidden w-64">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-[#1e1e1e]">
+          <span className="text-slate-700 dark:text-[#ccc] text-sm font-semibold">{title}</span>
+          <button onClick={onClose} className="text-slate-400 dark:text-[#555] hover:text-slate-600 dark:hover:text-[#aaa] transition-colors"><X size={14} /></button>
         </div>
         <div className="px-4 py-4 space-y-4">{children}</div>
       </div>
@@ -523,11 +523,11 @@ function GraphPageInner() {
         {/* Overlay header & controls combined */}
         <div className="absolute top-5 left-5 right-5 z-10 flex flex-col md:flex-row md:items-start justify-between gap-4 pointer-events-none">
           <div className="flex flex-col gap-1">
-            <h1 className="text-lg md:text-xl font-bold text-white drop-shadow-lg flex items-center gap-2">
-              <span className="bg-[#a855f7]/20 px-2 py-0.5 rounded text-[#c084fc] text-xs font-mono uppercase tracking-tighter">Wiki</span>
+            <h1 className="text-lg md:text-xl font-bold text-slate-800 dark:text-white drop-shadow-sm dark:drop-shadow-lg flex items-center gap-2">
+              <span className="bg-[#a855f7]/10 dark:bg-[#a855f7]/20 px-2 py-0.5 rounded text-[#a855f7] dark:text-[#c084fc] text-xs font-mono uppercase tracking-tighter">Wiki</span>
               {selectedProject ? `${selectedProject.name} — 지식 구조도` : '지식 구조도'}
             </h1>
-            <p className="text-[#666] text-[10px] md:text-xs drop-shadow hidden sm:block">
+            <p className="text-slate-500 dark:text-[#666] text-[10px] md:text-xs drop-shadow hidden sm:block">
               {isEditMode
                 ? '편집 모드: 노드·엣지를 클릭하여 선택하세요'
                 : settings.layout === 'radial'
@@ -542,8 +542,8 @@ function GraphPageInner() {
                 onClick={() => setShowSettings(v => !v)}
                 className={`flex items-center gap-1.5 text-[10px] md:text-xs font-semibold rounded-md px-2.5 py-1.5 border transition-all shadow-lg ${
                   showSettings
-                    ? 'bg-[#a855f7]/20 border-[#a855f7]/50 text-[#c084fc]'
-                    : 'bg-[#111]/90 border-[#333] text-[#aaa] hover:border-[#555] hover:text-white'
+                    ? 'bg-purple-50 dark:bg-[#a855f7]/20 border-purple-200 dark:border-[#a855f7]/50 text-purple-700 dark:text-[#c084fc]'
+                    : 'bg-white/95 dark:bg-gray-900/90 border-slate-200 dark:border-gray-800 text-slate-600 dark:text-gray-300 hover:border-slate-350 dark:hover:border-gray-700 hover:text-slate-800 dark:hover:text-white'
                 }`}
               >
                 <Settings2 size={12} />
@@ -554,7 +554,7 @@ function GraphPageInner() {
               <button
                 onClick={resetLayout}
                 title="배치 초기화 (핀 해제)"
-                className="flex items-center gap-1.5 bg-[#111]/90 border border-[#333] text-[#aaa] hover:border-[#555] hover:text-white text-[10px] md:text-xs font-semibold rounded-md px-2.5 py-1.5 transition-all shadow-lg"
+                className="flex items-center gap-1.5 bg-white/95 dark:bg-gray-900/90 border border-slate-200 dark:border-gray-800 text-slate-600 dark:text-gray-300 hover:border-slate-350 dark:hover:border-gray-700 hover:text-slate-800 dark:hover:text-white text-[10px] md:text-xs font-semibold rounded-md px-2.5 py-1.5 transition-all shadow-lg"
               >
                 <RotateCcw size={12} />
                 배치 초기화
@@ -565,8 +565,8 @@ function GraphPageInner() {
                 onClick={() => { setIsEditMode(v => !v); deselectAll(); }}
                 className={`flex items-center gap-1.5 text-[10px] md:text-xs font-semibold rounded-md px-2.5 py-1.5 border transition-all shadow-lg ${
                   isEditMode
-                    ? 'bg-[#fbbf24]/15 border-[#fbbf24]/50 text-[#fbbf24]'
-                    : 'bg-[#111]/90 border-[#333] text-[#aaa] hover:border-[#555] hover:text-white'
+                    ? 'bg-amber-50 dark:bg-[#fbbf24]/15 border-amber-250 dark:border-[#fbbf24]/50 text-amber-700 dark:text-[#fbbf24]'
+                    : 'bg-white/95 dark:bg-gray-900/90 border-slate-200 dark:border-gray-800 text-slate-600 dark:text-gray-300 hover:border-slate-350 dark:hover:border-gray-700 hover:text-slate-800 dark:hover:text-white'
                 }`}
               >
                 <Edit3 size={12} />
@@ -578,12 +578,12 @@ function GraphPageInner() {
                 <select
                   value={selectedProjectId ?? ''}
                   onChange={e => handleProjectChange(Number(e.target.value))}
-                  className="appearance-none bg-[#111]/90 border border-[#333] text-white text-[10px] md:text-xs font-semibold rounded-md pl-2.5 pr-6 py-1.5 cursor-pointer focus:outline-none focus:border-[#666] transition-colors shadow-lg"
+                  className="appearance-none bg-white/95 dark:bg-gray-900/90 border border-slate-200 dark:border-gray-800 text-slate-800 dark:text-white text-[10px] md:text-xs font-semibold rounded-md pl-2.5 pr-6 py-1.5 cursor-pointer focus:outline-none focus:border-slate-400 dark:focus:border-gray-650 transition-colors shadow-lg"
                 >
                   {projects.length === 0 && <option value="" disabled>프로젝트 없음</option>}
                   {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
-                <ChevronDown size={11} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#777] pointer-events-none" />
+                <ChevronDown size={11} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
               </div>
             </div>
           </div>
@@ -605,11 +605,11 @@ function GraphPageInner() {
         {isEditMode && editPanel === 'node' && selectedNode && (
           <SidePanel title="노드 편집" onClose={deselectAll}>
             <div>
-              <label className="text-[10px] text-[#555] uppercase tracking-widest block mb-1.5">이름</label>
+              <label className="text-[10px] text-slate-500 dark:text-[#555] uppercase tracking-widest block mb-1.5">이름</label>
               <input
                 value={nodeName}
                 onChange={e => setNodeName(e.target.value)}
-                className="w-full bg-[#161616] border border-[#2a2a2a] text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-[#444] transition-colors"
+                className="w-full bg-slate-50 dark:bg-[#161616] border border-slate-200 dark:border-[#2a2a2a] text-slate-800 dark:text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-slate-350 dark:focus:border-[#444] transition-colors"
                 placeholder="노드 이름을 입력하세요..."
               />
             </div>
@@ -620,19 +620,19 @@ function GraphPageInner() {
                 value={nodeIsRoot}
                 onToggle={() => setNodeIsRoot(!nodeIsRoot)}
               />
-              <p className="text-[10px] text-[#444] mt-1 italic">* 루트 노드 설정 시 다른 루트는 자동 해제됩니다.</p>
+              <p className="text-[10px] text-slate-400 dark:text-[#444] mt-1 italic">* 루트 노드 설정 시 다른 루트는 자동 해제됩니다.</p>
             </div>
 
             <div className="flex items-center gap-2 px-1 mb-2">
               <div className={`w-1.5 h-1.5 rounded-full ${saving ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
-              <span className="text-[10px] text-[#555] font-medium">{saving ? '저장 중...' : '자동 저장됨'}</span>
+              <span className="text-[10px] text-slate-500 dark:text-[#555] font-medium">{saving ? '저장 중...' : '자동 저장됨'}</span>
             </div>
 
             <ErrBox />
             
             <div className="flex gap-2">
               <button onClick={startConnect}
-                className="flex-1 flex items-center justify-center gap-2 bg-blue-900/20 hover:bg-blue-900/30 border border-blue-800/40 text-blue-400 text-xs font-bold py-2.5 rounded-md transition-all"
+                className="flex-1 flex items-center justify-center gap-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800/40 text-blue-600 dark:text-blue-400 text-xs font-bold py-2.5 rounded-md transition-all"
                 title="이 노드에서 엣지 연결">
                 <LinkIcon size={12} /> 새 관계 연결
               </button>
@@ -644,7 +644,7 @@ function GraphPageInner() {
                   onCancel={() => setDeleteConfirm(null)}
                 />
               : <button onClick={() => setDeleteConfirm('node')}
-                  className="w-full flex items-center justify-center gap-1.5 bg-red-900/10 hover:bg-red-900/20 border border-red-900/25 text-[#f87171] text-xs py-2 rounded-md transition-all">
+                  className="w-full flex items-center justify-center gap-1.5 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-900/25 text-red-600 dark:text-[#f87171] text-xs py-2 rounded-md transition-all">
                   <Trash2 size={12} /> 노드 삭제
                 </button>
             }
@@ -665,24 +665,24 @@ function GraphPageInner() {
         {/* ─── Connect Modal ───────────── */}
         {connectModalOpen && connectTarget && (
           <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/65 backdrop-blur-sm">
-            <div className="bg-[#0e0e0e] border border-[#252525] rounded-xl shadow-2xl w-72 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e1e]">
-                <span className="text-[#ccc] text-sm font-semibold">엣지 생성</span>
-                <button onClick={cancelConnect} className="text-[#555] hover:text-[#aaa] transition-colors"><X size={14} /></button>
+            <div className="bg-white dark:bg-[#0e0e0e] border border-slate-200 dark:border-[#252525] rounded-xl shadow-2xl w-72 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-[#1e1e1e]">
+                <span className="text-slate-750 dark:text-[#ccc] text-sm font-semibold">엣지 생성</span>
+                <button onClick={cancelConnect} className="text-slate-400 dark:text-[#555] hover:text-slate-600 dark:hover:text-[#aaa] transition-colors"><X size={14} /></button>
               </div>
               <div className="px-4 py-4 space-y-4">
-                <div className="text-center text-xs text-[#666]">
-                  <span className="text-white font-bold">{connectingFrom?.name}</span>
+                <div className="text-center text-xs text-slate-500 dark:text-[#666]">
+                  <span className="text-slate-800 dark:text-white font-bold">{connectingFrom?.name}</span>
                   <span className="mx-2 text-[#a855f7]">→</span>
-                  <span className="text-white font-bold">{connectTarget?.name}</span>
+                  <span className="text-slate-800 dark:text-white font-bold">{connectTarget?.name}</span>
                 </div>
                 <div>
-                  <label className="text-[10px] text-[#555] uppercase tracking-widest block mb-1.5">관계 레이블 (선택)</label>
+                  <label className="text-[10px] text-slate-500 dark:text-[#555] uppercase tracking-widest block mb-1.5">관계 레이블 (선택)</label>
                   <input
                     value={connectLabel}
                     onChange={e => setConnectLabel(e.target.value)}
                     placeholder="예: 개발함, 소속됨, 활용됨"
-                    className="w-full bg-[#161616] border border-[#2a2a2a] text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-[#444] transition-colors"
+                    className="w-full bg-slate-50 dark:bg-[#161616] border border-slate-200 dark:border-[#2a2a2a] text-slate-800 dark:text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-slate-350 dark:focus:border-[#444] transition-colors"
                     onKeyDown={e => e.key === 'Enter' && confirmConnect()}
                     autoFocus
                   />
@@ -690,11 +690,11 @@ function GraphPageInner() {
                 <ErrBox />
                 <div className="flex gap-2">
                   <button onClick={confirmConnect} disabled={saving}
-                    className="flex-1 bg-emerald-900/20 hover:bg-emerald-900/30 border border-emerald-800/40 text-emerald-400 text-xs font-bold py-2 rounded-md transition-all disabled:opacity-40">
+                    className="flex-1 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 border border-emerald-250 dark:border-emerald-800/40 text-emerald-600 dark:text-emerald-400 text-xs font-bold py-2 rounded-md transition-all disabled:opacity-40">
                     <Check size={12} className="inline mr-1" /> 생성
                   </button>
                   <button onClick={cancelConnect}
-                    className="flex-1 bg-[#161616] hover:bg-[#1e1e1e] border border-[#2a2a2a] text-[#777] text-xs py-2 rounded-md transition-all">
+                    className="flex-1 bg-slate-50 hover:bg-slate-100 dark:bg-[#161616] dark:hover:bg-[#1e1e1e] border border-slate-250 dark:border-[#2a2a2a] text-slate-500 dark:text-[#777] text-xs py-2 rounded-md transition-all">
                     취소
                   </button>
                 </div>
@@ -706,22 +706,22 @@ function GraphPageInner() {
         {/* ─── Link Edit Panel ─────────── */}
         {isEditMode && editPanel === 'link' && selectedLink && (
           <SidePanel title="엣지 편집" onClose={deselectAll}>
-            <div className="text-xs text-[#555] text-center">
-              <span className="text-[#888]">{selectedLink.source?.name ?? selectedLink.source}</span>
+            <div className="text-xs text-slate-500 dark:text-[#555] text-center">
+              <span className="text-slate-700 dark:text-[#888]">{selectedLink.source?.name ?? selectedLink.source}</span>
               <span className="mx-2 text-[#a855f7]">→</span>
-              <span className="text-[#888]">{selectedLink.target?.name ?? selectedLink.target}</span>
+              <span className="text-slate-700 dark:text-[#888]">{selectedLink.target?.name ?? selectedLink.target}</span>
             </div>
             <div>
-              <label className="text-[10px] text-[#555] uppercase tracking-widest block mb-1.5">관계 레이블</label>
+              <label className="text-[10px] text-slate-500 dark:text-[#555] uppercase tracking-widest block mb-1.5">관계 레이블</label>
               <input
                 value={linkLabel}
                 onChange={e => setLinkLabel(e.target.value)}
-                className="w-full bg-[#161616] border border-[#2a2a2a] text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-[#444] transition-colors"
+                className="w-full bg-slate-50 dark:bg-[#161616] border border-slate-200 dark:border-[#2a2a2a] text-slate-800 dark:text-white text-sm rounded-md px-3 py-2 focus:outline-none focus:border-slate-350 dark:focus:border-[#444] transition-colors"
               />
             </div>
             <ErrBox />
             <button onClick={saveLink} disabled={saving}
-              className="w-full flex items-center justify-center gap-1.5 bg-emerald-900/20 hover:bg-emerald-900/30 border border-emerald-800/40 text-emerald-400 text-xs font-bold py-2 rounded-md transition-all disabled:opacity-40">
+              className="w-full flex items-center justify-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 border border-emerald-250 dark:border-emerald-800/40 text-emerald-600 dark:text-emerald-400 text-xs font-bold py-2 rounded-md transition-all disabled:opacity-40">
               <Check size={12} /> 저장
             </button>
             {deleteConfirm === 'link'
@@ -731,7 +731,7 @@ function GraphPageInner() {
                   onCancel={() => setDeleteConfirm(null)}
                 />
               : <button onClick={() => setDeleteConfirm('link')}
-                  className="w-full flex items-center justify-center gap-1.5 bg-red-900/10 hover:bg-red-900/20 border border-red-900/25 text-[#f87171] text-xs py-2 rounded-md transition-all">
+                  className="w-full flex items-center justify-center gap-1.5 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-900/25 text-red-600 dark:text-[#f87171] text-xs py-2 rounded-md transition-all">
                   <Trash2 size={12} /> 엣지 삭제
                 </button>
             }

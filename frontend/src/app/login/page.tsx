@@ -51,7 +51,7 @@ function LoginContent() {
   if (user) return null;
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">
+    <div className="min-h-screen bg-[#f8f9fa] dark:bg-[#121212] flex items-center justify-center transition-colors duration-200">
       <AuthOverlay onSuccess={() => router.replace("/dashboard")} />
     </div>
   );

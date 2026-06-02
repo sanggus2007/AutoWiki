@@ -105,17 +105,17 @@ export function ProjectFilesModal({ projectId, onClose }: ProjectFilesModalProps
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded shadow-lg w-full max-w-2xl flex flex-col max-h-[85vh] font-sans">
-        <div className="flex justify-between items-center p-4 border-b border-[#a2a9b1]">
-          <h2 className="text-xl font-serif font-bold text-[#202122]">프로젝트 참고 파일 관리</h2>
-          <button onClick={onClose} className="text-[#54595d] hover:text-black transition">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+      <div className="bg-white dark:bg-zinc-900 border border-[#a2a9b1] dark:border-zinc-800 rounded shadow-lg w-full max-w-2xl flex flex-col max-h-[85vh] font-sans">
+        <div className="flex justify-between items-center p-4 border-b border-[#a2a9b1] dark:border-zinc-800">
+          <h2 className="text-xl font-serif font-bold text-[#202122] dark:text-white">프로젝트 참고 파일 관리</h2>
+          <button onClick={onClose} className="text-[#54595d] dark:text-gray-400 hover:text-black dark:hover:text-white transition">
             <X size={20} />
           </button>
         </div>
 
         <div className="p-4 flex-1 overflow-y-auto">
-          <p className="text-sm text-[#54595d] mb-4">
+          <p className="text-sm text-[#54595d] dark:text-gray-400 mb-4">
             이곳에 업로드된 파일들은 지식 구조도로 즉시 추출되지 않고 원본 파일로 저장됩니다.<br/>
             이후 AI 채팅이나 문서 추가 시 문맥으로 활용할 수 있습니다.
           </p>
@@ -132,7 +132,7 @@ export function ProjectFilesModal({ projectId, onClose }: ProjectFilesModalProps
             />
             <label
               htmlFor="project-file-upload"
-              className={`flex items-center justify-center w-full py-2 px-4 border border-[#0645ad] rounded text-[#0645ad] font-bold text-sm transition cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : 'hover:bg-[#eef1ff]'}`}
+              className={`flex items-center justify-center w-full py-2 px-4 border border-[#0645ad] dark:border-blue-600 rounded text-[#0645ad] dark:text-blue-400 font-bold text-sm transition cursor-pointer ${uploading ? 'opacity-50 pointer-events-none' : 'hover:bg-[#eef1ff] dark:hover:bg-blue-950/20'}`}
             >
               {uploading ? (
                 <><Loader2 size={16} className="animate-spin mr-2" /> 업로드 중...</>
@@ -142,38 +142,38 @@ export function ProjectFilesModal({ projectId, onClose }: ProjectFilesModalProps
             </label>
           </div>
 
-          <div className="bg-[#f8f9fa] border border-[#eaecf0] rounded-sm relative">
+          <div className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#eaecf0] dark:border-zinc-800 rounded-sm relative">
             {loading ? (
-              <div className="py-8 text-center text-[#54595d]">
+              <div className="py-8 text-center text-[#54595d] dark:text-gray-400">
                 <Loader2 size={24} className="mx-auto animate-spin mb-2" />
                 목록을 불러오는 중...
               </div>
             ) : files.length === 0 ? (
-              <div className="py-8 text-center text-[#54595d] text-sm">
+              <div className="py-8 text-center text-[#54595d] dark:text-gray-400 text-sm">
                 등록된 참고 파일이 없습니다.
               </div>
             ) : (
               <ul>
                 {files.map(f => (
-                  <li key={f.id} className="flex items-center justify-between p-3 border-b border-[#eaecf0] last:border-b-0 hover:bg-white transition-colors">
+                  <li key={f.id} className="flex items-center justify-between p-3 border-b border-[#eaecf0] dark:border-zinc-800 last:border-b-0 hover:bg-white dark:hover:bg-zinc-800 transition-colors">
                     <div className="flex items-center flex-1 min-w-0 mr-4">
                       <input 
                         type="checkbox" 
-                        className="mr-4 w-4 h-4 cursor-pointer"
+                        className="mr-4 w-4 h-4 cursor-pointer accent-[#0645ad] dark:accent-blue-400"
                         checked={f.is_selected} 
                         onChange={() => handleToggle(f.id, f.is_selected)} 
                       />
-                      <FileText size={16} className="text-[#0645ad] mr-3 shrink-0" />
+                      <FileText size={16} className="text-[#0645ad] dark:text-blue-400 mr-3 shrink-0" />
                       <div className="flex flex-col min-w-0 overflow-hidden">
-                        <span className="text-[#202122] font-semibold text-sm truncate">{f.filename}</span>
-                        <span className="text-[#54595d] text-[11px] mt-0.5">
+                        <span className="text-[#202122] dark:text-[#eaecf0] font-semibold text-sm truncate">{f.filename}</span>
+                        <span className="text-[#54595d] dark:text-gray-400 text-[11px] mt-0.5">
                           {(f.size / 1024).toFixed(1)} KB • {new Date(f.upload_date).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
                     <button 
                       onClick={() => handleDelete(f.id)}
-                      className="text-[#54595d] hover:text-[#cc0000] p-1.5 transition-colors rounded hover:bg-red-50 shrink-0"
+                      className="text-[#54595d] dark:text-gray-400 hover:text-[#cc0000] dark:hover:text-red-400 p-1.5 transition-colors rounded hover:bg-red-50 dark:hover:bg-red-950/40 shrink-0"
                       title="삭제"
                     >
                       <Trash2 size={16} />
@@ -185,10 +185,10 @@ export function ProjectFilesModal({ projectId, onClose }: ProjectFilesModalProps
           </div>
         </div>
 
-        <div className="p-4 border-t border-[#eaecf0] flex justify-end bg-gray-50">
+        <div className="p-4 border-t border-[#eaecf0] dark:border-zinc-800 flex justify-end bg-gray-50 dark:bg-zinc-900">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-[#a2a9b1] rounded bg-white text-[#202122] font-bold text-sm hover:bg-gray-100 transition"
+            className="px-4 py-2 border border-[#a2a9b1] dark:border-zinc-700 rounded bg-white dark:bg-zinc-800 text-[#202122] dark:text-[#eaecf0] font-bold text-sm hover:bg-gray-100 dark:hover:bg-zinc-700 transition"
           >
             닫기
           </button>

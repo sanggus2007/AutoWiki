@@ -277,38 +277,38 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
 
   return (
     <div 
-      className={`fixed right-0 top-0 bottom-0 bg-white border-l border-[#a2a9b1] shadow-2xl flex z-50 font-sans transition-all duration-300 transform translate-x-0 overflow-hidden
+      className={`fixed right-0 top-0 bottom-0 bg-white dark:bg-zinc-950 border-l border-[#a2a9b1] dark:border-zinc-800 shadow-2xl flex z-50 font-sans transition-all duration-300 transform translate-x-0 overflow-hidden
         ${isMobile ? 'w-full left-0 inset-0' : ''}`}
       style={!isMobile ? { width: `${panelWidth}px` } : {}}
     >
       {/* Resize Handle - desktop only */}
       <div
         onMouseDown={startResizing}
-        className="hidden md:block absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#0645ad]/20 transition-colors z-[60]"
+        className="hidden md:block absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#0645ad]/20 dark:hover:bg-indigo-500/20 transition-colors z-[60]"
         title="드래그하여 크기 조절"
       />
       {/* Sidebar (Sessions) */}
       <div className={`
         ${isMobile ? (isHistoryOpen ? 'w-full' : 'hidden') : 'w-[200px] border-r'} 
-        bg-[#f8f9fa] border-[#a2a9b1] flex flex-col transition-all duration-300 overflow-hidden shrink-0
+        bg-[#f8f9fa] dark:bg-zinc-950 border-[#a2a9b1] dark:border-zinc-800 flex flex-col transition-all duration-300 overflow-hidden shrink-0
       `}>
         {/* Mobile History Header */}
         {isMobile && isHistoryOpen && (
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#a2a9b1] bg-[#eaecf0] shrink-0">
-            <span className="font-bold text-[#202122] text-[14px] flex items-center gap-1.5"><MessageSquare size={16} /> 대화 기록</span>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#a2a9b1] dark:border-zinc-800 bg-[#eaecf0] dark:bg-zinc-900 shrink-0">
+            <span className="font-bold text-[#202122] dark:text-gray-100 text-[14px] flex items-center gap-1.5"><MessageSquare size={16} /> 대화 기록</span>
             <button 
               onClick={() => setIsHistoryOpen(false)} 
-              className="text-[#54595d] hover:text-[#cc0000] p-1 rounded-sm hover:bg-[#c8ccd1] transition-colors"
+              className="text-[#54595d] dark:text-gray-400 hover:text-[#cc0000] p-1 rounded-sm hover:bg-[#c8ccd1] dark:hover:bg-zinc-800 transition-colors"
               title="대화창으로 돌아가기"
             >
               <X size={18} />
             </button>
           </div>
         )}
-        <div className="p-3 border-b border-[#a2a9b1]">
+        <div className="p-3 border-b border-[#a2a9b1] dark:border-zinc-800">
           <button 
             onClick={handleNewChat}
-            className="w-full py-2 px-3 bg-white border border-[#a2a9b1] rounded-md text-[#202122] flex items-center gap-2 hover:bg-[#eaecf0] transition-colors text-sm font-medium"
+            className="w-full py-2 px-3 bg-white dark:bg-zinc-900 border border-[#a2a9b1] dark:border-zinc-700 rounded-md text-[#202122] dark:text-zinc-200 flex items-center gap-2 hover:bg-[#eaecf0] dark:hover:bg-zinc-800 transition-colors text-sm font-medium"
           >
             <Plus size={16} /> 새 대화 시작
           </button>
@@ -318,14 +318,14 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
             <div 
               key={s.id}
               onClick={() => handleSelectSession(s.id)}
-              className={`group flex items-center justify-between p-2 rounded-md cursor-pointer text-sm transition-colors ${currentSessionId === s.id ? 'bg-[#eaecf0] font-medium' : 'hover:bg-[#eaecf0]'}`}
+              className={`group flex items-center justify-between p-2 rounded-md cursor-pointer text-sm transition-colors ${currentSessionId === s.id ? 'bg-[#eaecf0] dark:bg-zinc-800 font-medium' : 'hover:bg-[#eaecf0] dark:hover:bg-zinc-800/60'}`}
             >
-              <div className="truncate text-[#202122] flex-1 mr-2" title={s.title}>
+              <div className="truncate text-[#202122] dark:text-zinc-200 flex-1 mr-2" title={s.title}>
                 {s.title}
               </div>
               <button 
                 onClick={(e) => handleDeleteSession(e, s.id)}
-                className="opacity-0 group-hover:opacity-100 text-[#54595d] hover:text-[#cc0000] p-1 rounded-sm hover:bg-[#c8ccd1] transition-all"
+                className="opacity-0 group-hover:opacity-100 text-[#54595d] dark:text-gray-400 hover:text-[#cc0000] p-1 rounded-sm hover:bg-[#c8ccd1] dark:hover:bg-zinc-700 transition-all"
                 title="삭제"
               >
                 <Trash2 size={14} />
@@ -333,7 +333,7 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
             </div>
           ))}
           {sessions.length === 0 && (
-            <div className="p-4 text-center text-xs text-[#72777d]">
+            <div className="p-4 text-center text-xs text-[#72777d] dark:text-gray-400">
               이전 대화가 없습니다.
             </div>
           )}
@@ -343,31 +343,31 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
       {/* Chat Area */}
       <div className={`flex-1 min-w-0 flex flex-col ${isMobile && isHistoryOpen ? 'hidden' : 'flex'}`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 sm:py-4 border-b border-[#a2a9b1] bg-[#f8f9fa] shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 sm:py-4 border-b border-[#a2a9b1] dark:border-zinc-800 bg-[#f8f9fa] dark:bg-zinc-950 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <button 
               onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-              className="md:hidden p-1 -ml-1 text-[#54595d] hover:bg-[#eaecf0] rounded-sm"
+              className="md:hidden p-1 -ml-1 text-[#54595d] dark:text-gray-400 hover:bg-[#eaecf0] dark:hover:bg-zinc-800 rounded-sm"
               title="대화 기록 보기"
             >
               <MessageSquare size={18} />
             </button>
-            <h3 className="font-bold text-[#202122] text-[14px] sm:text-[15px] font-serif truncate">AI 채팅</h3>
+            <h3 className="font-bold text-[#202122] dark:text-zinc-100 text-[14px] sm:text-[15px] font-serif truncate">AI 채팅</h3>
           </div>
-          <button onClick={onClose} className="text-[#54595d] hover:text-[#cc0000] p-1 rounded-sm hover:bg-[#eaecf0] transition-colors">
+          <button onClick={onClose} className="text-[#54595d] dark:text-gray-400 hover:text-[#cc0000] p-1 rounded-sm hover:bg-[#eaecf0] dark:hover:bg-zinc-800 transition-colors">
             <X size={18} />
           </button>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f1f5f9]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f1f5f9] dark:bg-zinc-900">
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[85%] flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
-                <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${msg.role === "user" ? "bg-[#0645ad] text-white" : "bg-[#f8f9fa] border border-[#a2a9b1] text-[#202122]"}`}>
+                <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${msg.role === "user" ? "bg-[#0645ad] dark:bg-zinc-800 dark:border dark:border-zinc-700 text-white" : "bg-[#f8f9fa] dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 text-[#202122] dark:text-zinc-200"}`}>
                   {msg.role === "user" ? <User size={14} /> : <Bot size={14} />}
                 </div>
-                <div className={`p-3 rounded-md text-[13.5px] leading-relaxed break-words min-w-0 ${msg.role === "user" ? "bg-[#0645ad] text-white rounded-tr-none whitespace-pre-wrap" : "bg-white border border-[#a2a9b1] text-[#202122] rounded-tl-none shadow-sm markdown-body"}`}>
+                <div className={`p-3 rounded-md text-[13.5px] leading-relaxed break-words min-w-0 ${msg.role === "user" ? "bg-[#0645ad] dark:bg-zinc-800 dark:border dark:border-zinc-700 text-white dark:text-zinc-100 rounded-tr-none whitespace-pre-wrap" : "bg-white dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 text-[#202122] dark:text-zinc-200 rounded-tl-none shadow-sm markdown-body"}`}>
                   {msg.role === "user" ? (
                     msg.content
                   ) : (
@@ -382,11 +382,11 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
           {isLoading && (
             <div className="flex justify-start">
               <div className="max-w-[85%] flex gap-2">
-                <div className="shrink-0 w-7 h-7 rounded-full bg-[#f8f9fa] border border-[#a2a9b1] text-[#202122] flex items-center justify-center">
+                <div className="shrink-0 w-7 h-7 rounded-full bg-[#f8f9fa] dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 text-[#202122] dark:text-zinc-300 flex items-center justify-center">
                   <Bot size={14} />
                 </div>
-                <div className="p-3 bg-white border border-[#a2a9b1] text-[#202122] rounded-md rounded-tl-none shadow-sm flex items-center gap-2 text-[13.5px]">
-                  <Loader2 size={14} className="animate-spin text-[#0645ad]" />
+                <div className="p-3 bg-white dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 text-[#202122] dark:text-zinc-200 rounded-md rounded-tl-none shadow-sm flex items-center gap-2 text-[13.5px]">
+                  <Loader2 size={14} className="animate-spin text-[#0645ad] dark:text-zinc-400" />
                   답변을 생성 중입니다...
                 </div>
               </div>
@@ -396,7 +396,7 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
         </div>
 
         {/* Input */}
-        <div className="p-2 sm:p-3 bg-[#f8f9fa] border-t border-[#a2a9b1] pb-[calc(12px+env(safe-area-inset-bottom))]">
+        <div className="p-2 sm:p-3 bg-[#f8f9fa] dark:bg-zinc-950 border-t border-[#a2a9b1] dark:border-zinc-800 pb-[calc(12px+env(safe-area-inset-bottom))]">
           <TextInputUI
             onSubmit={handleSubmit}
             title=""

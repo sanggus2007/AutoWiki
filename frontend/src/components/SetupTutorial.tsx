@@ -159,8 +159,8 @@ export function SetupTutorial({ onClose, onGoToSettings, initialProvider = null 
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-955/90 backdrop-blur-2xl z-[300] flex items-center justify-center p-4 transition-all overflow-y-auto">
-      <div className="bg-white max-w-xl w-full rounded-[2rem] sm:rounded-[3rem] shadow-[0_0_100px_rgba(30,58,138,0.5)] flex flex-col relative animate-in fade-in zoom-in-95 duration-500 my-auto max-h-[90dvh] overflow-hidden">
+    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl z-[300] flex items-center justify-center p-4 transition-all overflow-y-auto">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 max-w-xl w-full rounded-[2rem] sm:rounded-[3rem] shadow-[0_0_100px_rgba(30,58,138,0.5)] dark:shadow-[0_0_100px_rgba(0,0,0,0.8)] flex flex-col relative animate-in fade-in zoom-in-95 duration-500 my-auto max-h-[90dvh] overflow-hidden">
         
         {/* Progress Dots */}
         {step > 0 && (
@@ -171,28 +171,28 @@ export function SetupTutorial({ onClose, onGoToSettings, initialProvider = null 
                 className={`h-1.5 rounded-full transition-all duration-300 ${
                   i + 1 === step 
                     ? provider === "ollama" ? "w-8 bg-purple-600" : "w-8 bg-blue-600"
-                    : "w-1.5 bg-slate-200"
+                    : "w-1.5 bg-slate-200 dark:bg-zinc-700"
                 }`} 
               />
             ))}
           </div>
         )}
 
-        <button onClick={onClose} className="absolute top-[calc(1.75rem+env(safe-area-inset-top))] right-7 p-3 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-all z-10 sm:top-7">
+        <button onClick={onClose} className="absolute top-[calc(1.75rem+env(safe-area-inset-top))] right-7 p-3 text-slate-400 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full transition-all z-10 sm:top-7">
           <X size={22} />
         </button>
 
         {/* ── Step 0: Provider Selection Screen ────────────────────────────────── */}
         {step === 0 && (
           <div className="p-6 pt-16 sm:p-12 md:p-16 flex-1 flex flex-col items-center overflow-y-auto custom-scrollbar">
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-[2rem] shadow-inner transform -rotate-1">
-              <Sparkles className="text-blue-600" size={36} />
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-955/20 border border-blue-100 dark:border-blue-900/30 rounded-[2rem] shadow-inner transform -rotate-1">
+              <Sparkles className="text-blue-600 dark:text-blue-400" size={36} />
             </div>
 
-            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3 text-center leading-tight tracking-tight">
+            <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-3 text-center leading-tight tracking-tight">
               AI 서비스 제공자 선택
             </h3>
-            <p className="text-slate-500 text-center leading-relaxed text-xs sm:text-sm font-medium mb-8 max-w-sm">
+            <p className="text-slate-500 dark:text-gray-400 text-center leading-relaxed text-xs sm:text-sm font-medium mb-8 max-w-sm">
               AutoWiki에서 개인 백과사전 문서를 분석하고 생성할 AI 엔진을 선택해 주세요. 설정에서 언제든 변경이 가능합니다.
             </p>
 
@@ -202,21 +202,21 @@ export function SetupTutorial({ onClose, onGoToSettings, initialProvider = null 
                 onClick={() => setProvider("github_copilot")}
                 className={`group cursor-pointer rounded-2xl border-2 p-5 transition-all flex items-start gap-4 ${
                   provider === "github_copilot" 
-                    ? "border-blue-600 bg-blue-50/50 shadow-md shadow-blue-500/10" 
-                    : "border-slate-100 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-50"
+                    ? "border-blue-600 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-950/20 shadow-md shadow-blue-500/10" 
+                    : "border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/10 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800"
                 }`}
               >
                 <div className={`p-3 rounded-xl shrink-0 transition-colors ${
-                  provider === "github_copilot" ? "bg-blue-600 text-white" : "bg-white border border-slate-200 text-slate-600"
+                  provider === "github_copilot" ? "bg-blue-600 text-white" : "bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-gray-300"
                 }`}>
                   <GithubIcon size={24} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-black text-sm sm:text-base text-slate-900">GitHub Copilot</span>
-                    <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-full shrink-0">추천</span>
+                    <span className="font-black text-sm sm:text-base text-slate-900 dark:text-white">GitHub Copilot</span>
+                    <span className="bg-blue-100 dark:bg-blue-950/55 text-blue-700 dark:text-blue-400 text-[10px] font-black px-2 py-0.5 rounded-full shrink-0">추천</span>
                   </div>
-                  <p className="text-slate-500 text-xs leading-relaxed font-medium">
+                  <p className="text-slate-500 dark:text-gray-400 text-xs leading-relaxed font-medium">
                     GitHub 계정 연동을 통해 별도의 복잡한 설치 없이 고성능 Gemini 및 OpenAI 모델을 가장 편리하게 사용합니다.
                   </p>
                 </div>
@@ -227,21 +227,21 @@ export function SetupTutorial({ onClose, onGoToSettings, initialProvider = null 
                 onClick={() => setProvider("ollama")}
                 className={`group cursor-pointer rounded-2xl border-2 p-5 transition-all flex items-start gap-4 ${
                   provider === "ollama" 
-                    ? "border-purple-600 bg-purple-50/50 shadow-md shadow-purple-500/10" 
-                    : "border-slate-100 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-50"
+                    ? "border-purple-600 dark:border-purple-500 bg-purple-50/50 dark:bg-purple-950/20 shadow-md shadow-purple-500/10" 
+                    : "border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/10 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800"
                 }`}
               >
                 <div className={`p-3 rounded-xl shrink-0 transition-colors ${
-                  provider === "ollama" ? "bg-purple-600 text-white" : "bg-white border border-slate-200 text-slate-600"
+                  provider === "ollama" ? "bg-purple-600 text-white" : "bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-gray-300"
                 }`}>
                   <Bot size={24} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-black text-sm sm:text-base text-slate-900">Ollama Pro / Cloud</span>
-                    <span className="bg-purple-100 text-purple-700 text-[10px] font-black px-2 py-0.5 rounded-full shrink-0">클라우드 API</span>
+                    <span className="font-black text-sm sm:text-base text-slate-900 dark:text-white">Ollama Pro / Cloud</span>
+                    <span className="bg-purple-100 dark:bg-purple-950/55 text-purple-700 dark:text-purple-400 text-[10px] font-black px-2 py-0.5 rounded-full shrink-0">클라우드 API</span>
                   </div>
-                  <p className="text-slate-500 text-xs leading-relaxed font-medium">
+                  <p className="text-slate-500 dark:text-gray-400 text-xs leading-relaxed font-medium">
                     Ollama Cloud API를 연동하여 Free/Pro/Max 요금제의 강력한 오픈소스 모델을 클라우드 성능으로 끊김 없이 사용합니다.
                   </p>
                 </div>
@@ -256,7 +256,7 @@ export function SetupTutorial({ onClose, onGoToSettings, initialProvider = null 
                   ? provider === "ollama" 
                     ? "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-500/20"
                     : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20"
-                  : "bg-slate-150 text-slate-400 cursor-not-allowed shadow-none border border-slate-200"
+                  : "bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-gray-500 cursor-not-allowed shadow-none border border-slate-200 dark:border-zinc-700"
               }`}
             >
               선택한 서비스로 튜토리얼 시작하기 <ChevronRight size={18} />
@@ -269,32 +269,32 @@ export function SetupTutorial({ onClose, onGoToSettings, initialProvider = null 
           <div className="p-6 pt-16 sm:p-12 md:p-16 flex-1 flex flex-col items-center text-center overflow-y-auto custom-scrollbar">
             <div className={`mb-4 sm:mb-8 p-4 sm:p-5 border rounded-[2.5rem] shadow-inner transform -rotate-2 ${
               provider === "ollama" 
-                ? "bg-purple-50 border-purple-100" 
-                : "bg-blue-50 border-blue-100"
+                ? "bg-purple-50 dark:bg-purple-950/20 border-purple-100 dark:border-purple-900/30" 
+                : "bg-blue-50 dark:bg-blue-955/20 border-blue-100 dark:border-blue-900/30"
             }`}>
               <div className="rotate-2">{currentStep.icon}</div>
             </div>
 
-            <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-3 sm:mb-4 leading-tight tracking-tight">
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mb-3 sm:mb-4 leading-tight tracking-tight">
               {currentStep.title}
             </h3>
-            <p className="text-slate-500 leading-relaxed text-xs sm:text-sm font-medium mb-6 sm:mb-8 whitespace-pre-line max-w-md">
+            <p className="text-slate-500 dark:text-gray-400 leading-relaxed text-xs sm:text-sm font-medium mb-6 sm:mb-8 whitespace-pre-line max-w-md">
               {currentStep.desc}
             </p>
 
             {/* Highlighted Tip Area */}
             <div className={`w-full border rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-5 text-left flex items-start gap-4 shadow-sm ${
               provider === "ollama"
-                ? "bg-purple-50/50 border-purple-100"
-                : "bg-blue-50/50 border-blue-100"
+                ? "bg-purple-50/50 dark:bg-purple-950/10 border-purple-100 dark:border-purple-900/30"
+                : "bg-blue-50/50 dark:bg-blue-950/10 border-blue-100 dark:border-blue-900/30"
             }`}>
               <div className={`p-2 rounded-xl shadow-sm border ${
-                provider === "ollama" ? "bg-white border-purple-100" : "bg-white border-blue-100"
+                provider === "ollama" ? "bg-white dark:bg-zinc-800 border-purple-100 dark:border-purple-900/30" : "bg-white dark:bg-zinc-800 border-blue-100 dark:border-blue-900/30"
               }`}>
-                <CheckCircle className={provider === "ollama" ? "text-purple-600 shrink-0" : "text-blue-600 shrink-0"} size={20} />
+                <CheckCircle className={provider === "ollama" ? "text-purple-600 dark:text-purple-400 shrink-0" : "text-blue-600 dark:text-blue-400 shrink-0"} size={20} />
               </div>
               <p className={`text-[13px] font-bold leading-relaxed ${
-                provider === "ollama" ? "text-purple-900/80" : "text-blue-900/80"
+                provider === "ollama" ? "text-purple-900/80 dark:text-purple-300" : "text-blue-900/80 dark:text-blue-300"
               }`}>
                 {currentStep.tip}
               </p>
@@ -307,8 +307,8 @@ export function SetupTutorial({ onClose, onGoToSettings, initialProvider = null 
                 rel="noreferrer" 
                 className={`mt-6 group flex items-center gap-2 text-xs sm:text-sm font-black px-6 py-3 rounded-full transition-all border ${
                   provider === "ollama"
-                    ? "text-purple-600 bg-purple-50 hover:bg-purple-600 hover:text-white border-purple-100 hover:border-transparent"
-                    : "text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white border-blue-100 hover:border-transparent"
+                    ? "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/20 hover:bg-purple-600 hover:text-white border-purple-100 dark:border-purple-900/30 hover:border-transparent"
+                    : "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-955/20 hover:bg-blue-600 hover:text-white border-blue-100 dark:border-blue-900/30 hover:border-transparent"
                 }`}
               >
                 {currentStep.linkText} 
@@ -320,10 +320,10 @@ export function SetupTutorial({ onClose, onGoToSettings, initialProvider = null 
 
         {/* ── Footer ──────────────────────────────────────────────────────────── */}
         {step > 0 && (
-          <div className="p-4 sm:p-10 bg-white border-t border-slate-100 flex items-center justify-between backdrop-blur-sm pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-10">
+          <div className="p-4 sm:p-10 bg-white dark:bg-zinc-900 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between backdrop-blur-sm pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-10">
             <button 
               onClick={prevStep} 
-              className="flex items-center gap-1.5 text-xs sm:text-sm font-black text-slate-400 hover:text-slate-900 transition-colors"
+              className="flex items-center gap-1.5 text-xs sm:text-sm font-black text-slate-400 dark:text-gray-500 hover:text-slate-900 dark:hover:text-white transition-colors"
             >
               <ChevronLeft size={20} /> 이전으로
             </button>

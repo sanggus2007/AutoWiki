@@ -147,21 +147,21 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[200] flex items-center justify-center p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-white border border-[#a2a9b1] shadow-2xl w-full max-w-lg rounded-sm my-auto max-h-[90dvh] flex flex-col overflow-hidden"
+        className="bg-white dark:bg-zinc-900 border border-[#a2a9b1] dark:border-zinc-800 shadow-2xl w-full max-w-lg rounded-sm my-auto max-h-[90dvh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Header ── */}
-        <div className="bg-[#eaecf0] border-b border-[#a2a9b1] px-5 py-3 flex items-center justify-between shrink-0">
-          <h2 className="font-serif font-bold text-[#202122] text-lg">
+        <div className="bg-[#eaecf0] dark:bg-zinc-800 border-b border-[#a2a9b1] dark:border-zinc-700 px-5 py-3 flex items-center justify-between shrink-0">
+          <h2 className="font-serif font-bold text-[#202122] dark:text-white text-lg">
             내보내기 / 가져오기
           </h2>
           <button
             onClick={onClose}
-            className="text-[#54595d] hover:text-[#202122] transition-colors"
+            className="text-[#54595d] dark:text-gray-400 hover:text-[#202122] dark:hover:text-white transition-colors"
           >
             <X size={18} />
           </button>
@@ -170,17 +170,17 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
         <div className="p-5 space-y-6 overflow-y-auto custom-scrollbar flex-1">
           {/* ── Export Section ── */}
           <section>
-            <div className="flex items-center space-x-2 mb-3 pb-2 border-b border-[#eaecf0]">
-              <Download size={16} className="text-[#0645ad]" />
-              <h3 className="font-bold text-[14px] text-[#202122]">내보내기</h3>
-              <span className="text-[11px] text-[#54595d]">
+            <div className="flex items-center space-x-2 mb-3 pb-2 border-b border-[#eaecf0] dark:border-zinc-800">
+              <Download size={16} className="text-[#0645ad] dark:text-blue-400" />
+              <h3 className="font-bold text-[14px] text-[#202122] dark:text-white">내보내기</h3>
+              <span className="text-[11px] text-[#54595d] dark:text-gray-400">
                 — 프로젝트를 .autowiki 파일로 백업
               </span>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-[12px] font-bold text-[#54595d] mb-1">
+                <label className="block text-[12px] font-bold text-[#54595d] dark:text-gray-400 mb-1">
                   프로젝트 선택
                 </label>
                 <div className="relative">
@@ -189,7 +189,7 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
                     onChange={(e) =>
                       setSelectedProjectId(Number(e.target.value))
                     }
-                    className="w-full border border-[#a2a9b1] bg-white px-3 py-2 text-[13px] focus:outline-none focus:border-[#0645ad] appearance-none pr-8"
+                    className="w-full border border-[#a2a9b1] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[#202122] dark:text-[#eaecf0] px-3 py-2 text-[13px] focus:outline-none focus:border-[#0645ad] dark:focus:border-blue-400 appearance-none pr-8"
                   >
                     {projects.length === 0 && (
                       <option value="">프로젝트 없음</option>
@@ -202,7 +202,7 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
                   </select>
                   <ChevronDown
                     size={14}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#54595d] pointer-events-none"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#54595d] dark:text-gray-400 pointer-events-none"
                   />
                 </div>
               </div>
@@ -213,9 +213,9 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
                   id="includeFiles"
                   checked={includeFiles}
                   onChange={(e) => setIncludeFiles(e.target.checked)}
-                  className="w-4 h-4 text-[#0645ad] border-[#a2a9b1] rounded-sm focus:ring-0 cursor-pointer"
+                  className="w-4 h-4 text-[#0645ad] dark:text-blue-400 accent-[#0645ad] dark:accent-blue-400 border-[#a2a9b1] dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded-sm focus:ring-0 cursor-pointer"
                 />
-                <label htmlFor="includeFiles" className="text-[12px] text-[#202122] cursor-pointer">
+                <label htmlFor="includeFiles" className="text-[12px] text-[#202122] dark:text-[#eaecf0] cursor-pointer">
                   사용자 첨부 파일 포함 (원본 .txt 등)
                 </label>
               </div>
@@ -223,7 +223,7 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
               <button
                 onClick={handleExport}
                 disabled={!selectedProjectId || exportLoading}
-                className="flex items-center justify-center space-x-2 w-full px-4 py-2 bg-[#0645ad] text-white text-[13px] font-bold hover:bg-[#0b0080] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center justify-center space-x-2 w-full px-4 py-2 bg-[#0645ad] dark:bg-blue-600 text-white text-[13px] font-bold hover:bg-[#0b0080] dark:hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {exportLoading ? (
                   <Loader2 size={15} className="animate-spin" />
@@ -238,10 +238,10 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
           {/* ── Divider ── */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[#eaecf0]" />
+              <div className="w-full border-t border-[#eaecf0] dark:border-zinc-800" />
             </div>
             <div className="relative flex justify-center text-[11px]">
-              <span className="bg-white px-3 text-[#54595d] uppercase tracking-wider font-bold">
+              <span className="bg-white dark:bg-zinc-900 px-3 text-[#54595d] dark:text-gray-400 uppercase tracking-wider font-bold">
                 또는
               </span>
             </div>
@@ -249,10 +249,10 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
 
           {/* ── Import Section ── */}
           <section>
-            <div className="flex items-center space-x-2 mb-3 pb-2 border-b border-[#eaecf0]">
-              <Upload size={16} className="text-[#0645ad]" />
-              <h3 className="font-bold text-[14px] text-[#202122]">가져오기</h3>
-              <span className="text-[11px] text-[#54595d]">
+            <div className="flex items-center space-x-2 mb-3 pb-2 border-b border-[#eaecf0] dark:border-zinc-800">
+              <Upload size={16} className="text-[#0645ad] dark:text-blue-400" />
+              <h3 className="font-bold text-[14px] text-[#202122] dark:text-white">가져오기</h3>
+              <span className="text-[11px] text-[#54595d] dark:text-gray-400">
                 — .autowiki 파일로 복원
               </span>
             </div>
@@ -269,10 +269,10 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-sm p-6 text-center cursor-pointer transition-all ${
                   isDragging
-                    ? "border-[#0645ad] bg-blue-50"
+                    ? "border-[#0645ad] dark:border-blue-400 bg-blue-50 dark:bg-blue-950/20"
                     : importFile
-                    ? "border-emerald-400 bg-emerald-50"
-                    : "border-[#a2a9b1] hover:border-[#0645ad] hover:bg-[#f8f9fa]"
+                    ? "border-emerald-400 dark:border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20"
+                    : "border-[#a2a9b1] dark:border-zinc-700 hover:border-[#0645ad] dark:hover:border-blue-400 hover:bg-[#f8f9fa] dark:hover:bg-zinc-800"
                 }`}
               >
                 <input
@@ -286,17 +286,17 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
                   }}
                 />
                 {importFile ? (
-                  <div className="flex items-center justify-center space-x-2 text-emerald-700">
+                  <div className="flex items-center justify-center space-x-2 text-emerald-700 dark:text-emerald-400">
                     <FolderOpen size={18} />
                     <span className="text-[13px] font-bold truncate max-w-xs">
                       {importFile.name}
                     </span>
                   </div>
                 ) : (
-                  <div className="text-[#54595d]">
+                  <div className="text-[#54595d] dark:text-gray-400">
                     <Upload
                       size={24}
-                      className="mx-auto mb-2 text-[#a2a9b1]"
+                      className="mx-auto mb-2 text-[#a2a9b1] dark:text-zinc-500"
                     />
                     <p className="text-[13px] font-bold">
                       파일을 드래그하거나 클릭하여 선택
@@ -308,7 +308,7 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
 
               {/* Import Mode */}
               <div>
-                <label className="block text-[12px] font-bold text-[#54595d] mb-1.5">
+                <label className="block text-[12px] font-bold text-[#54595d] dark:text-gray-400 mb-1.5">
                   가져오기 방식
                 </label>
                 <div className="flex space-x-3">
@@ -322,8 +322,8 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
                       key={value}
                       className={`flex-1 flex items-center justify-center space-x-2 border py-2 px-3 cursor-pointer text-[12px] font-bold transition-all ${
                         importMode === value
-                          ? "border-[#0645ad] bg-[#eaf0fb] text-[#0645ad]"
-                          : "border-[#a2a9b1] text-[#54595d] hover:bg-[#f8f9fa]"
+                          ? "border-[#0645ad] dark:border-blue-400 bg-[#eaf0fb] dark:bg-blue-950/20 text-[#0645ad] dark:text-blue-400"
+                          : "border-[#a2a9b1] dark:border-zinc-700 text-[#54595d] dark:text-gray-400 hover:bg-[#f8f9fa] dark:hover:bg-zinc-800"
                       }`}
                     >
                       <input
@@ -339,7 +339,7 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
                   ))}
                 </div>
                 {importMode === "overwrite" && (
-                  <p className="text-[11px] text-amber-600 mt-1.5 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-sm">
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 px-3 py-1.5 rounded-sm">
                     ⚠ 같은 slug의 기존 프로젝트 데이터가 모두 삭제되고 파일 내용으로 교체됩니다.
                   </p>
                 )}
@@ -348,7 +348,7 @@ export default function ExportImportPanel({ onClose }: ExportImportPanelProps) {
               <button
                 onClick={handleImport}
                 disabled={!importFile || importLoading}
-                className="flex items-center justify-center space-x-2 w-full px-4 py-2 bg-[#3b82f6] text-white text-[13px] font-bold hover:bg-[#2563eb] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center justify-center space-x-2 w-full px-4 py-2 bg-[#3b82f6] dark:bg-blue-600 text-white text-[13px] font-bold hover:bg-[#2563eb] dark:hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {importLoading ? (
                   <Loader2 size={15} className="animate-spin" />

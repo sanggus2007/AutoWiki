@@ -15,7 +15,7 @@ from typing import Optional
 class PlanNode(BaseModel):
     id: str = Field(description="Unique, lowercase short slug identifier for the node (English alphanumeric only)")
     name: str = Field(description="Human-readable display name of the entity, written in Korean")
-    type: str = Field(description="Node type (최우선적으로 '개념', '인물', '단체', '장소', '사건', '사물' 중 선택하되 부득이한 경우 자유롭게 생성)")
+    type: str = Field(description="Node type (최우선적으로 '인물', '사물', '개념', '단체', '사건' 중 선택하되 부득이한 경우 자유롭게 생성)")
     categories: list[str] = Field(description="1-3 hierarchical categories. 유사어(단체/조직 등) 중복을 피하고 기존 분류 목록을 적극 재사용")
     is_root: bool = Field(default=False, description="가장 핵심이 되는 메인 주제인지 여부 (단 1개만 true)")
 

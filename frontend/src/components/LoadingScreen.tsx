@@ -44,31 +44,31 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] w-full max-w-2xl bg-white border border-[#a2a9b1] rounded shadow-sm p-10 font-sans">
+    <div className="flex flex-col items-center justify-center min-h-[400px] w-full max-w-2xl bg-white dark:bg-[#1a1b1c] border border-[#a2a9b1] dark:border-zinc-800 rounded shadow-sm p-10 font-sans transition-colors duration-200">
       <div className="mb-6 flex flex-col items-center">
-        <Loader2 className="w-12 h-12 text-[#0645ad] animate-spin mb-4" />
-        <h2 className="text-2xl font-bold text-[#000000] mb-2 tracking-tight">AI가 대상 문서를 분석 및 기획 중입니다</h2>
-        <p className="text-[#202122] flex items-center bg-[#eaecf0] px-4 py-2 rounded text-sm font-medium border border-[#a2a9b1]">
-          <Search size={14} className="mr-2 text-[#0645ad]" />
+        <Loader2 className="w-12 h-12 text-[#0645ad] dark:text-blue-400 animate-spin mb-4" />
+        <h2 className="text-2xl font-bold text-[#000000] dark:text-[#eaecf0] mb-2 tracking-tight">AI가 대상 문서를 분석 및 기획 중입니다</h2>
+        <p className="text-[#202122] dark:text-[#eaecf0] flex items-center bg-[#eaecf0] dark:bg-zinc-800 px-4 py-2 rounded text-sm font-medium border border-[#a2a9b1] dark:border-zinc-700">
+          <Search size={14} className="mr-2 text-[#0645ad] dark:text-blue-400" />
           현재 단계: {steps[currentStep]}
         </p>
       </div>
 
       {/* Progress Bar Container */}
-      <div className="w-full max-w-md h-3 bg-[#eaecf0] rounded-full overflow-hidden border border-[#cccccc]">
+      <div className="w-full max-w-md h-3 bg-[#eaecf0] dark:bg-zinc-800 rounded-full overflow-hidden border border-[#cccccc] dark:border-zinc-700">
         <motion.div 
-          className="h-full bg-[#0645ad]"
+          className="h-full bg-[#0645ad] dark:bg-blue-600"
           style={{ width: `${progress}%` }}
           initial={{ width: 0 }}
           animate={{ width: `${progress}%` }}
         />
       </div>
-      <div className="mt-2 text-xs font-bold text-[#54595d] w-full max-w-md text-right">
+      <div className="mt-2 text-xs font-bold text-[#54595d] dark:text-gray-400 w-full max-w-md text-right">
         {Math.round(progress)}% 완료
       </div>
       
-      <div className="mt-8 pt-4 border-t border-[#eaecf0] w-full text-center">
-         <p className="text-xs text-[#54595d]">
+      <div className="mt-8 pt-4 border-t border-[#eaecf0] dark:border-zinc-800 w-full text-center">
+         <p className="text-xs text-[#54595d] dark:text-gray-400">
            잠시만 기다려 주십시오. 이 작업은 문서의 크기에 따라 <br /> 수 초에서 최대 1~2분이 소요될 수 있습니다.
          </p>
       </div>

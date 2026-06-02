@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { typeToColor, assignTypeColors, TYPE_COLOR_NONE } from '@/lib/typeColor';
 import { apiFetch } from "@/lib/api";
 import * as THREE from 'three';
+import { useTheme } from 'next-themes';
 
 
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
@@ -66,6 +67,16 @@ const THEMES = {
     labelBg: 'rgba(0,0,0,0.78)',
     labelText: '#ffffff',
     linkLabelText: '#aaaaaa',
+  },
+  light: {
+    bg: '#f8f9fa',
+    gridDot: '#e2e8f0',
+    linkDefault: 'rgba(100,116,139,0.18)',
+    linkTree: 'rgba(79,70,229,0.45)',
+    particleColor: 'rgba(79,70,229,0.7)',
+    labelBg: 'rgba(255,255,255,0.88)',
+    labelText: '#0f172a',
+    linkLabelText: '#475569',
   },
   cosmos: {
     bg: '#03030e',
@@ -449,7 +460,9 @@ export const KnowledgeGraph = ({
 
   const [isFilterExpanded, setIsFilterExpanded] = useState(true);
 
-  const theme = THEMES[settings.theme];
+  const { resolvedTheme } = useTheme();
+  const activeThemeKey = settings.theme === 'dark' && resolvedTheme === 'light' ? 'light' : settings.theme;
+  const theme = (THEMES[activeThemeKey as keyof typeof THEMES] || THEMES[settings.theme] || THEMES.dark) as any;
 
   // ── 3D Label Texture Cache ──────────────────────────────
   const textureCache = useRef<Map<string, THREE.Texture>>(new Map());
@@ -458,10 +471,10 @@ export const KnowledgeGraph = ({
   useEffect(() => {
     textureCache.current.forEach(t => t.dispose());
     textureCache.current.clear();
-  }, [settings.theme]);
+  }, [activeThemeKey]);
 
   const getOrCreateTexture = useCallback((node: any) => {
-    const key = `${node.name || node.id}_${settings.theme}`;
+    const key = `${node.name || node.id}_${activeThemeKey}`;
     if (textureCache.current.has(key)) return textureCache.current.get(key)!;
 
     const label = node.name || node.id;
@@ -487,7 +500,7 @@ export const KnowledgeGraph = ({
     const texture = new THREE.CanvasTexture(canvas);
     textureCache.current.set(key, texture);
     return texture;
-  }, [theme, settings.theme]);
+  }, [theme, activeThemeKey]);
 
   // ── Fetch ────────────────────────────────────────────────
   const fetchGraph = useCallback((isCurrent: { val: boolean } = { val: true }) => {
