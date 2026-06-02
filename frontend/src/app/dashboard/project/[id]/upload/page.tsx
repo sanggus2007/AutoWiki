@@ -389,12 +389,21 @@ export default function ProjectUploadPage() {
       {showAuthOverlay && <AuthOverlay onSuccess={handleAuthSuccess} />}
       {showTutorial && (
         <SetupTutorial 
+          userId={useAuthStore.getState().user?.id}
           initialProvider={aiProvider}
           onClose={() => {
+            const user = useAuthStore.getState().user;
+            if (user) {
+              localStorage.setItem(`autowiki_tutorial_seen_${user.id}`, "true");
+            }
             localStorage.setItem("autowiki_tutorial_seen", "true");
             setShowTutorial(false);
           }} 
           onGoToSettings={() => {
+            const user = useAuthStore.getState().user;
+            if (user) {
+              localStorage.setItem(`autowiki_tutorial_seen_${user.id}`, "true");
+            }
             localStorage.setItem("autowiki_tutorial_seen", "true");
             router.push('/dashboard/settings');
           }} 

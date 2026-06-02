@@ -1,12 +1,49 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Loader2, Key, Mail, Eye, EyeOff } from "lucide-react";
+import { Loader2, Key, Mail, Eye, EyeOff, X } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 import { apiFetch, API_BASE_URL } from "@/lib/api";
 
 type Provider = "select" | "google" | "local";
 type LocalMode = "login" | "register";
+
+// ── Terms & Privacy Texts ──────────────────────────────────────────
+const TERMS_TEXT = `제 1 조 (목적)
+본 약관은 AutoWiki AI(이하 '서비스')가 제공하는 AI 기반 백과사전 문서 및 지식 그래프 자동 구축 서비스의 이용 조건 및 절차에 관한 사항을 규정함을 목적으로 합니다.
+
+제 2 조 (이용자의 정의 및 동의)
+1. '이용자'란 서비스가 제공하는 가입 절차를 거쳐 서비스를 이용하는 자를 말합니다.
+2. 이용자가 가입 및 로그인 시 본 약관에 동의함은 서비스 이용과 관련된 모든 사항을 이해하고 수락한 것으로 간주합니다.
+
+제 3 조 (데모 서비스 제공 및 제한)
+1. 본 서비스는 시연용 데모 버전으로 운영됩니다.
+2. 데모의 공정하고 안정적인 운영을 위해 모든 이용자 계정당 다음과 같은 이용 한도가 적용됩니다:
+   - 프로젝트당 최대 저장 한도: 10MB (문서 파일 및 텍스트 데이터 포함)
+   - AI 기능 활용 일일 토큰 한도: 100 토큰 (기획 1토큰, 채팅 2토큰, 문서 생성 5토큰 차감)
+3. 서비스 제공자는 시스템 점검, 보안 이슈 등의 사유로 예고 없이 서비스를 일시 중단하거나 한도를 조정할 수 있습니다.
+
+제 4 조 (책임 제한 및 면책)
+1. 본 서비스에서 AI가 생성하는 백과사전 문서, 요약본, 관계도(지식 그래프) 정보는 인공지능 모델의 분석 결과물로, 사실 여부나 정확성을 보장하지 않으며 서비스 제공자는 이로 인한 어떠한 책임도 지지 않습니다.
+2. 데모 서비스 특성상 데이터의 안전성 및 영구 보존을 보장하지 않으며, 서버 문제나 시연 기간 종료 등으로 인한 데이터 유실에 대해 면책됩니다. 중요한 정보는 이용자가 직접 '내보내기' 기능을 이용하여 로컬에 보관해야 합니다.`;
+
+const PRIVACY_TEXT = `1. 개인정보 수집 및 이용 목적
+AutoWiki AI는 시연용 AI 위키 서비스 제공을 위해 최소한의 개인정보를 수집 및 이용합니다:
+- 계정 식별 및 가입 관리
+- AI 기능 연동 및 잔여 토큰 카운트 매칭
+- 데이터 저장소 용량 체크 및 할당량 관리
+
+2. 수집하는 개인정보 항목
+- 간편 가입(Google/OAuth) 시: 이메일 주소, 프로필 닉네임, 프로필 이미지 URL
+- 일반 이메일 가입 시: 이메일 주소, 비밀번호(암호화 해시), 프로필 닉네임
+- 서비스 이용 과정에서 생성되는 데이터: 업로드한 파일 텍스트, 생성된 위키 문서 본문 및 지식 관계 데이터
+
+3. 개인정보의 보유 및 이용 기간
+- 본 서비스는 시연용 버전으로, 수집된 개인정보 및 이용자 데이터는 계정 탈퇴 요청 시 또는 본 데모 시연 서비스가 완전히 공식 종료되는 시점에 즉시 영구 파기됩니다.
+- 이용자는 언제든지 로그아웃 및 계정 연결을 중단할 수 있습니다.
+
+4. 제3자 제공 및 위탁
+본 서비스는 이용자의 명시적 동의 없이 개인정보를 외부에 제공하거나 위탁하지 않으며, 입력된 데이터는 지정된 보안 API 연동 이외의 용도로 활용되지 않습니다.`;
 
 // ── Icons ──────────────────────────────────────────────────────────
 function GoogleIcon() {
@@ -76,6 +113,7 @@ function LocalFlow({ onSuccess, onBack }: { onSuccess: () => void, onBack: () =>
 export function AuthOverlay({ onSuccess }: { onSuccess: () => void }) {
   const [provider, setProvider] = useState<Provider>("select");
   const [isLocalhost, setIsLocalhost] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState<"none" | "terms" | "privacy">("none");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -94,7 +132,7 @@ export function AuthOverlay({ onSuccess }: { onSuccess: () => void }) {
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#0645ad] to-[#3b82f6]"/>
         
         {/* Header */}
-        <div className="text-center mb-10 pt-2">
+        <div className="text-center mb-8 pt-2">
           <div className="w-16 h-16 bg-[#f0f7ff] dark:bg-blue-950/30 rounded-2xl flex items-center justify-center mx-auto mb-5 rotate-3 shadow-sm border border-[#0645ad]/10 dark:border-blue-800/10">
             <Key size={30} className="text-[#0645ad] dark:text-blue-400 -rotate-3"/>
           </div>
@@ -104,11 +142,14 @@ export function AuthOverlay({ onSuccess }: { onSuccess: () => void }) {
 
         {provider === "select" ? (
           <div className="space-y-4">
+
             <button 
               onClick={handleGoogleLogin}
               className="w-full flex items-center justify-center gap-3 py-3.5 border-2 border-[#f1f5f9] dark:border-zinc-800 rounded-xl font-bold text-[15px] bg-white dark:bg-zinc-800 text-[#1a1a1a] dark:text-white hover:bg-[#f8fafc] dark:hover:bg-zinc-700 hover:border-[#e2e8f0] dark:hover:border-zinc-700 transition-all active:scale-[0.98]"
             >
-              <GoogleIcon/> Google 계정으로 계속하기
+              <GoogleIcon/>
+              <span className="hidden min-[380px]:inline">Google 계정으로 계속하기</span>
+              <span className="inline min-[380px]:hidden">Google</span>
             </button>
 
             {/* 로컬호스트(개발 환경)에서만 이메일 로그인 노출 */}
@@ -117,7 +158,9 @@ export function AuthOverlay({ onSuccess }: { onSuccess: () => void }) {
                 onClick={() => setProvider("local")}
                 className="w-full flex items-center justify-center gap-3 py-3.5 bg-[#f8fafc] dark:bg-zinc-800 text-[#64748b] dark:text-gray-300 border border-dashed border-[#cbd5e1] dark:border-zinc-700 rounded-xl font-bold text-[15px] hover:bg-[#f1f5f9] dark:hover:bg-zinc-700 transition-all"
               >
-                <Mail size={18}/> [테스트용] 이메일로 계속하기
+                <Mail size={18}/>
+                <span className="hidden min-[380px]:inline">[테스트용] 이메일로 계속하기</span>
+                <span className="inline min-[380px]:hidden">이메일</span>
               </button>
             )}
 
@@ -126,13 +169,40 @@ export function AuthOverlay({ onSuccess }: { onSuccess: () => void }) {
           <LocalFlow onSuccess={onSuccess} onBack={() => setProvider("select")}/>
         )}
 
-        <div className="mt-10 pt-6 border-t border-[#f1f5f9] dark:border-zinc-800 text-center">
+        <div className="mt-8 pt-5 border-t border-[#f1f5f9] dark:border-zinc-800 text-center">
           <p className="text-[11px] text-[#94a3b8] dark:text-gray-500 leading-relaxed">
-            로그인 시 AutoWiki의 <span className="underline cursor-pointer">이용 약관</span> 및 <br/>
-            <span className="underline cursor-pointer">개인정보 처리방침</span>에 동의하게 됩니다.
+            로그인 시 AutoWiki의 <span className="underline cursor-pointer hover:text-[#0645ad] dark:hover:text-blue-400" onClick={() => setShowTermsModal("terms")}>이용 약관</span> 및 <br/>
+            <span className="underline cursor-pointer hover:text-[#0645ad] dark:hover:text-blue-400" onClick={() => setShowTermsModal("privacy")}>개인정보 처리방침</span>에 동의하게 됩니다.
           </p>
         </div>
       </div>
+
+      {/* ── Terms & Privacy Modal Overlay ────────────────────────────────── */}
+      {showTermsModal !== "none" && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs z-[200] flex items-center justify-center p-4" onClick={() => setShowTermsModal("none")}>
+          <div className="bg-white dark:bg-zinc-900 border border-[#a2a9b1] dark:border-zinc-800 shadow-2xl p-6 max-w-lg w-full rounded-2xl my-auto max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3 border-b pb-2 dark:border-zinc-800">
+              <h3 className="text-base sm:text-lg font-bold text-[#1a1a1a] dark:text-white font-serif">
+                {showTermsModal === "terms" ? "이용 약관" : "개인정보 처리방침"}
+              </h3>
+              <button onClick={() => setShowTermsModal("none")} className="p-1 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full text-slate-400 dark:text-gray-400">
+                <X size={18}/>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto text-[11px] sm:text-xs text-slate-600 dark:text-gray-300 whitespace-pre-line leading-relaxed pr-1 custom-scrollbar">
+              {showTermsModal === "terms" ? TERMS_TEXT : PRIVACY_TEXT}
+            </div>
+            <div className="flex justify-end mt-4 pt-3 border-t dark:border-zinc-850">
+              <button 
+                onClick={() => setShowTermsModal("none")} 
+                className="px-5 py-2 text-xs border border-[#a2a9b1] dark:border-zinc-700 bg-[#f8f9fa] dark:bg-zinc-800 text-[#202122] dark:text-[#eaecf0] hover:bg-[#eaecf0] dark:hover:bg-zinc-700 font-bold rounded-lg"
+              >
+                확인 및 닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

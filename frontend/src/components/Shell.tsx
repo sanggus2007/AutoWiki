@@ -16,7 +16,7 @@ interface SidebarProps {
 export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const pathname = usePathname();
   const router = useRouter();
-  const [projects, setProjects] = useState<{id: number, name: string, slug: string}[]>([]);
+  const [projects, setProjects] = useState<{ id: number, name: string, slug: string }[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDesc, setNewProjectDesc] = useState("");
@@ -33,7 +33,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         setStorageUsed(data.storage_used || 0);
         setTokens(data.tokens ?? 100);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [pathname]);
 
   useEffect(() => {
@@ -91,7 +91,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     const formData = new FormData();
     formData.append("name", newProjectName.trim());
     formData.append("description", newProjectDesc.trim());
-    
+
     const res = await apiFetch("/api/projects", {
       method: "POST",
       body: formData,
@@ -110,8 +110,8 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     <>
       {/* Mobile Overlay */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/40 z-[60] lg:hidden" 
+        <div
+          className="fixed inset-0 bg-black/40 z-[60] lg:hidden"
           onClick={onClose}
         />
       )}
@@ -145,17 +145,17 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
         <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto custom-scrollbar">
           <div className="text-[11px] font-bold text-[#54595d] dark:text-gray-400 px-2 mb-1 uppercase tracking-wider">탐색</div>
-          <NavItem 
-            icon={<Home size={15} />} 
-            label="대문" 
-            active={pathname === "/dashboard"} 
+          <NavItem
+            icon={<Home size={15} />}
+            label="대문"
+            active={pathname === "/dashboard"}
             onClick={handleHomeClick}
           />
-          
+
           <div className="mt-5 mb-1">
             <div className="flex items-center justify-between px-2">
               <div className="text-[11px] font-bold text-[#54595d] dark:text-gray-400 uppercase tracking-wider">프로젝트</div>
-              <button 
+              <button
                 onClick={() => {
                   setResetClicks(0);
                   setShowCreateModal(true);
@@ -168,12 +168,12 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             </div>
           </div>
           {projects.map(p => (
-            <NavItem 
-              key={p.id} 
-              icon={<FolderOpen size={15} />} 
-              label={p.name} 
-              href={`/dashboard/project/${p.id}`} 
-              active={pathname === `/dashboard/project/${p.id}` || pathname.startsWith(`/dashboard/project/${p.id}/`)} 
+            <NavItem
+              key={p.id}
+              icon={<FolderOpen size={15} />}
+              label={p.name}
+              href={`/dashboard/project/${p.id}`}
+              active={pathname === `/dashboard/project/${p.id}` || pathname.startsWith(`/dashboard/project/${p.id}/`)}
             />
           ))}
           {projects.length === 0 && (
@@ -184,48 +184,51 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         <div className="p-2 lg:p-3 border-t border-gray-700 pb-[calc(8px+env(safe-area-inset-bottom))] lg:pb-3 shrink-0">
           {/* Storage Details */}
           <div className="mt-1 lg:mt-3 px-2 mb-1 lg:mb-3">
-             <div className="flex items-center justify-between mb-1">
-                 <div className="text-[10px] lg:text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center">
-                    <Database size={10} className="mr-1 w-2.5 h-2.5 lg:w-3 lg:h-3" />
-                    저장소 용량 제한
-                 </div>
-                 <div className="text-[9px] lg:text-[10px] text-[#54595d] dark:text-gray-400">
-                    {(storageUsed / 1024).toFixed(1)} / 10240 KB
-                 </div>
-             </div>
-             <div className="w-full bg-[#eaecf0] dark:bg-zinc-800 h-1 lg:h-1.5 rounded-full overflow-hidden">
-                 <div 
-                    className={`h-full ${storageUsed >= storageLimit ? 'bg-red-500' : 'bg-emerald-500'}`} 
-                    style={{ width: `${Math.min(100, (storageUsed / storageLimit) * 100)}%` }}
-                   />
-             </div>
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-[10px] lg:text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center">
+                <Database size={10} className="mr-1 w-2.5 h-2.5 lg:w-3 lg:h-3" />
+                저장소 용량 제한
+              </div>
+              <div className="text-[9px] lg:text-[10px] text-[#54595d] dark:text-gray-400">
+                {(storageUsed / 1024).toFixed(1)} / 10240 KB
+              </div>
+            </div>
+            <div className="w-full bg-[#eaecf0] dark:bg-zinc-800 h-1 lg:h-1.5 rounded-full overflow-hidden">
+              <div
+                className={`h-full ${storageUsed >= storageLimit ? 'bg-red-500' : 'bg-emerald-500'}`}
+                style={{ width: `${Math.min(100, (storageUsed / storageLimit) * 100)}%` }}
+              />
+            </div>
           </div>
 
           {/* AI Token Details */}
           <div className="mt-2 lg:mt-3 px-2 mb-1 lg:mb-3">
-             <div className="flex items-center justify-between mb-1">
-                 <div className="text-[10px] lg:text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center">
-                    <Sparkles size={10} className="mr-1 w-2.5 h-2.5 lg:w-3 lg:h-3 text-purple-500 dark:text-purple-400" />
-                    AI 토큰 잔여량
-                 </div>
-                 <div className="text-[9px] lg:text-[10px] text-[#54595d] dark:text-gray-400 font-bold">
-                    {tokens} / 100 토큰
-                 </div>
-             </div>
-             <div className="w-full bg-[#eaecf0] dark:bg-zinc-800 h-1 lg:h-1.5 rounded-full overflow-hidden">
-                 <div 
-                    className="h-full bg-purple-600 dark:bg-purple-500 transition-all duration-300" 
-                    style={{ width: `${Math.min(100, (tokens / 100) * 100)}%` }}
-                   />
-             </div>
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-[10px] lg:text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center">
+                <Sparkles size={10} className="mr-1 w-2.5 h-2.5 lg:w-3 lg:h-3 text-purple-500 dark:text-purple-400" />
+                AI 토큰 잔여량
+              </div>
+              <div className="text-[9px] lg:text-[10px] text-[#54595d] dark:text-gray-400 font-bold">
+                {tokens} / 100 토큰
+              </div>
+            </div>
+            <div className="w-full bg-[#eaecf0] dark:bg-zinc-800 h-1 lg:h-1.5 rounded-full overflow-hidden mb-1">
+              <div
+                className="h-full bg-purple-600 dark:bg-purple-500 transition-all duration-300"
+                style={{ width: `${Math.min(100, (tokens / 100) * 100)}%` }}
+              />
+            </div>
+            <div className="text-[9px] text-gray-500 dark:text-gray-400 text-right">
+              매일 자정 초기화
+            </div>
           </div>
 
           <div className="text-[10px] lg:text-[11px] font-bold text-[#54595d] dark:text-gray-400 px-2 mt-2 mb-1 lg:mt-4 lg:mb-2 uppercase tracking-wider">도구 모음</div>
-          <NavItem 
-            icon={<Settings size={14} />} 
-            label="환경 설정" 
-            href="/dashboard/settings" 
-            active={pathname === "/dashboard/settings"} 
+          <NavItem
+            icon={<Settings size={14} />}
+            label="환경 설정"
+            href="/dashboard/settings"
+            active={pathname === "/dashboard/settings"}
           />
           <div
             onClick={() => {
@@ -243,11 +246,11 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             <div className="flex items-center justify-between px-2 mb-1 lg:mb-2 min-w-0">
               <div className="flex items-center space-x-2 truncate min-w-0">
                 {user.avatar_url ? (
-                   <img src={user.avatar_url} alt="Profile" className="w-5 h-5 lg:w-6 lg:h-6 rounded-full border border-[#a2a9b1] dark:border-zinc-700" />
+                  <img src={user.avatar_url} alt="Profile" className="w-5 h-5 lg:w-6 lg:h-6 rounded-full border border-[#a2a9b1] dark:border-zinc-700" />
                 ) : (
-                   <div className="w-5 h-5 lg:w-6 lg:h-6 rounded-full bg-[#eaecf0] dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 flex items-center justify-center text-[9px] lg:text-[10px] font-bold text-[#54595d] dark:text-gray-300 shrink-0">
-                     {user.username.charAt(0).toUpperCase()}
-                   </div>
+                  <div className="w-5 h-5 lg:w-6 lg:h-6 rounded-full bg-[#eaecf0] dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 flex items-center justify-center text-[9px] lg:text-[10px] font-bold text-[#54595d] dark:text-gray-300 shrink-0">
+                    {user.username.charAt(0).toUpperCase()}
+                  </div>
                 )}
                 <span className="text-[11px] lg:text-[12px] font-semibold text-[#202122] dark:text-[#eaecf0] truncate min-w-0">{user.username}</span>
               </div>
@@ -294,13 +297,13 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               </div>
             </div>
             <div className="flex justify-end space-x-2 mt-5">
-              <button 
+              <button
                 onClick={() => setShowCreateModal(false)}
                 className="px-4 py-1.5 text-[13px] border border-[#a2a9b1] dark:border-zinc-700 bg-[#f8f9fa] dark:bg-zinc-800 text-[#202122] dark:text-[#eaecf0] hover:bg-[#eaecf0] dark:hover:bg-zinc-700 font-bold"
               >
                 취소
               </button>
-              <button 
+              <button
                 onClick={handleCreateProject}
                 disabled={!newProjectName.trim()}
                 className="px-4 py-1.5 text-[13px] border border-[#0645ad] dark:border-blue-600 bg-[#0645ad] dark:bg-blue-600 text-white hover:bg-[#0b0080] dark:hover:bg-blue-700 font-bold disabled:opacity-40 disabled:bg-slate-300 dark:disabled:bg-zinc-800"
@@ -328,11 +331,10 @@ const NavItem = ({ icon, label, active = false, href, onClick }: { icon: React.R
         if (onClick) onClick();
         else if (href) router.push(href);
       }}
-      className={`flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] min-w-0 ${
-        active
+      className={`flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] min-w-0 ${active
           ? "bg-[#eaecf0] dark:bg-zinc-800 text-[#000000] dark:text-white font-bold"
           : "text-[#202122] dark:text-zinc-300 hover:bg-[#eaecf0] dark:hover:bg-zinc-800"
-      }`}
+        }`}
     >
       <span className={`shrink-0 ${active ? "text-[#000000] dark:text-white" : "text-[#54595d] dark:text-zinc-400"} w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center`}>{icon}</span>
       <span className="truncate min-w-0">{label}</span>
@@ -343,7 +345,7 @@ const NavItem = ({ icon, label, active = false, href, onClick }: { icon: React.R
 export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<{type: "project" | "entity", name: string, url: string}[]>([]);
+  const [searchResults, setSearchResults] = useState<{ type: "project" | "entity", name: string, url: string }[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
 
@@ -375,7 +377,7 @@ export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
   return (
     <header className="h-[calc(3.5rem+env(safe-area-inset-top))] bg-[#ffffff] dark:bg-black border-b border-[#a2a9b1] dark:border-gray-700 flex items-center justify-between px-4 shrink-0 font-sans z-40 relative pt-[env(safe-area-inset-top)]">
       <div className="flex items-center space-x-2 lg:space-x-6 text-[#0645ad] dark:text-blue-400 text-sm">
-        <button 
+        <button
           onClick={onMenuClick}
           className="lg:hidden p-1 -ml-1 text-[#54595d] dark:text-gray-400 hover:bg-[#eaecf0] dark:hover:bg-gray-800 rounded-sm"
         >
@@ -428,7 +430,7 @@ export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
                 검색 결과가 없습니다.
               </div>
             )}
-            <div 
+            <div
               className="p-1 px-4 text-right bg-[#f8f9fa] dark:bg-zinc-900 border-t border-[#f0f0f0] dark:border-zinc-800"
               onClick={() => setShowResults(false)}
             >
@@ -437,7 +439,7 @@ export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
           </div>
         )}
       </div>
-      
+
       {/* Click outside to close results */}
       {showResults && (
         <div className="fixed inset-0 z-[90]" onClick={() => setShowResults(false)} />

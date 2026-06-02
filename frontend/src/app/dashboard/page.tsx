@@ -5,6 +5,7 @@ import { FolderOpen } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { SetupTutorial } from "@/components/SetupTutorial";
+import { useAuthStore } from "@/lib/store";
 
 
 interface ProjectItem {
@@ -21,14 +22,18 @@ export default function DashboardPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [showTutorial, setShowTutorial] = useState(false);
+  const { user } = useAuthStore();
 
   useEffect(() => {
-    // 토큰이 없으면 튜토리얼 자동 표시 (한 번도 안 본 경우만)
-    const savedGithubToken = localStorage.getItem("autowiki_github_token");
-    const tutorialSeen = localStorage.getItem("autowiki_tutorial_seen");
-    if (!savedGithubToken && !tutorialSeen) {
+    if (!user) return;
+    const tutorialKey = `autowiki_tutorial_seen_${user.id}`;
+    const tutorialSeen = localStorage.getItem(tutorialKey) || localStorage.getItem("autowiki_tutorial_seen");
+    if (!tutorialSeen) {
       setShowTutorial(true);
     }
+  }, [user]);
+
+  useEffect(() => {
     apiFetch("/api/projects")
       .then(async r => {
         if (!r.ok) {
@@ -106,11 +111,18 @@ export default function DashboardPage() {
 
       {showTutorial && (
         <SetupTutorial 
+          userId={user?.id}
           onClose={() => {
+            if (user) {
+              localStorage.setItem(`autowiki_tutorial_seen_${user.id}`, "true");
+            }
             localStorage.setItem("autowiki_tutorial_seen", "true");
             setShowTutorial(false);
           }} 
           onGoToSettings={() => {
+            if (user) {
+              localStorage.setItem(`autowiki_tutorial_seen_${user.id}`, "true");
+            }
             localStorage.setItem("autowiki_tutorial_seen", "true");
             router.push('/dashboard/settings');
           }} 

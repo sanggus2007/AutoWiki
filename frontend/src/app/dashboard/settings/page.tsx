@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Key, Bot, Save, AlertCircle, CheckCircle2, HelpCircle, Sparkles, LogOut, Loader2, ExternalLink, Copy, Check, RotateCcw, Palette, Sun, Moon, Monitor } from "lucide-react";
+import { Key, Bot, Save, AlertCircle, CheckCircle2, HelpCircle, Sparkles, LogOut, Loader2, ExternalLink, Copy, Check, RotateCcw, Palette, Sun, Moon, Monitor, User, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
 import { apiFetch } from "@/lib/api";
@@ -11,9 +11,9 @@ import { SetupTutorial } from "@/components/SetupTutorial";
 // ── Custom GitHub Icon ──────────────────────────────────────────────────
 function GithubIcon({ size = 20, className = "" }: { size?: number, className?: string }) {
   return (
-    <svg 
-      width={size} height={size} viewBox="0 0 24 24" fill="none" 
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
+    <svg
+      width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
       className={className}
     >
       <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.28 1.15-.28 2.35 0 3.5-.73 1.02-1.08 2.25-1 3.5 0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
@@ -24,10 +24,10 @@ function GithubIcon({ size = 20, className = "" }: { size?: number, className?: 
 
 export default function SettingsPage() {
   const setUser = useAuthStore(state => state.setUser);
-  const [activeTab, setActiveTab] = useState<"model" | "prompt" | "ui">("ui");
+  const [activeTab, setActiveTab] = useState<"model" | "prompt" | "ui" | "account">("ui");
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
-  
+
   const [model, setModel] = useState("gemini-3.1-pro-preview");
   const [subModel, setSubModel] = useState("gemini-3-flash-preview");
   const [thinkingLevel, setThinkingLevel] = useState("HIGH");
@@ -41,19 +41,22 @@ export default function SettingsPage() {
   const [ollamaApiKey, setOllamaApiKey] = useState("");
   const [hasOllamaKey, setHasOllamaKey] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
-  
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Provider-specific model states
   const [copilotModel, setCopilotModel] = useState("gemini-3.1-pro-preview");
   const [copilotSubModel, setCopilotSubModel] = useState("gemini-3-flash-preview");
   const [ollamaModel, setOllamaModel] = useState("gemini-3-flash-preview");
   const [ollamaSubModel, setOllamaSubModel] = useState("gemini-3-flash-preview");
-  const [prompts, setPrompts] = useState<{key: string, name: string, content: string, description: string}[]>([]);
+  const [prompts, setPrompts] = useState<{ key: string, name: string, content: string, description: string }[]>([]);
   const [promptsLoading, setPromptsLoading] = useState(true);
   const [promptsSaved, setPromptsSaved] = useState(false);
 
   // Device Flow States
   const [linking, setLinking] = useState(false);
-  const [deviceInfo, setDeviceInfo] = useState<{user_code: string, verification_uri: string, device_code: string, interval: number} | null>(null);
+  const [deviceInfo, setDeviceInfo] = useState<{ user_code: string, verification_uri: string, device_code: string, interval: number } | null>(null);
   const [pollError, setPollError] = useState("");
   const [copied, setCopied] = useState(false);
   const pollCleanup = useRef<(() => void) | null>(null);
@@ -70,29 +73,29 @@ export default function SettingsPage() {
     const savedModel = localStorage.getItem("autowiki_llm_model");
     const savedSubModel = localStorage.getItem("autowiki_llm_sub_model");
 
-    const savedCopilotModel = localStorage.getItem("autowiki_llm_model_copilot") || 
-      (savedModel && (savedModel.includes("gemini") || savedModel.includes("gpt") || savedModel.includes("o1")) ? savedModel : null) || 
+    const savedCopilotModel = localStorage.getItem("autowiki_llm_model_copilot") ||
+      (savedModel && (savedModel.includes("gemini") || savedModel.includes("gpt") || savedModel.includes("o1")) ? savedModel : null) ||
       "gemini-3.1-pro-preview";
-    const savedCopilotSubModel = localStorage.getItem("autowiki_llm_sub_model_copilot") || 
-      (savedSubModel && (savedSubModel.includes("gemini") || savedSubModel.includes("gpt") || savedSubModel.includes("o1")) ? savedSubModel : null) || 
+    const savedCopilotSubModel = localStorage.getItem("autowiki_llm_sub_model_copilot") ||
+      (savedSubModel && (savedSubModel.includes("gemini") || savedSubModel.includes("gpt") || savedSubModel.includes("o1")) ? savedSubModel : null) ||
       "gemini-3-flash-preview";
 
-    const savedOllamaModel = localStorage.getItem("autowiki_llm_model_ollama") || 
+    const savedOllamaModel = localStorage.getItem("autowiki_llm_model_ollama") ||
       "gemini-3-flash-preview";
-    const savedOllamaSubModel = localStorage.getItem("autowiki_llm_sub_model_ollama") || 
+    const savedOllamaSubModel = localStorage.getItem("autowiki_llm_sub_model_ollama") ||
       "gemini-3-flash-preview";
 
     setCopilotModel(savedCopilotModel);
     setCopilotSubModel(savedCopilotSubModel);
     setOllamaModel(savedOllamaModel);
     setOllamaSubModel(savedOllamaSubModel);
-    
+
     // Check GitHub Linking status and AI Settings from backend
     apiFetch("/api/users/me")
       .then(res => res.json())
       .then(data => {
         setIsGithubLinked(data.is_github_linked);
-        
+
         // Sync preferred provider from localStorage if backend doesn't have it set yet
         const savedPreferred = localStorage.getItem("autowiki_preferred_provider") as "github_copilot" | "ollama";
         const provider = data.ai_provider || savedPreferred || "github_copilot";
@@ -102,7 +105,7 @@ export default function SettingsPage() {
         if (data.has_ollama_key) {
           setOllamaApiKey("");
         }
-        
+
         // Sync active inputs based on loaded provider
         if (provider === "github_copilot") {
           setModel(savedCopilotModel || data.model || "gemini-3.1-pro-preview");
@@ -111,7 +114,7 @@ export default function SettingsPage() {
           setModel(savedOllamaModel || data.model || "gemini-3-flash-preview");
           setSubModel(savedOllamaSubModel || data.sub_model || "gemini-3-flash-preview");
         }
-        
+
         if (!data.is_github_linked && provider === "github_copilot") {
           const tutorialSeen = localStorage.getItem("autowiki_tutorial_seen");
           if (!tutorialSeen) {
@@ -121,7 +124,7 @@ export default function SettingsPage() {
         }
       })
       .catch(err => console.error("Failed to check auth status", err));
-    
+
     const savedThinking = localStorage.getItem("autowiki_llm_thinking_level");
     if (savedThinking) setThinkingLevel(savedThinking);
     const savedReasoning = localStorage.getItem("autowiki_llm_reasoning_effort");
@@ -184,7 +187,7 @@ export default function SettingsPage() {
 
   const handleProviderSwitch = (provider: "github_copilot" | "ollama") => {
     if (provider === aiProvider) return;
-    
+
     // Save current active input values to current provider's state
     if (aiProvider === "github_copilot") {
       setCopilotModel(model);
@@ -290,10 +293,10 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error("분찰 코드 신청 실패");
       const data = await res.json();
       setDeviceInfo(data);
-      
+
       // Stop previous polling if any
       if (pollCleanup.current) pollCleanup.current();
-      
+
       // Start Polling
       pollCleanup.current = startPolling(data.device_code, data.interval || 5);
     } catch (err: any) {
@@ -308,16 +311,16 @@ export default function SettingsPage() {
 
     const poll = async () => {
       if (stop) return;
-      
+
       try {
         const res = await apiFetch("/api/auth/poll", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ device_code: deviceCode })
         });
-        
+
         const data = await res.json();
-        
+
         if (data.status === "success") {
           setIsGithubLinked(true);
           setUser(data.user);
@@ -370,6 +373,33 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== "계정을 탈퇴하겠습니다") return;
+    
+    if (!confirm("정말로 탈퇴하시겠습니까? 이 작업은 절대로 되돌릴 수 없으며, 모든 데이터가 즉시 영구 삭제됩니다.")) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const res = await apiFetch("/api/users/me", {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        alert("계정이 성공적으로 탈퇴 처리되었습니다. 이용해 주셔서 감사합니다.");
+        setUser(null);
+        window.location.href = "/login";
+      } else {
+        const errData = await res.json();
+        alert(`계정 탈퇴 실패: ${errData.detail || "알 수 없는 오류"}`);
+      }
+    } catch (err: any) {
+      alert(`서버 연결 오류: ${err.message}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const copyCode = () => {
     if (deviceInfo) {
       navigator.clipboard.writeText(deviceInfo.user_code);
@@ -391,14 +421,23 @@ export default function SettingsPage() {
           {/* AI 모델 & 연동 및 시스템 프롬프트 항목 비활성화 (시연용 데모 버전) */}
           <button
             onClick={() => setActiveTab("ui")}
-            className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all whitespace-nowrap md:w-full border ${
-              activeTab === "ui"
+            className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all whitespace-nowrap md:w-full border ${activeTab === "ui"
                 ? "bg-[#0645ad] text-white border-[#0645ad] shadow-sm font-bold animate-in fade-in duration-250 dark:bg-zinc-800 dark:border-zinc-700"
                 : "bg-[#f8f9fa] text-[#54595d] border-[#a2a9b1]/30 hover:bg-[#eaecf0] hover:text-[#202122] dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
-            }`}
+              }`}
           >
             <Palette size={18} />
             <span>사용자 인터페이스</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("account")}
+            className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all whitespace-nowrap md:w-full border ${activeTab === "account"
+                ? "bg-[#0645ad] text-white border-[#0645ad] shadow-sm font-bold animate-in fade-in duration-250 dark:bg-zinc-800 dark:border-zinc-700"
+                : "bg-[#f8f9fa] text-[#54595d] border-[#a2a9b1]/30 hover:bg-[#eaecf0] hover:text-[#202122] dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
+              }`}
+          >
+            <User size={18} />
+            <span>계정 관리</span>
           </button>
         </div>
 
@@ -425,13 +464,12 @@ export default function SettingsPage() {
                     <label className="block text-sm font-bold mb-2">AI 서비스 제공자 선택</label>
                     <div className="grid grid-cols-2 gap-4">
                       {/* GitHub Copilot Card */}
-                      <div 
+                      <div
                         onClick={() => handleProviderSwitch("github_copilot")}
-                        className={`cursor-pointer rounded-lg border-2 p-4 transition-all flex flex-col items-center justify-center gap-2 ${
-                          aiProvider === "github_copilot" 
-                            ? "border-[#0645ad] dark:border-zinc-500 bg-[#f0f7ff] dark:bg-zinc-800 shadow-md animate-in fade-in duration-200" 
+                        className={`cursor-pointer rounded-lg border-2 p-4 transition-all flex flex-col items-center justify-center gap-2 ${aiProvider === "github_copilot"
+                            ? "border-[#0645ad] dark:border-zinc-500 bg-[#f0f7ff] dark:bg-zinc-800 shadow-md animate-in fade-in duration-200"
                             : "border-[#e2e8f0] dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-[#a2a9b1] dark:hover:border-zinc-700"
-                        }`}
+                          }`}
                       >
                         <GithubIcon size={28} className={aiProvider === "github_copilot" ? "text-[#0645ad] dark:text-zinc-300" : "text-[#54595d] dark:text-gray-400"} />
                         <div className="text-sm font-bold text-center">GitHub Copilot</div>
@@ -439,13 +477,12 @@ export default function SettingsPage() {
                       </div>
 
                       {/* Ollama Cloud / Local Card */}
-                      <div 
+                      <div
                         onClick={() => handleProviderSwitch("ollama")}
-                        className={`cursor-pointer rounded-lg border-2 p-4 transition-all flex flex-col items-center justify-center gap-2 ${
-                          aiProvider === "ollama" 
-                            ? "border-[#0645ad] dark:border-zinc-500 bg-[#f0f7ff] dark:bg-zinc-800 shadow-md animate-in fade-in duration-200" 
+                        className={`cursor-pointer rounded-lg border-2 p-4 transition-all flex flex-col items-center justify-center gap-2 ${aiProvider === "ollama"
+                            ? "border-[#0645ad] dark:border-zinc-500 bg-[#f0f7ff] dark:bg-zinc-800 shadow-md animate-in fade-in duration-200"
                             : "border-[#e2e8f0] dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-[#a2a9b1] dark:hover:border-zinc-700"
-                        }`}
+                          }`}
                       >
                         <Bot size={28} className={aiProvider === "ollama" ? "text-[#0645ad] dark:text-zinc-300" : "text-[#54595d] dark:text-gray-400"} />
                         <div className="text-sm font-bold text-center">Ollama Pro / Local</div>
@@ -461,7 +498,7 @@ export default function SettingsPage() {
                         <h3 className="text-sm font-black text-[#0645ad] dark:text-zinc-300 flex items-center uppercase tracking-wider">
                           <GithubIcon size={18} className="mr-2" /> GitHub Copilot 통합
                         </h3>
-                        <button 
+                        <button
                           onClick={() => {
                             setTutorialProvider("github_copilot");
                             setShowTutorial(true);
@@ -471,7 +508,7 @@ export default function SettingsPage() {
                           <HelpCircle size={12} /> 설정 안내
                         </button>
                       </div>
-                      
+
                       <p className="text-[#54595d] dark:text-gray-300 text-[12px] mb-4 leading-relaxed">
                         AutoWiki는 사용자의 Copilot 권한을 사용해 문서를 생성합니다. 별도의 토큰 발급 없이 GitHub 로그인을 통해 안전하게 연결할 수 있습니다.
                       </p>
@@ -490,7 +527,7 @@ export default function SettingsPage() {
                                 </div>
                               </div>
                             </div>
-                            <button 
+                            <button
                               onClick={handleDisconnect}
                               className="p-2 text-[#54595d] dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-zinc-700 rounded-md transition-colors shrink-0"
                               title="연결 해제"
@@ -504,21 +541,21 @@ export default function SettingsPage() {
                               <div className="space-y-5">
                                 <div className="inline-flex flex-col">
                                   <span className="text-[10px] font-black text-[#64748b] dark:text-gray-400 uppercase tracking-widest mb-1.5 px-3">인증 코드</span>
-                                  <div 
+                                  <div
                                     onClick={copyCode}
                                     className="text-2xl sm:text-4xl font-black text-[#0645ad] dark:text-zinc-200 tracking-[0.1em] sm:tracking-[0.2em] bg-[#f8fafc] dark:bg-zinc-950 px-4 sm:px-8 py-4 sm:py-5 rounded-xl sm:rounded-2xl border-2 border-dashed border-[#0645ad]/20 dark:border-zinc-800 cursor-pointer hover:border-[#0645ad]/40 dark:hover:border-zinc-700 transition-all flex items-center justify-center gap-2 sm:gap-3 group"
                                   >
                                     {deviceInfo.user_code}
                                     <div className="bg-white dark:bg-zinc-800 p-1.5 rounded-lg shadow-sm border border-[#e2e8f0] dark:border-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      {copied ? <Check size={14} className="text-[#00af89]"/> : <Copy size={14} className="text-[#64748b]"/>}
+                                      {copied ? <Check size={14} className="text-[#00af89]" /> : <Copy size={14} className="text-[#64748b]" />}
                                     </div>
                                   </div>
                                 </div>
-                                
+
                                 <div className="space-y-3">
-                                  <a 
-                                    href={deviceInfo.verification_uri} 
-                                    target="_blank" 
+                                  <a
+                                    href={deviceInfo.verification_uri}
+                                    target="_blank"
                                     rel="noreferrer"
                                     className="w-full bg-[#0645ad] dark:bg-zinc-800 hover:bg-[#0b0080] dark:hover:bg-zinc-700 dark:border dark:border-zinc-700 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
                                   >
@@ -537,7 +574,7 @@ export default function SettingsPage() {
                             )}
                           </div>
                         ) : (
-                          <button 
+                          <button
                             onClick={handleStartLinking}
                             className="w-full bg-white dark:bg-zinc-900 border-2 border-[#0645ad] dark:border-zinc-800 text-[#0645ad] dark:text-zinc-300 hover:bg-[#0645ad] hover:text-white dark:hover:bg-zinc-800 dark:hover:text-white font-black py-4 rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-sm group"
                           >
@@ -545,7 +582,7 @@ export default function SettingsPage() {
                             GitHub Copilot 계정 연결하기
                           </button>
                         )}
-                        
+
                         {pollError && (
                           <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-lg text-red-600 dark:text-red-400 text-xs font-medium animate-shake">
                             <AlertCircle size={14} className="shrink-0 mt-0.5" />
@@ -567,7 +604,7 @@ export default function SettingsPage() {
                         <h3 className="text-sm font-black text-[#b87014] dark:text-zinc-350 flex items-center uppercase tracking-wider">
                           <Bot size={18} className="mr-2 text-[#b87014] dark:text-zinc-350" /> Ollama Cloud & Local 통합
                         </h3>
-                        <button 
+                        <button
                           onClick={() => {
                             setTutorialProvider("ollama");
                             setShowTutorial(true);
@@ -577,9 +614,9 @@ export default function SettingsPage() {
                           <HelpCircle size={12} /> 설정 안내
                         </button>
                       </div>
-                      
+
                       <p className="text-[#54595d] dark:text-gray-300 text-[12px] mb-4 leading-relaxed">
-                        로컬에 실행 중인 Ollama 서버 또는 Ollama Cloud API를 연동합니다. 
+                        로컬에 실행 중인 Ollama 서버 또는 Ollama Cloud API를 연동합니다.
                         <br />
                         <b>중요 보안 수칙:</b> API Key는 절대 노출되지 않으며 백엔드 데이터베이스에 강력하게 암호화(AES-256)되어 보관됩니다.
                       </p>
@@ -597,14 +634,14 @@ export default function SettingsPage() {
                             className="w-full bg-white dark:bg-zinc-800 border border-[#a2a9b1] dark:border-zinc-700 text-[#202122] dark:text-white rounded-sm px-3 py-2 cursor-text focus:outline-none focus:border-zinc-500 dark:focus:border-zinc-500 transition-all font-mono text-[14px] shadow-inner"
                           />
                           <div className="mt-1.5 flex gap-2">
-                            <button 
+                            <button
                               type="button"
                               onClick={() => setOllamaHost("http://localhost:11434")}
                               className="text-[10px] text-[#0645ad] dark:text-zinc-300 hover:underline bg-white dark:bg-zinc-800 px-2 py-0.5 rounded border border-[#a2a9b1]/30 dark:border-zinc-700"
                             >
                               로컬 기본값 (http://localhost:11434)
                             </button>
-                            <button 
+                            <button
                               type="button"
                               onClick={() => setOllamaHost("https://ollama.com")}
                               className="text-[10px] text-[#0645ad] dark:text-zinc-300 hover:underline bg-white dark:bg-zinc-800 px-2 py-0.5 rounded border border-[#a2a9b1]/30 dark:border-zinc-700"
@@ -737,7 +774,7 @@ export default function SettingsPage() {
                   {/* Advanced Reasoning Controls */}
                   <div className="grid grid-cols-2 gap-4 p-4 bg-[#eaecf0] dark:bg-zinc-900 border border-[#a2a9b1] dark:border-zinc-800 rounded-sm">
                     <div className="col-span-2 text-xs font-bold text-[#54595d] dark:text-gray-400 uppercase tracking-wider mb-1">고급 추론 제어 (Advanced Reasoning)</div>
-                    
+
                     <div>
                       <label className="block text-xs font-bold mb-1">
                         Thinking Level <span className="font-normal text-[#54595d] dark:text-gray-400">(Gemini 3+)</span>
@@ -768,7 +805,7 @@ export default function SettingsPage() {
                         <option value="high">high</option>
                       </select>
                     </div>
-                    
+
                     <div className="col-span-2 text-[11px] text-[#54595d] dark:text-gray-400 leading-tight">
                       * 모델이 해당 기능을 지원하지 않는 경우 무시됩니다. Gemini 3 시리즈는 Thinking Level을, OpenAI o 시리즈는 Reasoning Effort를 우선적으로 참조합니다.
                     </div>
@@ -783,9 +820,9 @@ export default function SettingsPage() {
 
                   <div className="pt-4 border-t border-[#a2a9b1] dark:border-zinc-700 flex items-center justify-between">
                     {saved ? (
-                      <motion.div 
-                        initial={{ opacity: 0, x: -10 }} 
-                        animate={{ opacity: 1, x: 0 }} 
+                      <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
                         className="flex items-center text-[#00af89] text-sm font-bold"
                       >
                         <CheckCircle2 size={16} className="mr-1.5" /> 설정이 저장되었습니다
@@ -793,7 +830,7 @@ export default function SettingsPage() {
                     ) : (
                       <div></div>
                     )}
-                    
+
                     <div className="flex gap-2">
                       <button
                         onClick={handleResetConfig}
@@ -827,7 +864,7 @@ export default function SettingsPage() {
                   <Sparkles className="mr-2 text-[#54595d] dark:text-gray-400" size={20} />
                   시스템 프롬프트 (System Prompts)
                 </h2>
-                
+
                 {promptsLoading ? (
                   <div className="text-sm text-[#54595d] py-4 text-center">프롬프트 데이터를 불러오는 중...</div>
                 ) : (
@@ -849,9 +886,9 @@ export default function SettingsPage() {
 
                     <div className="pt-4 border-t border-[#a2a9b1] dark:border-zinc-700 flex items-center justify-between">
                       {promptsSaved ? (
-                        <motion.div 
-                          initial={{ opacity: 0, x: -10 }} 
-                          animate={{ opacity: 1, x: 0 }} 
+                        <motion.div
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
                           className="flex items-center text-[#00af89] text-sm font-bold"
                         >
                           <CheckCircle2 size={16} className="mr-1.5" /> 저장되었습니다
@@ -859,7 +896,7 @@ export default function SettingsPage() {
                       ) : (
                         <div></div>
                       )}
-                      
+
                       <div className="flex gap-2">
                         <button
                           onClick={handleResetPrompts}
@@ -894,24 +931,23 @@ export default function SettingsPage() {
                   <Palette className="mr-2 text-[#54595d] dark:text-gray-400" size={20} />
                   사용자 인터페이스 및 테마 설정
                 </h2>
-                
+
                 <div className="space-y-6">
                   <div className="mb-6">
-                    <label className="block text-sm font-bold mb-2 text-gray-900 dark:text-gray-200">컬러 테마 (다크 모드)</label>
+                    <label className="block text-sm font-bold mb-2 text-gray-900 dark:text-gray-200">컬러 테마</label>
                     <p className="text-xs text-[#54595d] dark:text-gray-400 mb-4">
                       AutoWiki의 전체적인 색상 테마를 선택합니다. 눈의 피로를 줄이려면 다크 모드를 사용해 보세요.
                     </p>
-                    
+
                     {mounted ? (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         {/* Light Mode */}
-                        <div 
+                        <div
                           onClick={() => setTheme("light")}
-                          className={`cursor-pointer rounded-lg border-2 p-4 transition-all flex flex-col items-center justify-center gap-3 ${
-                            theme === "light" 
-                              ? "border-[#0645ad] dark:border-zinc-400 bg-[#f0f7ff] dark:bg-black shadow-md scale-[1.02]" 
+                          className={`cursor-pointer rounded-lg border-2 p-4 transition-all flex flex-col items-center justify-center gap-3 ${theme === "light"
+                              ? "border-[#0645ad] dark:border-zinc-400 bg-[#f0f7ff] dark:bg-black shadow-md scale-[1.02]"
                               : "border-[#e2e8f0] dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-[#a2a9b1] dark:hover:border-zinc-700"
-                          }`}
+                            }`}
                         >
                           <div className="p-3 bg-gray-100 dark:bg-zinc-800 rounded-full">
                             <Sun size={24} className="text-amber-500" />
@@ -920,13 +956,12 @@ export default function SettingsPage() {
                         </div>
 
                         {/* Dark Mode */}
-                        <div 
+                        <div
                           onClick={() => setTheme("dark")}
-                          className={`cursor-pointer rounded-lg border-2 p-4 transition-all flex flex-col items-center justify-center gap-3 ${
-                            theme === "dark" 
-                              ? "border-[#0645ad] dark:border-zinc-400 bg-[#f0f7ff] dark:bg-black shadow-md scale-[1.02]" 
+                          className={`cursor-pointer rounded-lg border-2 p-4 transition-all flex flex-col items-center justify-center gap-3 ${theme === "dark"
+                              ? "border-[#0645ad] dark:border-zinc-400 bg-[#f0f7ff] dark:bg-black shadow-md scale-[1.02]"
                               : "border-[#e2e8f0] dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-[#a2a9b1] dark:hover:border-zinc-700"
-                          }`}
+                            }`}
                         >
                           <div className="p-3 bg-gray-100 dark:bg-zinc-800 rounded-full">
                             <Moon size={24} className="text-indigo-500" />
@@ -935,13 +970,12 @@ export default function SettingsPage() {
                         </div>
 
                         {/* System Mode */}
-                        <div 
+                        <div
                           onClick={() => setTheme("system")}
-                          className={`cursor-pointer rounded-lg border-2 p-4 transition-all flex flex-col items-center justify-center gap-3 ${
-                            theme === "system" 
-                              ? "border-[#0645ad] dark:border-zinc-400 bg-[#f0f7ff] dark:bg-black shadow-md scale-[1.02]" 
+                          className={`cursor-pointer rounded-lg border-2 p-4 transition-all flex flex-col items-center justify-center gap-3 ${theme === "system"
+                              ? "border-[#0645ad] dark:border-zinc-400 bg-[#f0f7ff] dark:bg-black shadow-md scale-[1.02]"
                               : "border-[#e2e8f0] dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-[#a2a9b1] dark:hover:border-zinc-700"
-                          }`}
+                            }`}
                         >
                           <div className="p-3 bg-gray-100 dark:bg-zinc-800 rounded-full">
                             <Monitor size={24} className="text-gray-500 dark:text-gray-300" />
@@ -958,26 +992,122 @@ export default function SettingsPage() {
                 </div>
               </motion.div>
             )}
+            {activeTab === "account" && (
+              <motion.div
+                key="account-tab"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="bg-[#f8f9fa] dark:bg-zinc-900 border border-[#a2a9b1] dark:border-zinc-800 rounded-sm p-4 sm:p-6 w-full"
+              >
+                <h2 className="text-xl font-bold border-b border-[#a2a9b1] dark:border-zinc-800 pb-2 mb-5 flex items-center text-gray-900 dark:text-white">
+                  <User className="mr-2 text-[#54595d] dark:text-gray-400" size={20} />
+                  계정 관리
+                </h2>
+
+                <div className="space-y-6">
+                  <div className="border border-[#a2a9b1] dark:border-zinc-800 rounded-sm p-4 bg-white dark:bg-zinc-950">
+                    <h3 className="text-sm font-bold mb-2">계정 탈퇴</h3>
+                    <p className="text-xs text-[#54595d] dark:text-gray-400 mb-4 leading-relaxed">
+                      귀하가 생성한 모든 프로젝트, 위키 문서, 분석 관계 데이터 및 업로드한 파일이 영구히 삭제됩니다.
+                    </p>
+                    <button
+                      onClick={() => setShowDeleteModal(true)}
+                      className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-sm text-sm transition-colors flex items-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      계정 탈퇴 진행하기
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </div>
 
       <AnimatePresence>
         {showTutorial && (
-          <SetupTutorial 
+          <SetupTutorial
             initialProvider={tutorialProvider}
             onClose={() => {
               localStorage.setItem("autowiki_tutorial_seen", "true");
               setShowTutorial(false);
               setTutorialProvider(null);
-            }} 
+            }}
             onGoToSettings={() => {
               localStorage.setItem("autowiki_tutorial_seen", "true");
               setShowTutorial(false);
               setTutorialProvider(null);
               document.getElementById("sub-model-input")?.focus();
-            }} 
+            }}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-zinc-900 border border-[#a2a9b1] dark:border-zinc-800 rounded-lg p-6 max-w-md w-full shadow-2xl space-y-4"
+            >
+              <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
+                <AlertCircle size={28} />
+                <h3 className="text-lg font-bold">정말로 계정을 탈퇴하시겠습니까?</h3>
+              </div>
+
+              <div className="text-sm space-y-2 text-[#54595d] dark:text-gray-300 leading-relaxed">
+                <p className="font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-3 rounded border border-red-200 dark:border-red-900/30">
+                  주의: 계정 탈퇴 즉시 모든 데이터(프로젝트, 위키 문서, 지식 데이터베이스 등)가 영구히 삭제되며 복구할 수 없습니다.
+                </p>
+                <p>
+                  계속하려면 아래 입력창에 <span className="font-mono bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-red-600 dark:text-red-400 font-bold">'계정을 탈퇴하겠습니다'</span>를 정확히 입력해 주세요.
+                </p>
+              </div>
+
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="계정을 탈퇴하겠습니다"
+                className="w-full bg-white dark:bg-zinc-950 border border-red-300 dark:border-red-900 text-[#202122] dark:text-white rounded-sm px-3 py-2 cursor-text focus:outline-none focus:border-red-500 transition-all text-sm"
+              />
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#eaecf0] dark:border-zinc-800">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeleteConfirmText("");
+                  }}
+                  disabled={isDeleting}
+                  className="bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-700 dark:text-zinc-300 px-4 py-2 rounded-sm text-sm transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirmText !== "계정을 탈퇴하겠습니다" || isDeleting}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-sm text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      탈퇴 중...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={16} />
+                      탈퇴 및 데이터 삭제
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

@@ -1005,6 +1005,33 @@ def reset_user_tokens(user=Depends(get_current_user), db=Depends(get_db)):
         "tokens": user.tokens
     }
 
+@app.delete("/api/users/me")
+def delete_user_account(request: Request, user=Depends(get_current_user), db=Depends(get_db)):
+    """유저의 모든 정보와 프로젝트, 세션을 완벽히 영구 삭제 처리합니다."""
+    try:
+        # 1. 유저의 모든 프로젝트에 걸린 관계(Relationship) 데이터 선제 삭제
+        projects = db.query(schema.Project).filter(schema.Project.user_id == user.id).all()
+        for p in projects:
+            entities = db.query(schema.Entity).filter(schema.Entity.project_id == p.id).all()
+            for e in entities:
+                db.query(schema.Relationship).filter(
+                    (schema.Relationship.source_entity_slug == e.slug) |
+                    (schema.Relationship.target_entity_slug == e.slug)
+                ).delete(synchronize_session=False)
+        
+        # 2. 유저 삭제 (SQLAlchemy Cascade에 의해 Project, Document, Entity, ProjectFile, Session 연쇄 삭제)
+        db.delete(user)
+        db.commit()
+        
+        # 3. 쿠키 만료 및 로그아웃 처리된 응답
+        response = JSONResponse(content={"status": "success", "message": "계정이 성공적으로 탈퇴 처리되었습니다."})
+        response.delete_cookie(key="session_id", path="/")
+        return response
+    except Exception as e:
+        db.rollback()
+        print(f"[DeleteAccount] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"계정 탈퇴 처리 중 문제가 발생했습니다: {str(e)}")
+
 class AISettingsPayload(BaseModel):
     ai_provider: str
     ollama_host: Optional[str] = "https://ollama.com"

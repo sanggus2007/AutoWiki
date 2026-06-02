@@ -155,8 +155,31 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
   }, [initialTags]);
 
   useEffect(() => {
+    setContent(initialContent);
+  }, [initialContent]);
+
+  useEffect(() => {
     setDocCategories(categories || []);
   }, [categories]);
+
+  // Fetch latest data on slug/projectId change to bypass next.js router cache on browser back/forward
+  useEffect(() => {
+    if (!slug) return;
+    const url = projectId ? `/api/wiki/${slug}?project_id=${projectId}` : `/api/wiki/${slug}`;
+    apiFetch(url)
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error("Failed to fetch latest wiki content");
+      })
+      .then(data => {
+        setTitle(data.title);
+        setTags(data.tags || []);
+        setSelectedCategory(data.tags?.[0] || "개념");
+        setContent((data.content || "").trim());
+        setDocCategories(data.categories || []);
+      })
+      .catch(err => console.error("[WikiViewer-Refetch] Error updating wiki on mount:", err));
+  }, [slug, projectId]);
 
   // Fetch project entity types (classifications) on mount/projectId change
   useEffect(() => {
@@ -559,7 +582,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
             {docCategories.map((c, i) => (
               <React.Fragment key={c.slug}>
                 {i > 0 && <span className="text-[#54595d] dark:text-gray-600 mx-1">|</span>}
-                <a onClick={() => router.push(`/dashboard/category/${c.slug}`)} className="text-[#0645ad] dark:text-blue-400 hover:underline cursor-pointer">{c.name}</a>
+                <span>{c.name}</span>
               </React.Fragment>
             ))}
           </div>
