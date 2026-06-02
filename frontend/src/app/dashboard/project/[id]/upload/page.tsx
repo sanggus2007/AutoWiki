@@ -11,6 +11,7 @@ import { ArrowLeft, Loader2, Paperclip, MessageSquareText } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { SetupTutorial } from "@/components/SetupTutorial";
 import { GlassObserver } from "@/components/GlassObserver";
+import { useAuthStore } from "@/lib/store";
 
 
 type AppState = "UPLOAD" | "LOADING" | "REVIEW" | "COMMITTING";
@@ -138,6 +139,16 @@ export default function ProjectUploadPage() {
       const data = await res.json();
       setProposals(data.proposals || []);
       setAppState("REVIEW");
+
+      // Refresh global token state
+      apiFetch("/api/users/me")
+        .then(res => res.json())
+        .then(user_data => {
+          if (user_data.tokens !== undefined) {
+            useAuthStore.getState().setTokens(user_data.tokens);
+          }
+        })
+        .catch(err => console.error("Failed to sync tokens:", err));
     } catch (err) {
       console.error("Network error:", err);
       setAppState("UPLOAD");
@@ -197,6 +208,16 @@ export default function ProjectUploadPage() {
       const data = await res.json();
       setProposals(data.proposals || []);
       setAppState("REVIEW");
+
+      // Refresh global token state
+      apiFetch("/api/users/me")
+        .then(res => res.json())
+        .then(user_data => {
+          if (user_data.tokens !== undefined) {
+            useAuthStore.getState().setTokens(user_data.tokens);
+          }
+        })
+        .catch(err => console.error("Failed to sync tokens:", err));
     } catch (err) {
       console.error("Network error:", err);
       setAppState("UPLOAD");

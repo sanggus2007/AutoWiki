@@ -294,9 +294,15 @@ export default function ProjectPage() {
                       {type}
                     </span>
                     {!isOpen && (
-                      <span className="text-[13px] font-bold text-[#202122] dark:text-[#eaecf0] truncate min-w-0 hidden sm:inline-block">
-                        {items.slice(0, 2).map(e => e.name).join("、")}
-                        {items.length > 2 && <span className="text-[#54595d] dark:text-gray-400 font-normal"> 외 {items.length - 2}건</span>}
+                      <span className="inline-flex items-center gap-1 text-[13px] font-bold text-[#202122] dark:text-[#eaecf0] min-w-0 max-w-[120px] min-[400px]:max-w-[200px] min-[500px]:max-w-[280px] sm:max-w-none">
+                        <span className="truncate">
+                          {items.slice(0, 2).map(e => e.name).join("、")}
+                        </span>
+                        {items.length > 2 && (
+                          <span className="text-[#54595d] dark:text-gray-400 font-normal shrink-0">
+                            외 {items.length - 2}건
+                          </span>
+                        )}
                       </span>
                     )}
                   </div>

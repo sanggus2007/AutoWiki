@@ -24,7 +24,7 @@ function GithubIcon({ size = 20, className = "" }: { size?: number, className?: 
 
 export default function SettingsPage() {
   const setUser = useAuthStore(state => state.setUser);
-  const [activeTab, setActiveTab] = useState<"model" | "prompt" | "ui">("model");
+  const [activeTab, setActiveTab] = useState<"model" | "prompt" | "ui">("ui");
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
   
@@ -388,30 +388,7 @@ export default function SettingsPage() {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         {/* Sidebar Tabs for Desktop / Horizontal scroll tabs for Mobile */}
         <div className="md:col-span-3 flex md:flex-col gap-2 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 border-b md:border-b-0 border-[#eaecf0] dark:border-zinc-800">
-          <button
-            onClick={() => setActiveTab("model")}
-            className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all whitespace-nowrap md:w-full border ${
-              activeTab === "model"
-                ? "bg-[#0645ad] text-white border-[#0645ad] shadow-sm font-bold animate-in fade-in duration-250 dark:bg-zinc-800 dark:border-zinc-700"
-                : "bg-[#f8f9fa] text-[#54595d] border-[#a2a9b1]/30 hover:bg-[#eaecf0] hover:text-[#202122] dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
-            }`}
-          >
-            <Bot size={18} />
-            <span>AI 모델 & 연동</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveTab("prompt")}
-            className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all whitespace-nowrap md:w-full border ${
-              activeTab === "prompt"
-                ? "bg-[#0645ad] text-white border-[#0645ad] shadow-sm font-bold animate-in fade-in duration-250 dark:bg-zinc-800 dark:border-zinc-700"
-                : "bg-[#f8f9fa] text-[#54595d] border-[#a2a9b1]/30 hover:bg-[#eaecf0] hover:text-[#202122] dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
-            }`}
-          >
-            <Sparkles size={18} />
-            <span>시스템 프롬프트</span>
-          </button>
-          
+          {/* AI 모델 & 연동 및 시스템 프롬프트 항목 비활성화 (시연용 데모 버전) */}
           <button
             onClick={() => setActiveTab("ui")}
             className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all whitespace-nowrap md:w-full border ${
