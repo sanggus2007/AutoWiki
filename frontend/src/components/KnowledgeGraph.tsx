@@ -471,7 +471,15 @@ export const KnowledgeGraph = ({
   useEffect(() => {
     textureCache.current.forEach(t => t.dispose());
     textureCache.current.clear();
-  }, [activeThemeKey]);
+    
+    // Clear cached sprites on nodes
+    graphData.nodes.forEach((n: any) => {
+      if (n.__sprite) {
+        if (n.__sprite.material) n.__sprite.material.dispose();
+        delete n.__sprite;
+      }
+    });
+  }, [activeThemeKey, graphData.nodes]);
 
   const getOrCreateTexture = useCallback((node: any) => {
     const key = `${node.name || node.id}_${activeThemeKey}`;
@@ -799,7 +807,17 @@ export const KnowledgeGraph = ({
           /* ── 3D Label Rendering ── */
           nodeThreeObject={(node: any) => {
             const showLabel = settings.labelMode === 'always' || (settings.labelMode === 'hover' && node.id === hoveredNodeId);
-            if (!showLabel) return new THREE.Object3D();
+            if (!showLabel) {
+              if (node.__sprite) {
+                if (node.__sprite.material) node.__sprite.material.dispose();
+                delete node.__sprite;
+              }
+              return new THREE.Object3D();
+            }
+
+            if (node.__sprite) {
+              return node.__sprite;
+            }
 
             const texture = getOrCreateTexture(node);
             const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: true, transparent: true });
@@ -818,6 +836,7 @@ export const KnowledgeGraph = ({
               sprite.position.copy(_up).multiplyScalar(22).add(_vec.multiplyScalar(8));
             };
             
+            node.__sprite = sprite;
             return sprite;
           }}
           nodeThreeObjectExtend={true}

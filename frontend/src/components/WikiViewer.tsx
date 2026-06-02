@@ -389,7 +389,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
   };
 
   return (
-    <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 pb-32 font-sans bg-white dark:bg-zinc-900 min-h-screen border-x border-[#a2a9b1] dark:border-zinc-800">
+    <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 pb-32 font-sans bg-white dark:bg-zinc-900 min-h-screen border-x border-[#a2a9b1] dark:border-zinc-800 select-text">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <button onClick={() => router.back()} className="text-[#0645ad] dark:text-blue-400 hover:underline text-[13px] flex items-center">
@@ -545,7 +545,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
           )}
 
           {/* Body */}
-          <div className="markdown-body max-w-none break-words text-[14.2px] leading-relaxed text-[#202122] dark:text-zinc-200 space-y-0">
+          <div className="markdown-body select-text max-w-none break-words text-[14.2px] leading-relaxed text-[#202122] dark:text-zinc-200 space-y-0">
             {renderBody(parsed.body)}
           </div>
         </>

@@ -60,43 +60,53 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
 
   // Resizing state
   const [panelWidth, setPanelWidth] = useState(600);
-  const isResizing = useRef(false);
+  const [resizing, setResizing] = useState(false);
+  const panelWidthRef = useRef(panelWidth);
+
+  useEffect(() => {
+    panelWidthRef.current = panelWidth;
+  }, [panelWidth]);
 
   useEffect(() => {
     const saved = localStorage.getItem("autowiki_chat_panel_width");
-    if (saved) setPanelWidth(parseInt(saved));
+    if (saved) {
+      const parsed = parseInt(saved);
+      setPanelWidth(parsed);
+      panelWidthRef.current = parsed;
+    }
   }, []);
 
   const startResizing = (e: React.MouseEvent) => {
-    isResizing.current = true;
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", stopResizing);
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isResizing.current) return;
-    const newWidth = window.innerWidth - e.clientX;
-    if (newWidth >= 300 && newWidth <= window.innerWidth * 0.8) {
-      setPanelWidth(newWidth);
-    }
-  };
-
-  const stopResizing = () => {
-    isResizing.current = false;
-    document.removeEventListener("mousemove", handleMouseMove);
-    document.removeEventListener("mouseup", stopResizing);
-    document.body.style.cursor = "default";
-    document.body.style.userSelect = "auto";
-    localStorage.setItem("autowiki_chat_panel_width", panelWidth.toString());
+    setResizing(true);
   };
 
   useEffect(() => {
-    if (!isResizing.current) {
-        localStorage.setItem("autowiki_chat_panel_width", panelWidth.toString());
-    }
-  }, [panelWidth]);
+    if (!resizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = window.innerWidth - e.clientX;
+      if (newWidth >= 300 && newWidth <= window.innerWidth * 0.8) {
+        setPanelWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setResizing(false);
+      localStorage.setItem("autowiki_chat_panel_width", panelWidthRef.current.toString());
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [resizing]);
 
   const processMarkdown = (content: string) => {
     if (!content) return "";
@@ -277,7 +287,8 @@ export const ProjectChatPanel: React.FC<ProjectChatPanelProps> = ({ projectId, o
 
   return (
     <div 
-      className={`fixed right-0 top-0 bottom-0 bg-white dark:bg-zinc-950 border-l border-[#a2a9b1] dark:border-zinc-800 shadow-2xl flex z-50 font-sans transition-all duration-300 transform translate-x-0 overflow-hidden
+      className={`fixed right-0 top-0 bottom-0 bg-white dark:bg-zinc-950 border-l border-[#a2a9b1] dark:border-zinc-800 shadow-2xl flex z-50 font-sans transform translate-x-0 overflow-hidden
+        ${resizing ? '' : 'transition-all duration-300'}
         ${isMobile ? 'w-full left-0 inset-0' : ''}`}
       style={!isMobile ? { width: `${panelWidth}px` } : {}}
     >
