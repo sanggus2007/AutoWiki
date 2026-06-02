@@ -63,6 +63,11 @@ export function GlassObserver({
   const textEndRef = useRef<HTMLDivElement>(null);
   const docsEndRef = useRef<HTMLDivElement>(null);
 
+  const currentWritingDocRef = useRef("");
+  useEffect(() => {
+    currentWritingDocRef.current = currentWritingDoc;
+  }, [currentWritingDoc]);
+
   const getDocumentContent = (docName: string) => {
     let cleanDocName = docName.trim();
     while (cleanDocName.startsWith("[") && cleanDocName.endsWith("]")) {
@@ -173,13 +178,13 @@ export function GlassObserver({
                     return next;
                   });
                 } else if (data.type === "stream_end") {
-                  if (currentWritingDoc) {
-                    const cleanName = currentWritingDoc.replace(/^\[|\]$/g, '');
+                  if (currentWritingDocRef.current) {
+                    const cleanName = currentWritingDocRef.current.replace(/^\[|\]$/g, '');
                     setCompletedDocs(prev => Array.from(new Set([...prev, cleanName])));
                   }
                 } else if (data.type === "done") {
-                  if (currentWritingDoc) {
-                    const cleanName = currentWritingDoc.replace(/^\[|\]$/g, '');
+                  if (currentWritingDocRef.current) {
+                    const cleanName = currentWritingDocRef.current.replace(/^\[|\]$/g, '');
                     setCompletedDocs(prev => Array.from(new Set([...prev, cleanName])));
                   }
                   setStatusMessage("모든 문서 반영 완료");
@@ -210,7 +215,7 @@ export function GlassObserver({
         reader.cancel().catch(() => {});
       }
     };
-  }, [currentWritingDoc]);
+  }, []);
 
   useEffect(() => {
     if (selectedDoc === null) {
