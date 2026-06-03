@@ -109,12 +109,12 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   return (
     <>
       {/* Mobile Overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-[60] lg:hidden"
-          onClick={onClose}
-        />
-      )}
+      <div
+        className={`fixed inset-0 bg-black/40 z-[60] lg:hidden transition-all duration-300 ${
+          isOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
+        }`}
+        onClick={onClose}
+      />
 
       <aside className={`
         fixed inset-y-0 left-0 z-[70] w-64 max-w-[85vw] bg-[#f6f6f6] dark:bg-[#121212] border-r border-[#a2a9b1] dark:border-gray-700 flex flex-col transition-all duration-300 transform
