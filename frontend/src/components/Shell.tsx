@@ -117,7 +117,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       />
 
       <aside className={`
-        fixed inset-y-0 left-0 z-[70] w-64 max-w-[85vw] bg-[#f6f6f6] dark:bg-[#121212] border-r border-[#a2a9b1] dark:border-gray-700 flex flex-col transition-all duration-300 transform
+        fixed inset-y-0 left-0 z-[70] w-64 max-w-[85vw] pl-[env(safe-area-inset-left)] lg:pl-0 bg-[#f6f6f6] dark:bg-[#121212] border-r border-[#a2a9b1] dark:border-gray-700 flex flex-col transition-all duration-300 transform
         lg:sticky lg:top-0 lg:h-[100dvh] lg:translate-x-0 lg:w-56 lg:z-auto lg:max-w-none
         ${isOpen ? "translate-x-0 visible" : "-translate-x-full invisible lg:visible pointer-events-none lg:pointer-events-auto"}
         shrink-0 font-sans text-sm

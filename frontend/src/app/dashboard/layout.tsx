@@ -26,17 +26,6 @@ export default function DashboardLayout({
     }
   }, [user, router]);
 
-  useEffect(() => {
-    if (isSidebarOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isSidebarOpen]);
-
   // Close mobile sidebar on route change
   useEffect(() => {
     setIsSidebarOpen(false);
