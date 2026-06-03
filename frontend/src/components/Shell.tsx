@@ -117,13 +117,13 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       )}
 
       <aside className={`
-        fixed inset-y-0 left-0 z-[70] w-64 max-w-[85vw] bg-[#f6f6f6] dark:bg-black border-r border-[#a2a9b1] dark:border-gray-700 flex flex-col transition-transform duration-300 transform
+        fixed inset-y-0 left-0 z-[70] w-64 max-w-[85vw] bg-[#f6f6f6] dark:bg-[#121212] border-r border-[#a2a9b1] dark:border-gray-700 flex flex-col transition-transform duration-300 transform
         lg:sticky lg:top-0 lg:h-[100dvh] lg:translate-x-0 lg:w-56 lg:z-auto lg:max-w-none
         ${isOpen ? "translate-x-0" : "-translate-x-full"}
         shrink-0 font-sans text-sm
       `}>
         {/* Mobile Header in Sidebar */}
-        <div className="lg:hidden flex items-center justify-between p-3 border-b border-[#a2a9b1] dark:border-gray-700 bg-white dark:bg-black shrink-0">
+        <div className="lg:hidden flex items-center justify-between p-3 border-b border-[#a2a9b1] dark:border-gray-700 bg-white dark:bg-[#121212] shrink-0">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => { router.push("/dashboard"); onClose?.(); }}>
             <Book size={18} className="text-[#000000] dark:text-white" strokeWidth={1.5} />
             <span className="text-sm font-serif font-bold text-[#000000] dark:text-white tracking-tight">AutoWiki AI</span>
@@ -412,7 +412,7 @@ export const Header = ({ onMenuClick }: { onMenuClick?: () => void }) => {
   }, [searchQuery]);
 
   return (
-    <header className="h-[calc(3.5rem+env(safe-area-inset-top))] bg-[#ffffff] dark:bg-black border-b border-[#a2a9b1] dark:border-gray-700 flex items-center justify-between px-4 shrink-0 font-sans z-40 relative pt-[env(safe-area-inset-top)]">
+    <header className="h-[calc(3.5rem+env(safe-area-inset-top))] bg-[#ffffff] dark:bg-[#121212] border-b border-[#a2a9b1] dark:border-gray-700 flex items-center justify-between px-4 shrink-0 font-sans z-40 relative pt-[env(safe-area-inset-top)]">
       <div className="flex items-center space-x-2 lg:space-x-6 text-[#0645ad] dark:text-blue-400 text-sm">
         <button
           onClick={onMenuClick}
