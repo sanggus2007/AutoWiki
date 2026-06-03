@@ -123,7 +123,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         shrink-0 font-sans text-sm
       `}>
         {/* Mobile Header in Sidebar */}
-        <div className="lg:hidden flex items-center justify-between p-3 border-b border-[#a2a9b1] dark:border-gray-700 bg-white dark:bg-[#121212] shrink-0">
+        <div className="lg:hidden flex items-center justify-between p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] border-b border-[#a2a9b1] dark:border-gray-700 bg-white dark:bg-[#121212] shrink-0">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => { router.push("/dashboard"); onClose?.(); }}>
             <Book size={18} className="text-[#000000] dark:text-white" strokeWidth={1.5} />
             <span className="text-sm font-serif font-bold text-[#000000] dark:text-white tracking-tight">AutoWiki AI</span>
