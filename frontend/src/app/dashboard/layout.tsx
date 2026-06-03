@@ -34,10 +34,10 @@ export default function DashboardLayout({
   if (!user) return null;
 
   return (
-    <div className="w-full min-h-[100dvh] flex bg-white dark:bg-[#121212] text-[#202122] dark:text-[#f3f4f6] overflow-x-hidden">
+    <div className="w-full min-h-screen flex bg-white dark:bg-[#121212] text-[#202122] dark:text-[#f3f4f6] overflow-x-hidden">
       <BackgroundProcessManager />
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-      <div className="flex flex-col flex-1 min-w-0 min-h-[100dvh]">
+      <div className="flex flex-col flex-1 min-w-0 min-h-screen">
         <Header onMenuClick={() => setIsSidebarOpen(true)} />
         <main className="flex-1 bg-white dark:bg-[#121212] transition-colors duration-200">
           {children}
