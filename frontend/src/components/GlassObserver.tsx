@@ -8,15 +8,6 @@ import { useAuthStore } from "@/lib/store";
 
 interface GlassObserverProps {
   projectId: string;
-  proposals: Proposal[];
-  userPrompt: string;
-  model: string;
-  subModel: string;
-  thinkingLevel: string;
-  reasoningEffort: string;
-  apiKey: string;
-  onComplete: () => void;
-  onCancel: (errorMsg: string) => void;
 }
 
 interface ParsedDoc {
@@ -44,30 +35,19 @@ const parseBatch = (batchText: string): ParsedDoc[] => {
 
 export function GlassObserver({
   projectId,
-  proposals,
-  userPrompt,
-  model,
-  subModel,
-  thinkingLevel,
-  reasoningEffort,
-  apiKey,
-  onComplete,
-  onCancel,
 }: GlassObserverProps) {
-  const [statusMessage, setStatusMessage] = useState("AI 작성 준비 중...");
-  const [streamedText, setStreamedText] = useState("");
-  const [completedDocs, setCompletedDocs] = useState<string[]>([]);
-  const [currentWritingDoc, setCurrentWritingDoc] = useState("");
+  const activeProcess = useAuthStore(state => state.activeProcess);
+
+  const statusMessage = (activeProcess && activeProcess.projectId === projectId && activeProcess.statusMessage) || "AI 작성 준비 중...";
+  const streamedText = (activeProcess && activeProcess.projectId === projectId && activeProcess.streamedText) || "";
+  const completedDocs = (activeProcess && activeProcess.projectId === projectId && activeProcess.completedDocs) || [];
+  const currentWritingDoc = (activeProcess && activeProcess.projectId === projectId && activeProcess.currentWritingDoc) || "";
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
-  const [batches, setBatches] = useState<string[]>([]);
-  
+  const batches = (activeProcess && activeProcess.projectId === projectId && activeProcess.batches) || [];
+  const model = (activeProcess && activeProcess.projectId === projectId && activeProcess.model) || "";
+
   const textEndRef = useRef<HTMLDivElement>(null);
   const docsEndRef = useRef<HTMLDivElement>(null);
-
-  const currentWritingDocRef = useRef("");
-  useEffect(() => {
-    currentWritingDocRef.current = currentWritingDoc;
-  }, [currentWritingDoc]);
 
   const getDocumentContent = (docName: string) => {
     let cleanDocName = docName.trim();
@@ -85,148 +65,6 @@ export function GlassObserver({
     }
     return "";
   };
-
-  // 실시간 텍스트 스트림을 파싱하여 완성된 문서 목록을 실시간 추출
-  useEffect(() => {
-    if (!streamedText) return;
-
-    const separatorRegex = /===\s*DOCUMENT_SEPARATOR:\s*(.*?)\s*===/g;
-    const matches = Array.from(streamedText.matchAll(separatorRegex));
-    
-    if (matches.length > 0) {
-      const docNames = matches.map(m => {
-        let name = m[1].trim();
-        while (name.startsWith("[") && name.endsWith("]")) {
-          name = name.slice(1, -1).trim();
-        }
-        return name;
-      });
-      
-      if (docNames.length > 1) {
-        const completed = docNames.slice(0, -1);
-        setCompletedDocs(prev => {
-          const merged = Array.from(new Set([...prev, ...completed]));
-          return merged;
-        });
-      }
-      
-      setCurrentWritingDoc(docNames[docNames.length - 1]);
-    }
-  }, [streamedText]);
-
-  useEffect(() => {
-    let active = true;
-    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
-
-    const startCommitStream = async () => {
-      try {
-        const res = await apiFetch(`/api/projects/${projectId}/commit`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            proposals,
-            custom_prompt: userPrompt,
-            model_name: model,
-            sub_model_name: subModel,
-            thinking_level: thinkingLevel,
-            reasoning_effort: reasoningEffort,
-            api_key: apiKey,
-          }),
-        });
-
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(errText || "서버와 연결을 설정하지 못했습니다.");
-        }
-
-        // Sync tokens immediately upon starting the commit stream
-        apiFetch("/api/users/me")
-          .then(res => res.json())
-          .then(user_data => {
-            if (user_data.tokens !== undefined) {
-              useAuthStore.getState().setTokens(user_data.tokens);
-            }
-          })
-          .catch(err => console.error("Failed to sync tokens:", err));
-
-        reader = res.body?.getReader();
-        const decoder = new TextDecoder();
-        let partialLine = "";
-
-        if (!reader) {
-          throw new Error("스트림 데이터를 로드하지 못했습니다.");
-        }
-
-        while (active) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = (partialLine + chunk).split("\n");
-          partialLine = lines.pop() || "";
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-
-            if (trimmed.startsWith("data: ")) {
-              const dataStr = trimmed.slice(6);
-              try {
-                const data = JSON.parse(dataStr);
-
-                if (data.type === "status") {
-                  setStatusMessage(data.message);
-                } else if (data.type === "stream_start") {
-                  // Keep streamed text cumulative across all batch generations to prevent race conditions and allow viewing earlier batch documents
-                  setBatches((prev) => [...prev, ""]);
-                } else if (data.type === "token") {
-                  const content = data.content;
-                  setStreamedText((prev) => prev + content);
-                  setBatches((prev) => {
-                    if (prev.length === 0) return [content];
-                    const next = [...prev];
-                    next[next.length - 1] += content;
-                    return next;
-                  });
-                } else if (data.type === "stream_end") {
-                  if (currentWritingDocRef.current) {
-                    const cleanName = currentWritingDocRef.current.replace(/^\[|\]$/g, '');
-                    setCompletedDocs(prev => Array.from(new Set([...prev, cleanName])));
-                  }
-                } else if (data.type === "done") {
-                  if (currentWritingDocRef.current) {
-                    const cleanName = currentWritingDocRef.current.replace(/^\[|\]$/g, '');
-                    setCompletedDocs(prev => Array.from(new Set([...prev, cleanName])));
-                  }
-                  setStatusMessage("모든 문서 반영 완료");
-                  setTimeout(() => {
-                    if (active) onComplete();
-                  }, 1200);
-                  return;
-                } else if (data.type === "error") {
-                  throw new Error(data.message);
-                }
-              } catch (e: any) {
-                console.error("Stream parse warning", e);
-              }
-            }
-          }
-        }
-      } catch (err: any) {
-        console.error("Commit stream error:", err);
-        if (active) onCancel(err.message);
-      }
-    };
-
-    startCommitStream();
-
-    return () => {
-      active = false;
-      if (reader) {
-        reader.cancel().catch(() => {});
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (selectedDoc === null) {

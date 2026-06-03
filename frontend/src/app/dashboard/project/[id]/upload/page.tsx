@@ -92,6 +92,9 @@ export default function ProjectUploadPage() {
             if (activeProcess.userPrompt !== undefined && userPrompt !== activeProcess.userPrompt) {
               setUserPrompt(activeProcess.userPrompt);
             }
+            if (activeProcess.proposals) {
+              setProposals(activeProcess.proposals);
+            }
           }
         }
       } else if (activeProcess.status === "SUCCESS") {
@@ -296,63 +299,20 @@ export default function ProjectUploadPage() {
 
   // ── Commit ──────────────────────────────────────────────────────────────────
   const runCommit = useCallback(async (finalProposals: Proposal[]) => {
+    const { model, subModel, thinkingLevel, reasoningEffort, key } = getModelKeys();
     useAuthStore.getState().setActiveProcess({
       projectId,
       type: "COMMIT",
       status: "RUNNING",
-      userPrompt
+      userPrompt,
+      proposals: finalProposals,
+      model,
+      subModel,
+      thinkingLevel,
+      reasoningEffort,
+      apiKey: key
     });
     setAppState("COMMITTING");
-    const { model, subModel, thinkingLevel, reasoningEffort, key } = getModelKeys();
-
-    try {
-      const res = await apiFetch(
-        `/api/projects/${projectId}/commit`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            proposals: finalProposals,
-            custom_prompt: userPrompt,
-            model_name: model,
-            sub_model_name: subModel,
-            thinking_level: thinkingLevel,
-            reasoning_effort: reasoningEffort,
-            api_key: key,
-          }),
-        }
-      );
-      if (res.ok) {
-        useAuthStore.getState().setActiveProcess({
-          projectId,
-          type: "COMMIT",
-          status: "SUCCESS"
-        });
-        return;
-      }
-      const errText = await res.text();
-      if (is401(res.status, errText)) {
-        useAuthStore.getState().setActiveProcess(null);
-        setPendingAction({ action: "commit", finalProposals });
-        setShowAuthOverlay(true);
-        return;
-      }
-      console.error("Commit failed", errText);
-      useAuthStore.getState().setActiveProcess({
-        projectId,
-        type: "COMMIT",
-        status: "ERROR",
-        error: errText
-      });
-    } catch (err: any) {
-      console.error("Commit network error", err);
-      useAuthStore.getState().setActiveProcess({
-        projectId,
-        type: "COMMIT",
-        status: "ERROR",
-        error: err.message || "네트워크 오류"
-      });
-    }
   }, [projectId, userPrompt]);
 
   // ── Public handlers ─────────────────────────────────────────────────────────
@@ -375,11 +335,18 @@ export default function ProjectUploadPage() {
 
   const handleConfirm = (finalProposals: Proposal[]) => {
     setProposals(finalProposals);
+    const { model, subModel, thinkingLevel, reasoningEffort, key } = getModelKeys();
     setActiveProcess({
       projectId,
       type: "COMMIT",
       status: "RUNNING",
-      userPrompt
+      userPrompt,
+      proposals: finalProposals,
+      model,
+      subModel,
+      thinkingLevel,
+      reasoningEffort,
+      apiKey: key
     });
     setAppState("COMMITTING");
   };
@@ -472,22 +439,6 @@ export default function ProjectUploadPage() {
       {appState === "COMMITTING" && (
         <GlassObserver
           projectId={projectId}
-          proposals={proposals}
-          userPrompt={userPrompt}
-          model={getModelKeys().model}
-          subModel={getModelKeys().subModel}
-          thinkingLevel={getModelKeys().thinkingLevel}
-          reasoningEffort={getModelKeys().reasoningEffort}
-          apiKey={getModelKeys().key}
-          onComplete={() => {
-            setActiveProcess(null);
-            router.push(`/dashboard/project/${projectId}`);
-          }}
-          onCancel={(errorMsg) => {
-            alert(errorMsg);
-            setActiveProcess(null);
-            setAppState("REVIEW");
-          }}
         />
       )}
 

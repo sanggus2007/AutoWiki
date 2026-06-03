@@ -14,6 +14,16 @@ export interface ActiveProcess {
   proposals?: any[];
   error?: string;
   userPrompt?: string;
+  statusMessage?: string;
+  streamedText?: string;
+  completedDocs?: string[];
+  currentWritingDoc?: string;
+  batches?: string[];
+  model?: string;
+  subModel?: string;
+  thinkingLevel?: string;
+  reasoningEffort?: string;
+  apiKey?: string;
 }
 
 interface AuthState {

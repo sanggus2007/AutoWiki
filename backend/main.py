@@ -1211,7 +1211,7 @@ def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get
                 existing_entities.append(f"- {e.name} ({e.type})")
             print(f"[AnalyzeText] Context optimization: Sending only names for {len(existing)} entities")
 
-        all_cat_records = db.query(schema.Category).all()
+        all_cat_records = db.query(schema.Category).join(schema.Category.entities).filter(schema.Entity.project_id == project_id).distinct().all()
         all_categories = [c.name for c in all_cat_records]
 
         # Optimized Context: Project Graph
@@ -1546,8 +1546,8 @@ async def upload_files(
     else:
         print("[Upload] Context optimization: skipping entity summaries")
 
-    # Collect all categories for global structure context
-    all_cat_records = db.query(schema.Category).all()
+    # Collect categories scoped to the current project
+    all_cat_records = db.query(schema.Category).join(schema.Category.entities).filter(schema.Entity.project_id == project_id).distinct().all()
     all_categories = [c.name for c in all_cat_records]
 
     # Optional Context: Project Graph
@@ -1622,14 +1622,16 @@ async def upload_files(
 
 @app.post("/api/projects/{project_id}/commit")
 def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current_user), db=Depends(get_db)):
-    # 토큰 검증 및 차감 (문서 작성: 5토큰)
-    required_tokens = 5
-    user_tokens = getattr(user, 'tokens', 100)
-    if user_tokens < required_tokens:
-        raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (문서 작성에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
+    is_resume = payload_data.get("is_resume", False)
+    if not is_resume:
+        # 토큰 검증 및 차감 (문서 작성: 5토큰)
+        required_tokens = 5
+        user_tokens = getattr(user, 'tokens', 100)
+        if user_tokens < required_tokens:
+            raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (문서 작성에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
 
-    user.tokens = user_tokens - required_tokens
-    db.commit()
+        user.tokens = user_tokens - required_tokens
+        db.commit()
 
     project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
     if not project:
@@ -1709,10 +1711,15 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
                         db.commit()
 
                 # Save Document
-                db_doc = schema.Document(filename=filename, content_text=content_text, project_id=project_id)
-                db.add(db_doc)
-                db.commit()
-                db.refresh(db_doc)
+                db_doc = db.query(schema.Document).filter(
+                    schema.Document.filename == filename,
+                    schema.Document.project_id == project_id
+                ).first()
+                if not db_doc:
+                    db_doc = schema.Document(filename=filename, content_text=content_text, project_id=project_id)
+                    db.add(db_doc)
+                    db.commit()
+                    db.refresh(db_doc)
                 
                 # Save Nodes
                 nodes_to_generate = []
@@ -1800,13 +1807,18 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
                 # Save Edges
                 yield f"data: {json.dumps({'type': 'status', 'message': f'지식 그래프 관계선 연결 중... ({len(edges_data)}개)'})}\n\n"
                 for e in edges_data:
-                    db_edge = schema.Relationship(
-                        source_entity_slug=e["source"],
-                        target_entity_slug=e["target"],
-                        context=e["label"]
-                    )
-                    db.add(db_edge)
-                    edges_saved += 1
+                    existing_edge = db.query(schema.Relationship).filter(
+                        schema.Relationship.source_entity_slug == e["source"],
+                        schema.Relationship.target_entity_slug == e["target"]
+                    ).first()
+                    if not existing_edge:
+                        db_edge = schema.Relationship(
+                            source_entity_slug=e["source"],
+                            target_entity_slug=e["target"],
+                            context=e["label"]
+                        )
+                        db.add(db_edge)
+                        edges_saved += 1
                 db.commit()
 
             # Deletions

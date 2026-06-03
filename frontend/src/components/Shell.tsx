@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Home, Book, FileText, Settings, Search, Edit3, FolderOpen, Plus, Archive, LogOut, Database, Menu, Sparkles, X as CloseIcon } from "lucide-react";
+import { Home, Book, FileText, Settings, Search, Edit3, FolderOpen, Plus, Archive, LogOut, Database, Menu, Sparkles, X as CloseIcon, Loader2 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import ExportImportPanel from "./ExportImportPanel";
 import { apiFetch } from "@/lib/api";
@@ -20,7 +20,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDesc, setNewProjectDesc] = useState("");
-  const { user, logout, tokens, setTokens } = useAuthStore();
+  const { user, logout, tokens, setTokens, activeProcess } = useAuthStore();
   const [storageUsed, setStorageUsed] = useState(0);
   const [resetClicks, setResetClicks] = useState(0);
   const storageLimit = 10485760; // 10MB
@@ -167,15 +167,51 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               </button>
             </div>
           </div>
-          {projects.map(p => (
-            <NavItem
-              key={p.id}
-              icon={<FolderOpen size={15} />}
-              label={p.name}
-              href={`/dashboard/project/${p.id}`}
-              active={pathname === `/dashboard/project/${p.id}` || pathname.startsWith(`/dashboard/project/${p.id}/`)}
-            />
-          ))}
+          {projects.map(p => {
+            const isActiveProj = activeProcess && activeProcess.projectId === String(p.id);
+            let redirectUrl = `/dashboard/project/${p.id}`;
+            let statusBadge = null;
+            let iconElement = <FolderOpen size={15} />;
+
+            if (isActiveProj) {
+              redirectUrl = `/dashboard/project/${p.id}/upload`;
+              if (activeProcess.status === "RUNNING") {
+                if (activeProcess.type === "INGEST") {
+                  iconElement = <Loader2 size={15} className="animate-spin text-blue-500" />;
+                  statusBadge = (
+                    <span className="ml-auto text-[9px] text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 px-1.5 py-0.5 rounded-full animate-pulse">
+                      기획 중
+                    </span>
+                  );
+                } else {
+                  iconElement = <Loader2 size={15} className="animate-spin text-purple-500" />;
+                  statusBadge = (
+                    <span className="ml-auto text-[9px] text-purple-600 dark:text-purple-400 font-bold bg-purple-50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50 px-1.5 py-0.5 rounded-full animate-pulse">
+                      작성 중
+                    </span>
+                  );
+                }
+              } else if (activeProcess.status === "SUCCESS" && activeProcess.type === "INGEST") {
+                iconElement = <Sparkles size={15} className="text-emerald-500 animate-bounce" />;
+                statusBadge = (
+                  <span className="ml-auto text-[9px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 px-1.5 py-0.5 rounded-full">
+                    기획 완료
+                  </span>
+                );
+              }
+            }
+
+            return (
+              <NavItem
+                key={p.id}
+                icon={iconElement}
+                label={p.name}
+                href={redirectUrl}
+                active={pathname === `/dashboard/project/${p.id}` || pathname.startsWith(`/dashboard/project/${p.id}/`)}
+                suffix={statusBadge}
+              />
+            );
+          })}
           {projects.length === 0 && (
             <div className="px-2 py-2 text-[11px] text-gray-500 italic">아직 프로젝트가 없습니다.</div>
           )}
@@ -323,7 +359,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   );
 };
 
-const NavItem = ({ icon, label, active = false, href, onClick }: { icon: React.ReactNode; label: string; active?: boolean; href?: string; onClick?: () => void }) => {
+const NavItem = ({ icon, label, active = false, href, onClick, suffix }: { icon: React.ReactNode; label: string; active?: boolean; href?: string; onClick?: () => void; suffix?: React.ReactNode }) => {
   const router = useRouter();
   return (
     <div
@@ -337,7 +373,8 @@ const NavItem = ({ icon, label, active = false, href, onClick }: { icon: React.R
         }`}
     >
       <span className={`shrink-0 ${active ? "text-[#000000] dark:text-white" : "text-[#54595d] dark:text-zinc-400"} w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center`}>{icon}</span>
-      <span className="truncate min-w-0">{label}</span>
+      <span className="truncate min-w-0 flex-1">{label}</span>
+      {suffix}
     </div>
   );
 };
