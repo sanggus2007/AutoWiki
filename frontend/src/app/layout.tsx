@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description: "사용자가 업로드한 문서를 바탕으로 AI가 자동으로 지식 체계를 구축하고 위키 문서를 생성합니다.",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "AutoWiki AI",
   },
 };
@@ -26,10 +26,6 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8f9fa" },
-    { media: "(prefers-color-scheme: dark)", color: "#111827" },
-  ],
 };
 
 import { AuthProvider } from "@/components/AuthProvider";
