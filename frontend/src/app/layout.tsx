@@ -43,10 +43,10 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-white dark:bg-gray-900 transition-colors">
+      <body className="flex flex-col bg-white dark:bg-gray-900 transition-colors">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
             {children}
