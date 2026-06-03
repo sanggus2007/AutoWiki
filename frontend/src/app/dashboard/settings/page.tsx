@@ -409,7 +409,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto w-full font-sans text-gray-900 dark:text-gray-100 bg-white dark:bg-black min-h-screen transition-colors">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto w-full font-sans text-gray-900 dark:text-gray-100 bg-white dark:bg-[#121212] min-h-screen transition-colors">
       <div className="border-b border-[#a2a9b1] dark:border-zinc-800 mb-6 pb-2">
         <h1 className="text-3xl font-serif font-medium mb-1 text-gray-900 dark:text-white">환경 설정</h1>
         <p className="text-sm text-[#54595d] dark:text-gray-400">AI 제공자 및 시스템 프롬프트를 구성합니다.</p>

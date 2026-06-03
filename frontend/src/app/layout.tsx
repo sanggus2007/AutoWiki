@@ -46,9 +46,6 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       suppressHydrationWarning
     >
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-      </head>
       <body className="flex flex-col bg-white dark:bg-[#121212] transition-colors">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
