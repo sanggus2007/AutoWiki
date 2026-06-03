@@ -36,6 +36,7 @@ export interface GraphSettings {
   labelMode: 'always' | 'hover' | 'hidden';
   showParticles: boolean;
   showLinkLabels: boolean;
+  showSubLinkLabels: boolean;
   chargeStrength: number;   // -1200 ~ -50
   ringSpacing: number;      // 60 ~ 600 (radial only)
   linkDistance: number;     // 30 ~ 600
@@ -49,6 +50,7 @@ export const DEFAULT_SETTINGS: GraphSettings = {
   labelMode: 'always',
   showParticles: true,
   showLinkLabels: false,
+  showSubLinkLabels: false,
   chargeStrength: -500,
   ringSpacing: 250,
   linkDistance: 280,
@@ -301,7 +303,7 @@ function applyRadialLayout(nodes: any[], metrics: GraphMetrics, ringSpacing: num
       node.x = r * Math.cos(angle);
       node.y = r * Math.sin(angle);
       // 3D 공간에서도 중심 레이어에 가깝게 배치하여 초기 혼란 방지
-      node.z = (Math.random() - 0.5) * 5; 
+      node.z = (Math.random() - 0.5) * 5;
     }
   }
 }
@@ -466,12 +468,12 @@ export const KnowledgeGraph = ({
 
   // ── 3D Label Texture Cache ──────────────────────────────
   const textureCache = useRef<Map<string, THREE.Texture>>(new Map());
-  
+
   // Clear cache if theme changes
   useEffect(() => {
     textureCache.current.forEach(t => t.dispose());
     textureCache.current.clear();
-    
+
     // Clear cached sprites on nodes
     graphData.nodes.forEach((n: any) => {
       if (n.__sprite) {
@@ -493,18 +495,18 @@ export const KnowledgeGraph = ({
     const textWidth = ctx!.measureText(label).width;
     canvas.width = textWidth + 80;
     canvas.height = fontSize + 40;
-    
+
     ctx!.fillStyle = theme.labelBg;
     ctx!.beginPath();
     ctx!.roundRect?.(0, 0, canvas.width, canvas.height, 20);
     ctx!.fill();
-    
+
     ctx!.fillStyle = theme.labelText;
     ctx!.font = `bold ${fontSize}px sans-serif`;
     ctx!.textAlign = 'center';
     ctx!.textBaseline = 'middle';
     ctx!.fillText(label, canvas.width / 2, canvas.height / 2);
-    
+
     const texture = new THREE.CanvasTexture(canvas);
     textureCache.current.set(key, texture);
     return texture;
@@ -550,7 +552,7 @@ export const KnowledgeGraph = ({
     window.addEventListener('graph:refresh', h);
     const r = () => {
       // 모든 노드 속도/핀 초기화
-      graphData.nodes.forEach((n: any) => { 
+      graphData.nodes.forEach((n: any) => {
         n.fx = undefined; n.fy = undefined; n.fz = undefined;
         n.vx = 0; n.vy = 0; n.vz = 0;
       });
@@ -558,7 +560,7 @@ export const KnowledgeGraph = ({
       if (settings.layout === 'radial' && metrics) {
         applyRadialLayout(graphData.nodes, metrics, settings.ringSpacing);
       }
-      
+
       const g = graphRef.current;
       if (g) {
         try {
@@ -681,6 +683,14 @@ export const KnowledgeGraph = ({
       if (!g || typeof g.d3Force !== 'function') return;
 
       try {
+        // Configure Three.js raycaster threshold for 3D lines
+        if (settings.dimension === '3d' && typeof g.raycaster === 'function') {
+          const rc = g.raycaster();
+          if (rc && rc.params && rc.params.Line) {
+            rc.params.Line.threshold = 15; // Make edge hover extremely easy and forgiving in 3D space
+          }
+        }
+
         const chargeForce = g.d3Force('charge');
         if (chargeForce && typeof chargeForce.strength === 'function') {
           chargeForce.strength(settings.chargeStrength);
@@ -804,6 +814,7 @@ export const KnowledgeGraph = ({
           }}
           nodeColor={(n: any) => n.color}
           nodeRelSize={6}
+          linkHoverPrecision={10}
           /* ── 3D Label Rendering ── */
           nodeThreeObject={(node: any) => {
             const showLabel = settings.labelMode === 'always' || (settings.labelMode === 'hover' && node.id === hoveredNodeId);
@@ -822,7 +833,7 @@ export const KnowledgeGraph = ({
             const texture = getOrCreateTexture(node);
             const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: true, transparent: true });
             const sprite = new THREE.Sprite(spriteMaterial);
-            
+
             const scale = 0.20;
             const img = texture.image as HTMLImageElement;
             sprite.scale.set(img.width * scale, img.height * scale, 1);
@@ -835,7 +846,7 @@ export const KnowledgeGraph = ({
               _up.copy(camera.up).normalize();
               sprite.position.copy(_up).multiplyScalar(22).add(_vec.multiplyScalar(8));
             };
-            
+
             node.__sprite = sprite;
             return sprite;
           }}
@@ -905,6 +916,7 @@ export const KnowledgeGraph = ({
           }}
           nodeColor={(n: any) => n.color}
           nodeRelSize={6}
+          linkHoverPrecision={6}
           /* ── Links ── */
           // @ts-ignore
           linkStrength={(link: any) => isTreeEdge(link) ? 1.0 : 0.02}
@@ -937,25 +949,63 @@ export const KnowledgeGraph = ({
           linkCanvasObjectMode={() => 'after'}
           linkCanvasObject={(link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
             if (!settings.showLinkLabels) return;
+            const isTree = isTreeEdge(link);
+            if (!isTree && !settings.showSubLinkLabels) return;
             const label = link.label as string;
             if (!label || globalScale < 0.35) return;
-            const src = link.source;
-            const tgt = link.target;
-            if (!src?.x || !tgt?.x) return;
+            
+            const src = typeof link.source === 'object' ? link.source : graphData.nodes.find(n => n.id === link.source);
+            const tgt = typeof link.target === 'object' ? link.target : graphData.nodes.find(n => n.id === link.target);
+            if (!src || !tgt) return;
+            if (src.x === undefined || tgt.x === undefined) return;
+
             const midX = (src.x + tgt.x) / 2;
             const midY = (src.y + tgt.y) / 2;
-            // Fix: Grow with zoom, but stay readable when zoomed out
+
+            // Parse text into tokens: { text: string, isBold: boolean }
+            const tokens: { text: string; isBold: boolean }[] = [];
+            const regex = /\*\*([^*]+)\*\*/g;
+            let lastIndex = 0;
+            let match;
+            while ((match = regex.exec(label)) !== null) {
+              if (match.index > lastIndex) {
+                tokens.push({ text: label.substring(lastIndex, match.index), isBold: false });
+              }
+              tokens.push({ text: match[1], isBold: true });
+              lastIndex = regex.lastIndex;
+            }
+            if (lastIndex < label.length) {
+              tokens.push({ text: label.substring(lastIndex), isBold: false });
+            }
+
+            const baseFont = `'Noto Sans KR', sans-serif`;
             const fs = Math.max(10, 7 / globalScale);
-            ctx.font = `${fs}px 'Noto Sans KR', sans-serif`;
-            const tw = ctx.measureText(label).width;
+            
+            // Calculate total width and individual token widths
+            let totalWidth = 0;
+            const tokenWidths = tokens.map(t => {
+              ctx.font = `${t.isBold ? 'bold' : 'normal'} ${fs}px ${baseFont}`;
+              const w = ctx.measureText(t.text).width;
+              totalWidth += w;
+              return w;
+            });
+
             const pad = 2.5 / globalScale;
             ctx.fillStyle = theme.labelBg;
-            ctx.fillRect(midX - tw / 2 - pad, midY - fs / 2 - pad, tw + pad * 2, fs + pad * 2);
-            ctx.textAlign = 'center';
+            ctx.fillRect(midX - totalWidth / 2 - pad, midY - fs / 2 - pad, totalWidth + pad * 2, fs + pad * 2);
+
+            ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillStyle = theme.linkLabelText;
             ctx.globalAlpha = 0.85;
-            ctx.fillText(label, midX, midY);
+
+            let currentX = midX - totalWidth / 2;
+            tokens.forEach((t, i) => {
+              ctx.font = `${t.isBold ? 'bold' : 'normal'} ${fs}px ${baseFont}`;
+              ctx.fillStyle = t.isBold ? (activeThemeKey === 'light' ? '#000000' : '#ffffff') : theme.linkLabelText;
+              ctx.fillText(t.text, currentX, midY);
+              currentX += tokenWidths[i];
+            });
+
             ctx.globalAlpha = 1;
           }}
           /* ── Misc ── */
@@ -1101,9 +1151,9 @@ export const KnowledgeGraph = ({
           title={isFilterExpanded ? "필터 숨기기" : "필터 보이기"}
         >
           {isFilterExpanded ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
           ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12" /><path d="m8 11 4 4 4-4" /></svg>
           )}
         </button>
 
@@ -1220,7 +1270,11 @@ export const KnowledgeGraph = ({
               </span>
               <div className="flex flex-col items-center text-[#fbbf24]">
                 <span className="text-[11px] font-medium bg-[#fbbf24]/10 px-2 py-0.5 rounded text-[#fbbf24] mb-1">
-                  {hoveredLink.label || '연결됨'}
+                  {hoveredLink.label ? (
+                    hoveredLink.label.split(/\*\*([^*]+)\*\*/g).map((part: string, idx: number) =>
+                      idx % 2 === 1 ? <strong key={idx} className="font-extrabold text-white">{part}</strong> : part
+                    )
+                  ) : '연결됨'}
                 </span>
                 <svg width="40" height="8" viewBox="0 0 40 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M0 4H38M38 4L34 1M38 4L34 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

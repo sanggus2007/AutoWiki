@@ -259,6 +259,15 @@ function SettingsPanel({
             value={settings.showLinkLabels}
             onToggle={() => set({ showLinkLabels: !settings.showLinkLabels })}
           />
+          {settings.showLinkLabels && (
+            <div className="pl-4 mt-1 animate-in slide-in-from-top-1 duration-150">
+              <Toggle
+                label="└ 부가 연결 레이블 표시"
+                value={settings.showSubLinkLabels}
+                onToggle={() => set({ showSubLinkLabels: !settings.showSubLinkLabels })}
+              />
+            </div>
+          )}
         </section>
 
         {/* Reset */}

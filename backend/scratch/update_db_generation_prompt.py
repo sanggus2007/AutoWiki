@@ -41,5 +41,6 @@ def update_db(db_path, prompt_content):
 
 if __name__ == "__main__":
     prompt_content = extract_prompt_from_main()
-    update_db("autowiki.db", prompt_content)
-    update_db("autowiki_v2.db", prompt_content)
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    update_db(os.path.join(base_dir, "autowiki.db"), prompt_content)
+    update_db(os.path.join(base_dir, "autowiki_v2.db"), prompt_content)
