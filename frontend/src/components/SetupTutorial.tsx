@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  X, 
-  ChevronRight, 
+import {
+  X,
+  ChevronRight,
   ChevronLeft,
   Sparkles,
   FolderOpen,
@@ -109,7 +109,7 @@ export function SetupTutorial({ onClose, onGoToSettings, userId }: SetupTutorial
     {
       title: "3. 데모 시스템 제한 (용량 & AI 토큰)",
       desc: "안정적인 시연을 위해 프로젝트당 최대 10MB의 저장 공간 한도가 주어집니다.\n또한, AI 사용 시마다 토큰이 차감됩니다:\n- 지식 기획 및 추출: 1토큰\n- AI 채팅 질문: 2토큰\n- 백과사전 문서 생성(커밋): 5토큰",
-      tip: "💡 비밀 팁: 사이드바의 '대문' 메뉴를 연속으로 10번 클릭하면 언제든 토큰이 100개로 다시 완충됩니다!",
+      tip: "추후 더 많은 토큰과 용량이 제공되는 유료 버전을 사용하실 수 있을지도 몰라요!",
       icon: <AlertTriangle className="text-amber-500" size={40} />
     },
     {
@@ -131,17 +131,16 @@ export function SetupTutorial({ onClose, onGoToSettings, userId }: SetupTutorial
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4 transition-all overflow-y-auto">
       <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 max-w-xl w-full rounded-[2rem] shadow-2xl flex flex-col relative animate-in fade-in zoom-in-95 duration-300 my-auto max-h-[95dvh] overflow-hidden">
-        
+
         {/* Progress Dots */}
         <div className="absolute top-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
           {[...Array(totalSteps)].map((_, i) => (
-            <div 
-              key={i} 
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i + 1 === step 
-                  ? "w-8 bg-purple-600 dark:bg-purple-500"
-                  : "w-1.5 bg-slate-200 dark:bg-zinc-700"
-              }`} 
+            <div
+              key={i}
+              className={`h-1.5 rounded-full transition-all duration-300 ${i + 1 === step
+                ? "w-8 bg-purple-600 dark:bg-purple-500"
+                : "w-1.5 bg-slate-200 dark:bg-zinc-700"
+                }`}
             />
           ))}
         </div>
@@ -170,26 +169,26 @@ export function SetupTutorial({ onClose, onGoToSettings, userId }: SetupTutorial
           {step === 1 && (
             <div className="w-full space-y-4 mb-6 text-left max-w-sm">
               <div className="flex gap-2">
-                <button 
+                <button
                   onClick={() => setShowTermsModal("terms")}
                   className="flex-1 flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-zinc-800 border border-slate-150 dark:border-zinc-700 rounded-lg text-xs font-bold text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-all"
                 >
                   <span>이용 약관 전문 읽기</span>
-                  <ExternalLink size={12} className="text-slate-400"/>
+                  <ExternalLink size={12} className="text-slate-400" />
                 </button>
-                <button 
+                <button
                   onClick={() => setShowTermsModal("privacy")}
                   className="flex-1 flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-zinc-800 border border-slate-150 dark:border-zinc-700 rounded-lg text-xs font-bold text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-all"
                 >
                   <span>개인정보 방침 전문 읽기</span>
-                  <ExternalLink size={12} className="text-slate-400"/>
+                  <ExternalLink size={12} className="text-slate-400" />
                 </button>
               </div>
 
               <div className="flex items-start gap-2.5 p-3.5 bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/30 rounded-xl select-none">
-                <input 
-                  type="checkbox" 
-                  id="agree-checkbox" 
+                <input
+                  type="checkbox"
+                  id="agree-checkbox"
                   checked={agreed}
                   onChange={e => setAgreed(e.target.checked)}
                   className="mt-0.5 w-4 h-4 accent-blue-600 cursor-pointer shrink-0"
@@ -217,8 +216,8 @@ export function SetupTutorial({ onClose, onGoToSettings, userId }: SetupTutorial
         {/* Footer */}
         <div className="p-4 sm:p-6 bg-slate-50/50 dark:bg-zinc-900/50 border-t border-slate-100 dark:border-zinc-800/60 flex items-center justify-between">
           {step > 1 ? (
-            <button 
-              onClick={prevStep} 
+            <button
+              onClick={prevStep}
               className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-400 dark:text-gray-500 hover:text-slate-900 dark:hover:text-white transition-colors"
             >
               <ChevronLeft size={18} /> 이전
@@ -228,20 +227,19 @@ export function SetupTutorial({ onClose, onGoToSettings, userId }: SetupTutorial
           )}
 
           {step < totalSteps ? (
-            <button 
-              onClick={nextStep} 
+            <button
+              onClick={nextStep}
               disabled={step === 1 && !agreed}
-              className={`px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md flex items-center gap-1.5 transition-all text-white ${
-                step === 1 && !agreed
-                  ? "bg-slate-300 dark:bg-zinc-800 text-slate-500 dark:text-gray-400 cursor-not-allowed shadow-none"
-                  : "bg-purple-600 hover:bg-purple-700 shadow-purple-500/10 active:scale-95"
-              }`}
+              className={`px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md flex items-center gap-1.5 transition-all text-white ${step === 1 && !agreed
+                ? "bg-slate-300 dark:bg-zinc-800 text-slate-500 dark:text-gray-400 cursor-not-allowed shadow-none"
+                : "bg-purple-600 hover:bg-purple-700 shadow-purple-500/10 active:scale-95"
+                }`}
             >
               {step === 1 ? "동의하고 튜토리얼 시작" : "다음 단계"} <ChevronRight size={18} />
             </button>
           ) : (
-            <button 
-              onClick={handleFinish} 
+            <button
+              onClick={handleFinish}
               className="px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-500/20 active:scale-95 transition-all flex items-center gap-1.5"
             >
               대문으로 시작하기 <ChevronRight size={18} />
@@ -259,15 +257,15 @@ export function SetupTutorial({ onClose, onGoToSettings, userId }: SetupTutorial
                 {showTermsModal === "terms" ? "이용 약관" : "개인정보 처리방침"}
               </h3>
               <button onClick={() => setShowTermsModal("none")} className="p-1 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full text-slate-400 dark:text-gray-400">
-                <X size={18}/>
+                <X size={18} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto text-[11px] sm:text-xs text-slate-600 dark:text-gray-300 whitespace-pre-line leading-relaxed pr-1 custom-scrollbar">
               {showTermsModal === "terms" ? TERMS_TEXT : PRIVACY_TEXT}
             </div>
             <div className="flex justify-end mt-4 pt-3 border-t dark:border-zinc-850">
-              <button 
-                onClick={() => setShowTermsModal("none")} 
+              <button
+                onClick={() => setShowTermsModal("none")}
                 className="px-5 py-2 text-xs border border-[#a2a9b1] dark:border-zinc-700 bg-[#f8f9fa] dark:bg-zinc-800 text-[#202122] dark:text-[#eaecf0] hover:bg-[#eaecf0] dark:hover:bg-zinc-700 font-bold rounded-lg"
               >
                 확인 및 닫기
