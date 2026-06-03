@@ -232,7 +232,7 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
           <button
             onClick={handleSubmit}
             disabled={!text.trim()}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0645ad] text-white dark:bg-zinc-200 dark:text-zinc-900 font-bold text-[13px] rounded-sm hover:bg-[#0b0080] dark:hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0645ad] text-white dark:bg-zinc-200 dark:text-zinc-900 font-bold text-[13px] rounded-sm hover:bg-[#0b0080] dark:hover:bg-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ml-auto whitespace-nowrap"
           >
             <Send size={13} />
             {buttonText}

@@ -91,7 +91,7 @@ def init_db():
 - 모든 필드의 텍스트는 한국어(Korean)로 작성하세요. (단, id/entity_slug는 영어 슬러그)
 - **JSON 응답은 반드시 { 로 시작하고 } 로 끝나야 하며, 마크다운 코드 블록(```)이나 설명을 일절 포함하지 마세요.**
 - `edges`의 label은 "[A시작노드]가 [B도착노드]를 [서술어]" 형태로 작성하세요.
-- 전체 edges 수는 nodes 수를 초과하지 않도록 절제하세요.
+- 전체 edges 수는 nodes 수를 초과하지 않도록 절제하되, 새로 생성하는 모든 문서(nodes)는 반드시 다른 문서(새로 생성되는 문서 혹은 기존에 이미 존재하는 문서)와 최소 1개 이상의 관계(edges)를 가져야 합니다. 독립된 채 고립되어 있는 '외딴섬 노드'가 발생하지 않도록 관계를 적극적으로 연결하십시오.
 - 제공된 텍스트가 기존 문서들에 이미 충분히 반영되어 있거나, 추가적인 가치가 있는 새로운 정보가 없다면 억지로 추출하지 마세요. 이 경우 nodes와 patches를 빈 배열([])로 반환하는 것이 올바른 대응입니다.
 - 단순히 텍스트에 언급되었다고 해서 모두 추출하는 것이 아니라, 위키 문서로서 독자적인 가치를 지닐 만큼의 유의미한 정보가 포함된 경우에만 추출하세요.
 - 분류는 최대한 '인물', '사물', '개념', '단체', '장소', '사건' 이 다섯 개로 통일하세요. 사용자가 제3의 분류를 추가하라고 별도로 지침하거나, 저 분류에 속하지 않는 문서에 경우 다른 분류를 사용하세요.
@@ -842,12 +842,12 @@ class PromptUpdate(BaseModel):
     content: str
 
 @app.get("/api/prompts")
-def list_prompts(db=Depends(get_db)):
+def list_prompts(user=Depends(get_current_user), db=Depends(get_db)):
     prompts = db.query(schema.SystemPrompt).order_by(schema.SystemPrompt.id).all()
     return [{"key": p.key, "name": p.name, "content": p.content, "description": p.description} for p in prompts]
 
 @app.put("/api/prompts/{key}")
-def update_prompt(key: str, payload: PromptUpdate, db=Depends(get_db)):
+def update_prompt(key: str, payload: PromptUpdate, user=Depends(get_current_user), db=Depends(get_db)):
     prompt = db.query(schema.SystemPrompt).filter(schema.SystemPrompt.key == key).first()
     if not prompt:
         raise HTTPException(status_code=404, detail="Prompt not found")
@@ -856,7 +856,7 @@ def update_prompt(key: str, payload: PromptUpdate, db=Depends(get_db)):
     return {"status": "success"}
 
 @app.post("/api/prompts/reset")
-def reset_prompts(db=Depends(get_db)):
+def reset_prompts(user=Depends(get_current_user), db=Depends(get_db)):
     default_knowledge_prompt = """당신은 위키백과 수준의 백과사전을 기획하는 전문 AI 기획자입니다.
 제공된 텍스트를 분석하여 어떤 문서(Node)들을 생성해야 할지, 문서들 간의 관계(Edge)는 어떠한지 구조를 기획하세요. (내용 생성은 금지)
 
@@ -891,7 +891,7 @@ def reset_prompts(db=Depends(get_db)):
 - 모든 필드의 텍스트는 한국어(Korean)로 작성하세요. (단, id/entity_slug는 영어 슬러그)
 - **JSON 응답은 반드시 { 로 시작하고 } 로 끝나야 하며, 마크다운 코드 블록(```)이나 설명을 일절 포함하지 마세요.**
 - `edges`의 label은 "[A시작노드]가 [B도착노드]를 [서술어]" 형태로 작성하세요.
-- 전체 edges 수는 nodes 수를 초과하지 않도록 절제하세요.
+- 전체 edges 수는 nodes 수를 초과하지 않도록 절제하되, 새로 생성하는 모든 문서(nodes)는 반드시 다른 문서(새로 생성되는 문서 혹은 기존에 이미 존재하는 문서)와 최소 1개 이상의 관계(edges)를 가져야 합니다. 독립된 채 고립되어 있는 '외딴섬 노드'가 발생하지 않도록 관계를 적극적으로 연결하십시오.
 - 제공된 텍스트가 기존 문서들에 이미 충분히 반영되어 있거나, 추가적인 가치가 있는 새로운 정보가 없다면 억지로 추출하지 마세요. 이 경우 nodes와 patches를 빈 배열([])로 반환하는 것이 올바른 대응입니다.
 - 단순히 텍스트에 언급되었다고 해서 모두 추출하는 것이 아니라, 위키 문서로서 독자적인 가치를 지닐 만큼의 유의미한 정보가 포함된 경우에만 추출하세요.
 - 분류는 최대한 '인물', '사물', '개념', '단체', '장소', '사건' 이 다섯 개로 통일하세요. 사용자가 제3의 분류를 추가하라고 별도로 지침하거나, 저 분류에 속하지 않는 문서에 경우 다른 분류를 사용하세요.
@@ -938,7 +938,13 @@ def get_project_graph_context(project_id: int, db) -> str:
         # Safer access to is_root to prevent crash if DB column is missing
         root_slugs = {e.slug for e in entities if getattr(e, 'is_root', False)}
         
-        relationships = db.query(schema.Relationship).all()
+        if not entity_slugs:
+            relationships = []
+        else:
+            relationships = db.query(schema.Relationship).filter(
+                schema.Relationship.source_entity_slug.in_(entity_slugs),
+                schema.Relationship.target_entity_slug.in_(entity_slugs)
+            ).all()
         rel_texts = []
         
         # 그래프 인접 리스트 구축
@@ -946,12 +952,11 @@ def get_project_graph_context(project_id: int, db) -> str:
         connection_counts = {slug: 0 for slug in entity_slugs}
         
         for r in relationships:
-            if r.source_entity_slug in entity_slugs and r.target_entity_slug in entity_slugs:
-                rel_texts.append(f"- [ID: {r.id}] {r.source_entity_slug} -> {r.target_entity_slug} ({r.context})")
-                adj[r.source_entity_slug].append(r.target_entity_slug)
-                adj[r.target_entity_slug].append(r.source_entity_slug) # 무방향 연결성 지원
-                connection_counts[r.source_entity_slug] += 1
-                connection_counts[r.target_entity_slug] += 1
+            rel_texts.append(f"- [ID: {r.id}] {r.source_entity_slug} -> {r.target_entity_slug} ({r.context})")
+            adj[r.source_entity_slug].append(r.target_entity_slug)
+            adj[r.target_entity_slug].append(r.source_entity_slug) # 무방향 연결성 지원
+            connection_counts[r.source_entity_slug] += 1
+            connection_counts[r.target_entity_slug] += 1
         
         # 루트 노드로부터의 도달 가능성 체크 (BFS)
         reachable = set()
@@ -1933,14 +1938,20 @@ def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.get("/api/projects/{project_id}/categories")
-def get_project_categories(project_id: int, db=Depends(get_db)):
+def get_project_categories(project_id: int, user=Depends(get_current_user), db=Depends(get_db)):
     """프로젝트 내에 존재하는 모든 분류(카테고리) 목록 조회"""
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
     categories = db.query(schema.Category).join(schema.Category.entities).filter(schema.Entity.project_id == project_id).distinct().all()
     return [{"id": c.id, "name": c.name, "slug": c.slug} for c in categories]
 
 @app.get("/api/projects/{project_id}/types")
-def get_project_entity_types(project_id: int, db=Depends(get_db)):
+def get_project_entity_types(project_id: int, user=Depends(get_current_user), db=Depends(get_db)):
     """프로젝트 내에 존재하는 모든 엔티티 타입(분류) 목록 조회"""
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
     types = db.query(schema.Entity.type).filter(schema.Entity.project_id == project_id).distinct().all()
     return [t[0] for t in types if t[0]]
 
@@ -1949,12 +1960,21 @@ def get_project_entity_types(project_id: int, db=Depends(get_db)):
 # ──────────────────────────────────────
 
 @app.get("/api/wiki/resolve")
-def resolve_wiki_name(name: str, project_id: Optional[int] = Query(None), db=Depends(get_db)):
+def resolve_wiki_name(name: str, project_id: Optional[int] = Query(None), user=Depends(get_current_user), db=Depends(get_db)):
     """Resolve a Korean display name to its correct English slug."""
+    user_projects = db.query(schema.Project).filter(schema.Project.user_id == user.id).all()
+    project_ids = [p.id for p in user_projects]
+    
+    if project_id:
+        if project_id not in project_ids:
+            raise HTTPException(status_code=403, detail="Access denied")
+            
     # Exact name match first
     query = db.query(schema.Entity).filter(schema.Entity.name == name)
     if project_id:
         query = query.filter(schema.Entity.project_id == project_id)
+    else:
+        query = query.filter(schema.Entity.project_id.in_(project_ids))
     entity = query.first()
     
     # Fuzzy: normalise spaces/hyphens for comparison
@@ -1963,6 +1983,8 @@ def resolve_wiki_name(name: str, project_id: Optional[int] = Query(None), db=Dep
         query = db.query(schema.Entity)
         if project_id:
             query = query.filter(schema.Entity.project_id == project_id)
+        else:
+            query = query.filter(schema.Entity.project_id.in_(project_ids))
         all_entities = query.all()
         for e in all_entities:
             if e.name.strip().replace("-", " ").lower() == normalised:
@@ -1979,14 +2001,23 @@ class BulkResolveRequest(BaseModel):
     project_id: Optional[int] = None
 
 @app.post("/api/wiki/bulk-resolve")
-def bulk_resolve_wiki_names(payload: BulkResolveRequest, db=Depends(get_db)):
+def bulk_resolve_wiki_names(payload: BulkResolveRequest, user=Depends(get_current_user), db=Depends(get_db)):
     """
     주어진 이름 목록 중 실제로 존재하는 엔티티만 반환합니다.
     반환 형식: { "name": "slug" } 매핑
     """
+    user_projects = db.query(schema.Project).filter(schema.Project.user_id == user.id).all()
+    project_ids = [p.id for p in user_projects]
+    
+    if payload.project_id:
+        if payload.project_id not in project_ids:
+            raise HTTPException(status_code=403, detail="Access denied")
+            
     query = db.query(schema.Entity)
     if payload.project_id:
         query = query.filter(schema.Entity.project_id == payload.project_id)
+    else:
+        query = query.filter(schema.Entity.project_id.in_(project_ids))
     all_entities = query.all()
     name_to_slug: dict[str, str] = {}
     for e in all_entities:
@@ -2008,10 +2039,19 @@ def bulk_resolve_wiki_names(payload: BulkResolveRequest, db=Depends(get_db)):
     return result
 
 @app.get("/api/wiki/{slug}")
-def get_wiki_page(slug: str, project_id: Optional[int] = Query(None), db=Depends(get_db)):
+def get_wiki_page(slug: str, project_id: Optional[int] = Query(None), user=Depends(get_current_user), db=Depends(get_db)):
+    user_projects = db.query(schema.Project).filter(schema.Project.user_id == user.id).all()
+    project_ids = [p.id for p in user_projects]
+    
+    if project_id:
+        if project_id not in project_ids:
+            raise HTTPException(status_code=403, detail="Access denied")
+            
     query = db.query(schema.Entity).filter(schema.Entity.slug == slug)
     if project_id:
         query = query.filter(schema.Entity.project_id == project_id)
+    else:
+        query = query.filter(schema.Entity.project_id.in_(project_ids))
     entity = query.first()
     
     # Fallback: try to find by name (slug might be Korean-derived)
@@ -2020,6 +2060,8 @@ def get_wiki_page(slug: str, project_id: Optional[int] = Query(None), db=Depends
         query = db.query(schema.Entity).filter(schema.Entity.name == name_from_slug)
         if project_id:
             query = query.filter(schema.Entity.project_id == project_id)
+        else:
+            query = query.filter(schema.Entity.project_id.in_(project_ids))
         entity = query.first()
     
     if not entity:
@@ -2036,10 +2078,19 @@ def get_wiki_page(slug: str, project_id: Optional[int] = Query(None), db=Depends
     }
 
 @app.delete("/api/wiki/{slug}")
-def delete_wiki_page(slug: str, project_id: Optional[int] = Query(None), db=Depends(get_db)):
+def delete_wiki_page(slug: str, project_id: Optional[int] = Query(None), user=Depends(get_current_user), db=Depends(get_db)):
+    user_projects = db.query(schema.Project).filter(schema.Project.user_id == user.id).all()
+    project_ids = [p.id for p in user_projects]
+    
+    if project_id:
+        if project_id not in project_ids:
+            raise HTTPException(status_code=403, detail="Access denied")
+            
     query = db.query(schema.Entity).filter(schema.Entity.slug == slug)
     if project_id:
         query = query.filter(schema.Entity.project_id == project_id)
+    else:
+        query = query.filter(schema.Entity.project_id.in_(project_ids))
     entity = query.first()
     if not entity:
         raise HTTPException(status_code=404, detail="Wiki page not found")
@@ -2054,10 +2105,17 @@ def delete_wiki_page(slug: str, project_id: Optional[int] = Query(None), db=Depe
     return {"status": "deleted", "slug": slug}
 
 @app.get("/api/wikis")
-def get_recent_wikis(project_id: int = Query(None), db=Depends(get_db)):
-    query = db.query(schema.Entity)
+def get_recent_wikis(project_id: int = Query(None), user=Depends(get_current_user), db=Depends(get_db)):
+    user_projects = db.query(schema.Project).filter(schema.Project.user_id == user.id).all()
+    project_ids = [p.id for p in user_projects]
+    
     if project_id:
-        query = query.filter(schema.Entity.project_id == project_id)
+        if project_id not in project_ids:
+            raise HTTPException(status_code=403, detail="Access denied")
+        query = db.query(schema.Entity).filter(schema.Entity.project_id == project_id)
+    else:
+        query = db.query(schema.Entity).filter(schema.Entity.project_id.in_(project_ids))
+        
     entities = query.order_by(schema.Entity.id.desc()).limit(20).all()
     
     result = []
@@ -2077,18 +2135,33 @@ def get_recent_wikis(project_id: int = Query(None), db=Depends(get_db)):
 # ──────────────────────────────────────
 
 @app.get("/api/graph")
-def get_graph_data(project_id: int = Query(None), db=Depends(get_db)):
+def get_graph_data(project_id: int = Query(None), user=Depends(get_current_user), db=Depends(get_db)):
     if project_id:
+        project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
         entities = db.query(schema.Entity).filter(schema.Entity.project_id == project_id).all()
         entity_slugs = {e.slug for e in entities}
         # Optimize: Only fetch relationships that belong to this project's entities
-        relationships = db.query(schema.Relationship).filter(
-            schema.Relationship.source_entity_slug.in_(entity_slugs),
-            schema.Relationship.target_entity_slug.in_(entity_slugs)
-        ).all()
+        if not entity_slugs:
+            relationships = []
+        else:
+            relationships = db.query(schema.Relationship).filter(
+                schema.Relationship.source_entity_slug.in_(entity_slugs),
+                schema.Relationship.target_entity_slug.in_(entity_slugs)
+            ).all()
     else:
-        entities = db.query(schema.Entity).all()
-        relationships = db.query(schema.Relationship).all()
+        user_projects = db.query(schema.Project).filter(schema.Project.user_id == user.id).all()
+        project_ids = [p.id for p in user_projects]
+        entities = db.query(schema.Entity).filter(schema.Entity.project_id.in_(project_ids)).all()
+        entity_slugs = {e.slug for e in entities}
+        if not entity_slugs:
+            relationships = []
+        else:
+            relationships = db.query(schema.Relationship).filter(
+                schema.Relationship.source_entity_slug.in_(entity_slugs),
+                schema.Relationship.target_entity_slug.in_(entity_slugs)
+            ).all()
     
     color_map = {
         # ── 표준 6가지 타입 (현행 프롬프트 기준) ──
@@ -2142,11 +2215,17 @@ class EntityUpdate(BaseModel):
     category_id: Optional[int] = None
 
 @app.patch("/api/entities/{slug}")
-def update_entity(slug: str, payload: EntityUpdate, db=Depends(get_db)):
+def update_entity(slug: str, payload: EntityUpdate, user=Depends(get_current_user), db=Depends(get_db)):
     """노드 이름/타입/내용/분류 수정"""
     entity = db.query(schema.Entity).filter(schema.Entity.slug == slug).first()
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
+    
+    # Check ownership
+    project = db.query(schema.Project).filter(schema.Project.id == entity.project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     entity.name = payload.name.strip()
     entity.type = payload.type.strip()
     if payload.is_root is not None:
@@ -2183,12 +2262,19 @@ class RelationshipCreate(BaseModel):
     label: str = ""
 
 @app.post("/api/relationships")
-def create_relationship(payload: RelationshipCreate, db=Depends(get_db)):
+def create_relationship(payload: RelationshipCreate, user=Depends(get_current_user), db=Depends(get_db)):
     """엣지(관계) 신규 생성"""
     src = db.query(schema.Entity).filter(schema.Entity.slug == payload.source).first()
     tgt = db.query(schema.Entity).filter(schema.Entity.slug == payload.target).first()
     if not src or not tgt:
         raise HTTPException(status_code=404, detail="Source or target entity not found")
+    
+    # Verify project ownership for source and target
+    src_project = db.query(schema.Project).filter(schema.Project.id == src.project_id, schema.Project.user_id == user.id).first()
+    tgt_project = db.query(schema.Project).filter(schema.Project.id == tgt.project_id, schema.Project.user_id == user.id).first()
+    if not src_project or not tgt_project:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     rel = schema.Relationship(
         source_entity_slug=payload.source,
         target_entity_slug=payload.target,
@@ -2203,21 +2289,39 @@ class RelationshipUpdate(BaseModel):
     label: str
 
 @app.patch("/api/relationships/{rel_id}")
-def update_relationship(rel_id: int, payload: RelationshipUpdate, db=Depends(get_db)):
+def update_relationship(rel_id: int, payload: RelationshipUpdate, user=Depends(get_current_user), db=Depends(get_db)):
     """엣지 레이블 수정"""
     rel = db.query(schema.Relationship).filter(schema.Relationship.id == rel_id).first()
     if not rel:
         raise HTTPException(status_code=404, detail="Relationship not found")
+    
+    # Verify ownership via source entity
+    src = db.query(schema.Entity).filter(schema.Entity.slug == rel.source_entity_slug).first()
+    if not src:
+        raise HTTPException(status_code=404, detail="Source entity not found")
+    project = db.query(schema.Project).filter(schema.Project.id == src.project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     rel.context = payload.label
     db.commit()
     return {"id": rel.id, "source": rel.source_entity_slug, "target": rel.target_entity_slug, "label": rel.context}
 
 @app.delete("/api/relationships/{rel_id}")
-def delete_relationship(rel_id: int, db=Depends(get_db)):
+def delete_relationship(rel_id: int, user=Depends(get_current_user), db=Depends(get_db)):
     """엣지 삭제"""
     rel = db.query(schema.Relationship).filter(schema.Relationship.id == rel_id).first()
     if not rel:
         raise HTTPException(status_code=404, detail="Relationship not found")
+    
+    # Verify ownership via source entity
+    src = db.query(schema.Entity).filter(schema.Entity.slug == rel.source_entity_slug).first()
+    if not src:
+        raise HTTPException(status_code=404, detail="Source entity not found")
+    project = db.query(schema.Project).filter(schema.Project.id == src.project_id, schema.Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     db.delete(rel)
     db.commit()
     return {"status": "deleted", "id": rel_id}
@@ -2225,24 +2329,36 @@ def delete_relationship(rel_id: int, db=Depends(get_db)):
 
 
 @app.get("/api/categories")
-def list_categories(db=Depends(get_db)):
-    categories = db.query(schema.Category).order_by(schema.Category.name).all()
+def list_categories(user=Depends(get_current_user), db=Depends(get_db)):
+    user_projects = db.query(schema.Project).filter(schema.Project.user_id == user.id).all()
+    project_ids = {p.id for p in user_projects}
+    
+    # Only fetch categories that have entities in the user's projects
+    if not project_ids:
+        return []
+        
+    categories = db.query(schema.Category).join(schema.Category.entities).filter(schema.Entity.project_id.in_(project_ids)).distinct().order_by(schema.Category.name).all()
     result = []
     for c in categories:
-        result.append({
-            "slug": c.slug,
-            "name": c.name,
-            "entity_count": len(c.entities)
-        })
+        user_entities_count = sum(1 for e in c.entities if e.project_id in project_ids)
+        if user_entities_count > 0:
+            result.append({
+                "slug": c.slug,
+                "name": c.name,
+                "entity_count": user_entities_count
+            })
     return result
 
 @app.get("/api/categories/{slug}")
-def get_category(slug: str, db=Depends(get_db)):
+def get_category(slug: str, user=Depends(get_current_user), db=Depends(get_db)):
     category = db.query(schema.Category).filter(schema.Category.slug == slug).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     
-    entities = [{"slug": e.slug, "name": e.name, "type": e.type} for e in category.entities]
+    user_projects = db.query(schema.Project).filter(schema.Project.user_id == user.id).all()
+    project_ids = {p.id for p in user_projects}
+    
+    entities = [{"slug": e.slug, "name": e.name, "type": e.type} for e in category.entities if e.project_id in project_ids]
     return {
         "name": category.name,
         "slug": category.slug,
@@ -2338,9 +2454,9 @@ import datetime as dt
 from fastapi.responses import JSONResponse
 
 @app.get("/api/projects/{project_id}/export")
-def export_project(project_id: int, include_files: bool = Query(True), db=Depends(get_db)):
+def export_project(project_id: int, include_files: bool = Query(True), user=Depends(get_current_user), db=Depends(get_db)):
     """프로젝트 전체 데이터를 .autowiki JSON 파일로 다운로드합니다."""
-    project = db.query(schema.Project).filter(schema.Project.id == project_id).first()
+    project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -2374,15 +2490,20 @@ def export_project(project_id: int, include_files: bool = Query(True), db=Depend
     ]
 
     # Relationships (only those connecting entities within this project)
-    all_rels = db.query(schema.Relationship).all()
+    if not entity_slugs:
+        relationships = []
+    else:
+        relationships = db.query(schema.Relationship).filter(
+            schema.Relationship.source_entity_slug.in_(entity_slugs),
+            schema.Relationship.target_entity_slug.in_(entity_slugs)
+        ).all()
     relationships_data = [
         {
             "source": r.source_entity_slug,
             "target": r.target_entity_slug,
             "context": r.context,
         }
-        for r in all_rels
-        if r.source_entity_slug in entity_slugs and r.target_entity_slug in entity_slugs
+        for r in relationships
     ]
 
     # Categories
@@ -2463,6 +2584,8 @@ async def import_project(
     existing_project = db.query(schema.Project).filter(schema.Project.slug == base_slug).first()
 
     if overwrite and existing_project:
+        if existing_project.user_id != user.id:
+            raise HTTPException(status_code=403, detail="해당 프로젝트를 덮어쓸 권한이 없습니다.")
         # ── Overwrite mode: delete existing project data ──────────────────────
         old_entities = db.query(schema.Entity).filter(schema.Entity.project_id == existing_project.id).all()
         old_slugs = {e.slug for e in old_entities}
