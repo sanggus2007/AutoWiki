@@ -130,6 +130,7 @@ const CollapseBlock: React.FC<{ title: string; body: string; components: any; pr
 // ── Main WikiViewer ────────────────────────────────────────────────────────────
 export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initialTitle, initialTags, initialContent, categories = [] }) => {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(initialContent);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -164,7 +165,11 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
 
   // Fetch latest data on slug/projectId change to bypass next.js router cache on browser back/forward
   useEffect(() => {
-    if (!slug) return;
+    if (!slug) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
     const url = projectId ? `/api/wiki/${slug}?project_id=${projectId}` : `/api/wiki/${slug}`;
     apiFetch(url)
       .then(res => {
@@ -177,8 +182,12 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
         setSelectedCategory(data.tags?.[0] || "개념");
         setContent((data.content || "").trim());
         setDocCategories(data.categories || []);
+        setIsLoading(false);
       })
-      .catch(err => console.error("[WikiViewer-Refetch] Error updating wiki on mount:", err));
+      .catch(err => {
+        console.error("[WikiViewer-Refetch] Error updating wiki on mount:", err);
+        setIsLoading(false);
+      });
   }, [slug, projectId]);
 
   // Fetch project entity types (classifications) on mount/projectId change
@@ -410,6 +419,15 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({ slug, projectId, initial
       );
     });
   };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 pb-32 font-sans bg-white dark:bg-zinc-900 min-h-screen border-x border-[#a2a9b1] dark:border-zinc-800 select-text flex flex-col items-center justify-center">
+        <Loader2 className="animate-spin text-[#0645ad] dark:text-zinc-300 w-10 h-10 mb-4" />
+        <p className="text-sm font-medium text-[#54595d] dark:text-gray-400">문서를 불러오는 중입니다...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto w-full p-4 sm:p-6 pb-32 font-sans bg-white dark:bg-zinc-900 min-h-screen border-x border-[#a2a9b1] dark:border-zinc-800 select-text">

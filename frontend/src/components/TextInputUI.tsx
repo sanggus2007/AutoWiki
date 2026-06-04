@@ -85,23 +85,7 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="font-bold text-[#54595d] dark:text-zinc-300 mr-1">모델 선택:</span>
-              <button
-                onClick={() => setUseSubModel(false)}
-                className={`px-2 py-0.5 rounded-full border text-[11px] font-black transition-colors ${!useSubModel ? "bg-[#0645ad] text-white dark:bg-zinc-200 dark:text-zinc-900 border-[#0645ad] dark:border-zinc-200" : "bg-white dark:bg-zinc-900 text-[#54595d] dark:text-zinc-400 border-[#c8ccd1] dark:border-zinc-800"
-                  }`}
-              >
-                메인 ({mainModel})
-              </button>
-              <button
-                onClick={() => setUseSubModel(true)}
-                className={`px-2 py-0.5 rounded-full border text-[11px] font-black transition-colors ${useSubModel ? "bg-[#0645ad] text-white dark:bg-zinc-200 dark:text-zinc-900 border-[#0645ad] dark:border-zinc-200" : "bg-white dark:bg-zinc-900 text-[#54595d] dark:text-zinc-400 border-[#c8ccd1] dark:border-zinc-800"
-                  }`}
-              >
-                보조 ({subModel})
-              </button>
-            </div>
+
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <span className="font-bold text-[#54595d] dark:text-zinc-300 mr-1">참고 맥락:</span>
@@ -184,31 +168,6 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
 
         <div className="border-t border-[#eaecf0] dark:border-zinc-800 bg-[#f8f9fa] dark:bg-zinc-950 px-3 py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
           <div className="flex flex-wrap items-center gap-5">
-            <div className="flex items-center gap-1 border-r border-[#eaecf0] dark:border-zinc-800 pr-3 mr-1">
-              <button
-                onClick={() => setUseSubModel(false)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-bold transition-colors border ${!useSubModel ? "bg-[#0645ad] text-white dark:bg-zinc-200 dark:text-zinc-900 border-[#0645ad] dark:border-zinc-200" : "bg-white dark:bg-zinc-900 text-[#54595d] dark:text-zinc-400 border-[#c8ccd1] dark:border-zinc-800 hover:border-[#0645ad] dark:hover:border-zinc-500"
-                  }`}
-              >
-                <Sparkles size={11} />
-                메인 모델
-              </button>
-              <button
-                onClick={() => setUseSubModel(true)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-bold transition-colors border ${useSubModel ? "bg-[#0645ad] text-white dark:bg-zinc-200 dark:text-zinc-900 border-[#0645ad] dark:border-zinc-200" : "bg-white dark:bg-zinc-900 text-[#54595d] dark:text-zinc-400 border-[#c8ccd1] dark:border-zinc-800 hover:border-[#0645ad] dark:hover:border-zinc-500"
-                  }`}
-              >
-                <Zap size={11} />
-                보조 모델
-              </button>
-              <button
-                onClick={() => setShowModelInfo(p => !p)}
-                className="ml-1 text-[#a2a9b1] dark:text-zinc-400 hover:text-[#54595d] dark:hover:text-white transition-colors"
-                title="사용 모델 확인"
-              >
-                <ChevronDown size={13} className={`transition-transform ${showModelInfo ? "rotate-180" : ""}`} />
-              </button>
-            </div>
 
             <div className="flex flex-col gap-1.5 pt-1">
               <span className="text-[11px] text-[#72777d] dark:text-zinc-400 font-medium leading-none">AI가 참고할 맥락:</span>
@@ -240,12 +199,7 @@ export const TextInputUI: React.FC<TextInputUIProps> = ({
         </div>
       </div>
 
-      {showModelInfo && (
-        <div className="text-[12px] text-[#54595d] dark:text-zinc-300 bg-[#f8f9fa] dark:bg-zinc-950 border border-[#eaecf0] dark:border-zinc-850 rounded-sm px-3 py-2 flex gap-4 transition-all">
-          <div><span className="font-bold text-[#202122] dark:text-white">메인:</span> <span className="font-mono">{mainModel}</span></div>
-          <div><span className="font-bold text-[#202122] dark:text-white">보조:</span> <span className="font-mono">{subModel}</span></div>
-        </div>
-      )}
+
     </div>
   );
 };

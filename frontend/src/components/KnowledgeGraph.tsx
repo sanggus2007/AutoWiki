@@ -1180,7 +1180,7 @@ export const KnowledgeGraph = ({
               </div>
             </div>
 
-            <div className="max-h-[280px] overflow-y-auto scrollbar-none pr-1">
+            <div className="max-h-[280px] overflow-y-auto scrollbar-none pl-2 pr-1">
               {/* Types */}
               <div className="space-y-1.5 mb-3.5">
                 {(Array.from(colorMap.entries()) as [string, string][])
@@ -1200,15 +1200,15 @@ export const KnowledgeGraph = ({
                         }}
                         className={`flex items-center gap-2.5 cursor-pointer group transition-opacity ${isHidden ? 'opacity-30' : 'opacity-100'}`}
                       >
-                        <div className="relative">
+                        <div className="relative pl-1.5 py-0.5">
                           <span
                             className="w-2.5 h-2.5 rounded-full block flex-shrink-0 transition-transform group-hover:scale-110"
                             style={{ background: color, boxShadow: isHidden ? 'none' : `0 0 8px ${color}` }}
                           />
                         </div>
                         <span className="text-[12px] font-medium flex-1 truncate" style={{ color: theme.labelText }} title={type}>{type}</span>
-                        <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${isHidden ? 'border-[#444]' : 'border-white/20 bg-white/5'}`}>
-                          {!isHidden && <div className="w-1.5 h-1.5 bg-white rounded-px" />}
+                        <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${isHidden ? 'border-slate-300 dark:border-[#444] bg-transparent' : 'border-[#a855f7] dark:border-[#a855f7]/60 bg-purple-50/50 dark:bg-[#a855f7]/10'}`}>
+                          {!isHidden && <div className="w-1.5 h-1.5 bg-[#a855f7] dark:bg-[#c084fc] rounded-px" />}
                         </div>
                       </div>
                     );
@@ -1227,8 +1227,8 @@ export const KnowledgeGraph = ({
                 >
                   <div className="w-5 h-[2.5px] rounded-full" style={{ background: theme.linkTree }} />
                   <span className="text-[10px] text-[#aaa] flex-1">핵심 연결</span>
-                  <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${!showCoreLinks ? 'border-[#444]' : 'border-white/20 bg-white/5'}`}>
-                    {showCoreLinks && <div className="w-1.5 h-1.5 bg-white rounded-px" />}
+                  <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${!showCoreLinks ? 'border-slate-300 dark:border-[#444] bg-transparent' : 'border-[#a855f7] dark:border-[#a855f7]/60 bg-purple-50/50 dark:bg-[#a855f7]/10'}`}>
+                    {showCoreLinks && <div className="w-1.5 h-1.5 bg-[#a855f7] dark:bg-[#c084fc] rounded-px" />}
                   </div>
                 </div>
                 <div
@@ -1237,8 +1237,8 @@ export const KnowledgeGraph = ({
                 >
                   <div className="w-5 h-[2px] border-t border-dashed border-[#666]" />
                   <span className="text-[10px] text-[#999] flex-1">부가 연결</span>
-                  <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${!showSubLinks ? 'border-[#444]' : 'border-white/20 bg-white/5'}`}>
-                    {showSubLinks && <div className="w-1.5 h-1.5 bg-white rounded-px" />}
+                  <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${!showSubLinks ? 'border-slate-300 dark:border-[#444] bg-transparent' : 'border-[#a855f7] dark:border-[#a855f7]/60 bg-purple-50/50 dark:bg-[#a855f7]/10'}`}>
+                    {showSubLinks && <div className="w-1.5 h-1.5 bg-[#a855f7] dark:bg-[#c084fc] rounded-px" />}
                   </div>
                 </div>
               </div>

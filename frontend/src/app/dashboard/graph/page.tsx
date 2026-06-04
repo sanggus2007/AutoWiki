@@ -125,12 +125,7 @@ function SettingsPanel({
 }) {
   const set = (partial: Partial<GraphSettings>) => onChange({ ...settings, ...partial });
 
-  const themes = [
-    { id: 'dark', label: '다크', swatch: '#0a0a0a' },
-    { id: 'cosmos', label: '코스모스', swatch: '#03030e' },
-    { id: 'neon', label: '네온', swatch: '#060009' },
-    { id: 'forest', label: '포레스트', swatch: '#020906' },
-  ] as const;
+
 
   return (
     <div className="fixed inset-y-0 right-0 w-[85%] max-w-[300px] md:relative md:w-72 h-full flex flex-col bg-white dark:bg-[#0e0e0e] border-l border-slate-200 dark:border-[#222] z-50 shadow-2xl animate-in slide-in-from-right duration-300">
@@ -197,29 +192,7 @@ function SettingsPanel({
           </div>
         </section>
 
-        {/* Theme */}
-        <section>
-          <div className="text-[10px] text-slate-400 dark:text-[#555] uppercase tracking-widest mb-3 font-bold">배경 테마</div>
-          <div className="grid grid-cols-2 gap-2">
-            {themes.map(t => (
-              <button
-                key={t.id}
-                onClick={() => set({ theme: t.id })}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-md border text-xs transition-all ${
-                  settings.theme === t.id
-                    ? 'border-purple-350 dark:border-[#a855f7]/55 text-purple-900 dark:text-white bg-purple-50 dark:bg-[#a855f7]/10'
-                    : 'border-slate-200 dark:border-[#2a2a2a] text-slate-500 dark:text-[#666] hover:border-slate-350 dark:hover:border-[#444] hover:text-slate-700 dark:hover:text-[#999]'
-                }`}
-              >
-                <span
-                  className="w-3.5 h-3.5 rounded-full flex-shrink-0 border border-slate-300 dark:border-[#444]"
-                  style={{ background: t.swatch }}
-                />
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </section>
+
 
         {/* Sliders */}
         <section className="space-y-4">
