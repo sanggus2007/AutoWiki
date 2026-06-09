@@ -494,7 +494,7 @@ function GraphPageInner() {
 
   // ─── Render ───────────────────────────────────────────────
   return (
-    <div className="w-full h-[calc(100vh-64px)] relative flex">
+    <div className="w-full h-full relative flex">
 
       {/* Graph area */}
       <div className="flex-1 relative min-w-0">

@@ -390,7 +390,7 @@ export default function ProjectUploadPage() {
   }, [pendingAction, runUpload, runTextAnalysis, runCommit]);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto bg-white dark:bg-[#121212] min-h-screen text-[#202122] dark:text-[#eaecf0] font-sans transition-colors duration-200">
+    <div className="p-6 max-w-5xl mx-auto bg-white dark:bg-[#121212] min-h-full text-[#202122] dark:text-[#eaecf0] font-sans transition-colors duration-200">
       <button
         onClick={() => router.push(`/dashboard/project/${projectId}`)}
         className="text-[#0645ad] dark:text-blue-400 hover:underline text-[13px] flex items-center mb-4"

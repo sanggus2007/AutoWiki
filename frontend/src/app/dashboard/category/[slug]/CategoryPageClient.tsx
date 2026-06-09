@@ -17,7 +17,7 @@ export default function CategoryPageClient({ category }: CategoryPageClientProps
   const router = useRouter();
 
   return (
-    <div className="p-6 max-w-5xl bg-white dark:bg-[#121212] min-h-screen text-[#202122] dark:text-[#eaecf0] font-sans transition-colors duration-200">
+    <div className="p-6 max-w-5xl bg-white dark:bg-[#121212] min-h-full text-[#202122] dark:text-[#eaecf0] font-sans transition-colors duration-200">
       <button onClick={() => router.back()} className="text-[#0645ad] dark:text-blue-400 hover:underline text-[13px] flex items-center mb-2">
         <ArrowLeft size={14} className="mr-1" /> 뒤로 가기
       </button>

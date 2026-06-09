@@ -138,7 +138,7 @@ export default function ProjectPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl bg-white dark:bg-[#121212] min-h-screen text-[#202122] dark:text-[#eaecf0] font-sans transition-colors duration-200">
+    <div className="p-4 sm:p-6 max-w-5xl bg-white dark:bg-[#121212] min-h-full text-[#202122] dark:text-[#eaecf0] font-sans transition-colors duration-200">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <button onClick={() => router.push("/dashboard")} className="text-[#0645ad] dark:text-blue-400 hover:underline text-[13px] flex items-center self-start">

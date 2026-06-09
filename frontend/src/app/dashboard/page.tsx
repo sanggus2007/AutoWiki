@@ -20,7 +20,7 @@ export default function DashboardPage() {
   }, [user]);
  
   return (
-    <div className="p-4 sm:p-6 max-w-5xl bg-white dark:bg-[#121212] min-h-screen text-[#202122] dark:text-[#eaecf0] font-sans mx-auto transition-colors duration-200">
+    <div className="p-4 sm:p-6 max-w-5xl bg-white dark:bg-[#121212] min-h-full text-[#202122] dark:text-[#eaecf0] font-sans mx-auto transition-colors duration-200">
       <div className="border-b border-[#a2a9b1] dark:border-zinc-800 mb-4 pb-2">
         <h1 className="text-3xl font-serif font-medium mb-1 text-black dark:text-white">대문</h1>
         <p className="text-sm text-[#54595d] dark:text-gray-400">AutoWiki AI — 자동 생성 개인 백과사전</p>
