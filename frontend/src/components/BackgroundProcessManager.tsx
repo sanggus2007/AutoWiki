@@ -84,6 +84,9 @@ export function BackgroundProcessManager() {
             if (user_data.tokens !== undefined) {
               useAuthStore.getState().setTokens(user_data.tokens);
             }
+            if (user_data.infinite_tokens !== undefined) {
+              useAuthStore.getState().setInfiniteTokens(user_data.infinite_tokens);
+            }
           })
           .catch((err) => console.error("Failed to sync tokens:", err));
 

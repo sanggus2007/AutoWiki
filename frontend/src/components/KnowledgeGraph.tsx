@@ -1260,19 +1260,38 @@ export const KnowledgeGraph = ({
       {!editMode && hoveredLink && (
         <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex justify-center w-full">
           <div
-            className="flex flex-col items-center border border-[#3e3e3e]/60 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.6)] px-6 py-3.5 backdrop-blur-xl animate-in fade-in duration-300"
-            style={{ background: 'rgba(12,12,12,0.92)' }}
+            className={`flex flex-col items-center border rounded-xl px-6 py-3.5 backdrop-blur-xl animate-in fade-in duration-300 ${
+              activeThemeKey === 'light'
+                ? 'border-slate-200/80 shadow-[0_10px_40px_rgba(0,0,0,0.12)]'
+                : 'border-[#3e3e3e]/60 shadow-[0_10px_40px_rgba(0,0,0,0.6)]'
+            }`}
+            style={{
+              background: activeThemeKey === 'light' ? 'rgba(255,255,255,0.92)' : 'rgba(12,12,12,0.92)',
+              color: activeThemeKey === 'light' ? '#0f172a' : '#ffffff',
+            }}
           >
-            <div className="text-[10px] text-[#aaa] font-bold tracking-widest uppercase mb-1.5">관계 정보</div>
+            <div className={`text-[10px] font-bold tracking-widest uppercase mb-1.5 ${
+              activeThemeKey === 'light' ? 'text-slate-500' : 'text-[#aaa]'
+            }`}>관계 정보</div>
             <div className="flex items-center gap-4 text-sm">
-              <span className="font-semibold px-2.5 py-1 bg-white/5 border border-white/10 rounded-md" style={{ color: theme.labelText }}>
+              <span className={`font-semibold px-2.5 py-1 rounded-md border ${
+                activeThemeKey === 'light' ? 'bg-slate-100 border-slate-200' : 'bg-white/5 border-white/10'
+              }`} style={{ color: theme.labelText }}>
                 {hoveredLink.source.name || hoveredLink.source.id}
               </span>
               <div className="flex flex-col items-center text-[#fbbf24]">
-                <span className="text-[11px] font-medium bg-[#fbbf24]/10 px-2 py-0.5 rounded text-[#fbbf24] mb-1">
+                <span className={`text-[11px] font-medium px-2 py-0.5 rounded mb-1 ${
+                  activeThemeKey === 'light' ? 'bg-[#fbbf24]/15 text-amber-700' : 'bg-[#fbbf24]/10 text-[#fbbf24]'
+                }`}>
                   {hoveredLink.label ? (
                     hoveredLink.label.split(/\*\*([^*]+)\*\*/g).map((part: string, idx: number) =>
-                      idx % 2 === 1 ? <strong key={idx} className="font-extrabold text-white">{part}</strong> : part
+                      idx % 2 === 1 ? (
+                        <strong key={idx} className={`font-extrabold ${activeThemeKey === 'light' ? 'text-slate-900' : 'text-white'}`}>
+                          {part}
+                        </strong>
+                      ) : (
+                        part
+                      )
                     )
                   ) : '연결됨'}
                 </span>
@@ -1280,7 +1299,9 @@ export const KnowledgeGraph = ({
                   <path d="M0 4H38M38 4L34 1M38 4L34 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <span className="font-semibold px-2.5 py-1 bg-white/5 border border-white/10 rounded-md" style={{ color: theme.labelText }}>
+              <span className={`font-semibold px-2.5 py-1 rounded-md border ${
+                activeThemeKey === 'light' ? 'bg-slate-100 border-slate-200' : 'bg-white/5 border-white/10'
+              }`} style={{ color: theme.labelText }}>
                 {hoveredLink.target.name || hoveredLink.target.id}
               </span>
             </div>

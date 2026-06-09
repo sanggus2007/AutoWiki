@@ -51,8 +51,9 @@ def init_db():
         db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS ollama_host VARCHAR DEFAULT 'https://ollama.com'"))
         db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS tokens INTEGER DEFAULT 100"))
         db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_token_reset_at TIMESTAMP"))
+        db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS infinite_tokens BOOLEAN DEFAULT FALSE"))
         db.commit()
-        print("[Startup] DB Migration (AI provider & Ollama & tokens & last_token_reset_at) check complete.")
+        print("[Startup] DB Migration (AI provider & Ollama & tokens & last_token_reset_at & infinite_tokens) check complete.")
     except Exception as e:
         print(f"[Startup] DB Migration Notice for users table (might already exist): {e}")
         db.rollback()
@@ -670,6 +671,7 @@ def get_current_user(request: Request, db=Depends(get_db)):
         if should_reset:
             print(f"[Tokens] Resetting tokens to 100 for user {user.username} (last reset date: {last_reset})")
             user.tokens = 100
+            user.infinite_tokens = False
             user.last_token_reset_at = now
             db.commit()
             db.refresh(user)
@@ -1040,17 +1042,20 @@ def get_user_me(user=Depends(get_current_user), db=Depends(get_db)):
         "ai_provider": getattr(user, 'ai_provider', 'github_copilot') or 'github_copilot',
         "ollama_host": getattr(user, 'ollama_host', 'https://ollama.com') or 'https://ollama.com',
         "has_ollama_key": getattr(user, 'ollama_api_key_enc', None) is not None,
-        "tokens": getattr(user, 'tokens', 100)
+        "tokens": getattr(user, 'tokens', 100),
+        "infinite_tokens": getattr(user, 'infinite_tokens', False)
     }
 
 @app.post("/api/users/me/reset-tokens")
 def reset_user_tokens(user=Depends(get_current_user), db=Depends(get_db)):
     user.tokens = 100
+    user.infinite_tokens = True
     db.commit()
     db.refresh(user)
     return {
         "status": "success",
-        "tokens": user.tokens
+        "tokens": user.tokens,
+        "infinite_tokens": user.infinite_tokens
     }
 
 @app.delete("/api/users/me")
@@ -1200,13 +1205,15 @@ class TextAnalysisRequest(BaseModel):
 @app.post("/api/projects/{project_id}/analyze-text")
 def analyze_text(project_id: int, payload: TextAnalysisRequest, user=Depends(get_current_user), db=Depends(get_db)):
     print(f"[AnalyzeText] Start request for project {project_id}")
-    # 토큰 검증 및 차감 (기획: 1토큰)
     required_tokens = 1
     user_tokens = getattr(user, 'tokens', 100)
-    if user_tokens < required_tokens:
-        raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (기획에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
-
-    user.tokens = user_tokens - required_tokens
+    is_infinite = getattr(user, 'infinite_tokens', False)
+    if is_infinite:
+        user.tokens = 100
+    else:
+        if user_tokens < required_tokens:
+            raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (기획에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
+        user.tokens = user_tokens - required_tokens
     db.commit()
 
     try:
@@ -1368,13 +1375,15 @@ class ChatRequest(BaseModel):
 @app.post("/api/projects/{project_id}/chat")
 def project_chat(project_id: int, payload: ChatRequest, user=Depends(get_current_user), db=Depends(get_db)):
     print(f"[ProjectChat] Request received for project {project_id}")
-    # 토큰 검증 및 차감 (AI 채팅: 2토큰)
     required_tokens = 2
     user_tokens = getattr(user, 'tokens', 100)
-    if user_tokens < required_tokens:
-        raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (AI 채팅에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
-
-    user.tokens = user_tokens - required_tokens
+    is_infinite = getattr(user, 'infinite_tokens', False)
+    if is_infinite:
+        user.tokens = 100
+    else:
+        if user_tokens < required_tokens:
+            raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (AI 채팅에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
+        user.tokens = user_tokens - required_tokens
     db.commit()
 
     try:
@@ -1538,13 +1547,15 @@ async def upload_files(
     user=Depends(get_current_user),
     db=Depends(get_db)
 ):
-    # 토큰 검증 및 차감 (기획: 1토큰)
     required_tokens = 1
     user_tokens = getattr(user, 'tokens', 100)
-    if user_tokens < required_tokens:
-        raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (기획에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
-
-    user.tokens = user_tokens - required_tokens
+    is_infinite = getattr(user, 'infinite_tokens', False)
+    if is_infinite:
+        user.tokens = 100
+    else:
+        if user_tokens < required_tokens:
+            raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (기획에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
+        user.tokens = user_tokens - required_tokens
     db.commit()
 
     project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()
@@ -1645,13 +1656,15 @@ async def upload_files(
 def commit_changes(project_id: int, payload_data: dict, user=Depends(get_current_user), db=Depends(get_db)):
     is_resume = payload_data.get("is_resume", False)
     if not is_resume:
-        # 토큰 검증 및 차감 (문서 작성: 5토큰)
         required_tokens = 5
         user_tokens = getattr(user, 'tokens', 100)
-        if user_tokens < required_tokens:
-            raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (문서 작성에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
-
-        user.tokens = user_tokens - required_tokens
+        is_infinite = getattr(user, 'infinite_tokens', False)
+        if is_infinite:
+            user.tokens = 100
+        else:
+            if user_tokens < required_tokens:
+                raise HTTPException(status_code=402, detail=f"보유하신 AI 토큰이 부족합니다. (문서 작성에 필요한 토큰: {required_tokens}, 현재 보유: {user_tokens})")
+            user.tokens = user_tokens - required_tokens
         db.commit()
 
     project = db.query(schema.Project).filter(schema.Project.id == project_id, schema.Project.user_id == user.id).first()

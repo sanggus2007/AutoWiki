@@ -20,7 +20,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDesc, setNewProjectDesc] = useState("");
-  const { user, logout, tokens, setTokens, activeProcess } = useAuthStore();
+  const { user, logout, tokens, setTokens, infiniteTokens, setInfiniteTokens, activeProcess } = useAuthStore();
   const [storageUsed, setStorageUsed] = useState(0);
   const [resetClicks, setResetClicks] = useState(0);
   const storageLimit = 10485760; // 10MB
@@ -32,6 +32,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       .then(data => {
         setStorageUsed(data.storage_used || 0);
         setTokens(data.tokens ?? 100);
+        setInfiniteTokens(data.infinite_tokens ?? false);
       })
       .catch(() => { });
   }, [pathname]);
@@ -49,7 +50,8 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         if (res.ok) {
           const data = await res.json();
           setTokens(data.tokens);
-          alert("🔑 이스터에그 발견! AI 토큰이 100개로 리셋되었습니다.");
+          setInfiniteTokens(data.infinite_tokens ?? true);
+          alert("🔑 이스터에그 발견! AI 토큰 잔여량이 무한대로 설정되었습니다.");
         }
       } catch (err) {
         console.error("Failed to reset tokens:", err);
@@ -110,9 +112,8 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     <>
       {/* Mobile Overlay */}
       <div
-        className={`fixed inset-0 bg-black/40 z-[60] lg:hidden transition-all duration-300 ${
-          isOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
-        }`}
+        className={`fixed inset-0 bg-black/40 z-[60] lg:hidden transition-all duration-300 ${isOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
+          }`}
         onClick={onClose}
       />
 
@@ -245,13 +246,13 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 AI 토큰 잔여량
               </div>
               <div className="text-[9px] lg:text-[10px] font-semibold text-[#54595d] dark:text-gray-400">
-                {tokens} / 100 토큰
+                {infiniteTokens ? "∞" : tokens} 토큰
               </div>
             </div>
             <div className="w-full bg-[#eaecf0] dark:bg-zinc-800 h-1 lg:h-1.5 rounded-full overflow-hidden mb-1">
               <div
                 className="h-full bg-purple-600 dark:bg-purple-500 transition-all duration-300"
-                style={{ width: `${Math.min(100, (tokens / 100) * 100)}%` }}
+                style={{ width: `${Math.min(100, ((infiniteTokens ? 100 : tokens) / 100) * 100)}%` }}
               />
             </div>
             <div className="text-[9px] text-gray-600 dark:text-gray-400 text-right">
@@ -368,8 +369,8 @@ const NavItem = ({ icon, label, active = false, href, onClick, suffix }: { icon:
         else if (href) router.push(href);
       }}
       className={`flex items-center space-x-2 px-2 py-1 lg:py-1.5 rounded-sm cursor-pointer transition-colors text-[12px] lg:text-[13px] min-w-0 ${active
-          ? "bg-[#eaecf0] dark:bg-zinc-800 text-[#000000] dark:text-white font-bold"
-          : "text-[#202122] dark:text-zinc-300 hover:bg-[#eaecf0] dark:hover:bg-zinc-800"
+        ? "bg-[#eaecf0] dark:bg-zinc-800 text-[#000000] dark:text-white font-bold"
+        : "text-[#202122] dark:text-zinc-300 hover:bg-[#eaecf0] dark:hover:bg-zinc-800"
         }`}
     >
       <span className={`shrink-0 ${active ? "text-[#000000] dark:text-white" : "text-[#54595d] dark:text-zinc-400"} w-3.5 h-3.5 lg:w-[15px] lg:h-[15px] flex items-center justify-center`}>{icon}</span>

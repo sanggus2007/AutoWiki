@@ -51,6 +51,7 @@ class User(Base):
     ollama_host = Column(String, default="https://ollama.com")
     tokens = Column(Integer, default=100)
     last_token_reset_at = Column(DateTime, default=datetime.datetime.utcnow)
+    infinite_tokens = Column(Boolean, default=False)
 
     projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")

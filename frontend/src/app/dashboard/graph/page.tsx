@@ -22,11 +22,10 @@ const ToggleBtn = ({
 }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
   <button
     onClick={onClick}
-    className={`flex-1 text-xs py-2 rounded-md border transition-all leading-none ${
-      active
+    className={`flex-1 text-xs py-2 rounded-md border transition-all leading-none ${active
         ? 'bg-purple-50 dark:bg-[#a855f7]/20 border-purple-250 dark:border-[#a855f7]/55 text-purple-700 dark:text-[#c084fc]'
         : 'bg-slate-50 dark:bg-[#151515] border-slate-200 dark:border-[#2a2a2a] text-slate-500 dark:text-[#666] hover:border-slate-300 dark:hover:border-[#444] hover:text-slate-700 dark:hover:text-[#999]'
-    }`}
+      }`}
   >
     {children}
   </button>
@@ -38,7 +37,7 @@ const Slider = ({
   const [localVal, setLocalVal] = useState(value);
   const [isEditing, setIsEditing] = useState(false);
   const [tempVal, setTempVal] = useState(String(value));
-  
+
   // 외부 프로퍼티가 바뀌면 동기화 (초기화 버튼 등 대응)
   useEffect(() => {
     setLocalVal(value);
@@ -101,13 +100,11 @@ const Toggle = ({ label, value, onToggle }: { label: string; value: boolean; onT
     <span className="text-xs text-slate-500 dark:text-[#999]">{label}</span>
     <div
       onClick={onToggle}
-      className={`w-9 h-[18px] rounded-full border transition-all relative flex-shrink-0 ${
-        value ? 'bg-purple-400/50 dark:bg-[#a855f7]/50 border-purple-500/60 dark:border-[#a855f7]/60' : 'bg-slate-100 dark:bg-[#1a1a1a] border-slate-250 dark:border-[#333]'
-      }`}
+      className={`w-9 h-[18px] rounded-full border transition-all relative flex-shrink-0 ${value ? 'bg-purple-400/50 dark:bg-[#a855f7]/50 border-purple-500/60 dark:border-[#a855f7]/60' : 'bg-slate-100 dark:bg-[#1a1a1a] border-slate-250 dark:border-[#333]'
+        }`}
     >
-      <div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-transform duration-200 ${
-        value ? 'translate-x-[18px]' : 'translate-x-0.5'
-      }`} />
+      <div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-transform duration-200 ${value ? 'translate-x-[18px]' : 'translate-x-0.5'
+        }`} />
     </div>
   </label>
 );
@@ -228,7 +225,7 @@ function SettingsPanel({
             onToggle={() => set({ showParticles: !settings.showParticles })}
           />
           <Toggle
-            label="링크 레이블"
+            label="연결 레이블 표시"
             value={settings.showLinkLabels}
             onToggle={() => set({ showLinkLabels: !settings.showLinkLabels })}
           />
@@ -369,7 +366,7 @@ function GraphPageInner() {
       lastSelectedNodeId.current = null;
       return;
     }
-    
+
     // 처음 선택했을 때 바로 저장되는 것을 방지
     if (lastSelectedNodeId.current !== selectedNode.id) {
       lastSelectedNodeId.current = selectedNode.id;
@@ -513,8 +510,8 @@ function GraphPageInner() {
               {isEditMode
                 ? '편집 모드: 노드·엣지를 클릭하여 선택하세요'
                 : settings.layout === 'radial'
-                ? '방사형 마인드맵 — 중심에서 뻗어나가는 지식 구조'
-                : '자유 배치 — 드래그·줌·클릭으로 탐색'}
+                  ? '방사형 마인드맵 — 중심에서 뻗어나가는 지식 구조'
+                  : '자유 배치 — 드래그·줌·클릭으로 탐색'}
             </p>
 
             {/* Controls moved under title */}
@@ -522,11 +519,10 @@ function GraphPageInner() {
               {/* Settings toggle */}
               <button
                 onClick={() => setShowSettings(v => !v)}
-                className={`flex items-center gap-1.5 text-[10px] md:text-xs font-semibold rounded-md px-2.5 py-1.5 border transition-all shadow-lg ${
-                  showSettings
+                className={`flex items-center gap-1.5 text-[10px] md:text-xs font-semibold rounded-md px-2.5 py-1.5 border transition-all shadow-lg ${showSettings
                     ? 'bg-purple-50 dark:bg-[#a855f7]/20 border-purple-200 dark:border-[#a855f7]/50 text-purple-700 dark:text-[#c084fc]'
                     : 'bg-white/95 dark:bg-gray-900/90 border-slate-200 dark:border-gray-800 text-slate-600 dark:text-gray-300 hover:border-slate-350 dark:hover:border-gray-700 hover:text-slate-800 dark:hover:text-white'
-                }`}
+                  }`}
               >
                 <Settings2 size={12} />
                 설정
@@ -545,11 +541,10 @@ function GraphPageInner() {
               {/* Edit mode toggle */}
               <button
                 onClick={() => { setIsEditMode(v => !v); deselectAll(); }}
-                className={`flex items-center gap-1.5 text-[10px] md:text-xs font-semibold rounded-md px-2.5 py-1.5 border transition-all shadow-lg ${
-                  isEditMode
+                className={`flex items-center gap-1.5 text-[10px] md:text-xs font-semibold rounded-md px-2.5 py-1.5 border transition-all shadow-lg ${isEditMode
                     ? 'bg-amber-50 dark:bg-[#fbbf24]/15 border-amber-250 dark:border-[#fbbf24]/50 text-amber-700 dark:text-[#fbbf24]'
                     : 'bg-white/95 dark:bg-gray-900/90 border-slate-200 dark:border-gray-800 text-slate-600 dark:text-gray-300 hover:border-slate-350 dark:hover:border-gray-700 hover:text-slate-800 dark:hover:text-white'
-                }`}
+                  }`}
               >
                 <Edit3 size={12} />
                 {isEditMode ? '편집 중' : '편집'}
@@ -595,7 +590,7 @@ function GraphPageInner() {
                 placeholder="노드 이름을 입력하세요..."
               />
             </div>
-            
+
             <div className="py-2 px-1">
               <Toggle
                 label="루트 노드로 설정 (핵심 주제)"
@@ -611,7 +606,7 @@ function GraphPageInner() {
             </div>
 
             <ErrBox />
-            
+
             <div className="flex gap-2">
               <button onClick={startConnect}
                 className="flex-1 flex items-center justify-center gap-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800/40 text-blue-600 dark:text-blue-400 text-xs font-bold py-2.5 rounded-md transition-all"
@@ -621,14 +616,14 @@ function GraphPageInner() {
             </div>
             {deleteConfirm === 'node'
               ? <ConfirmDelete
-                  message="이 노드와 연결된 모든 엣지가 삭제됩니다."
-                  onConfirm={deleteNode}
-                  onCancel={() => setDeleteConfirm(null)}
-                />
+                message="이 노드와 연결된 모든 엣지가 삭제됩니다."
+                onConfirm={deleteNode}
+                onCancel={() => setDeleteConfirm(null)}
+              />
               : <button onClick={() => setDeleteConfirm('node')}
-                  className="w-full flex items-center justify-center gap-1.5 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-900/25 text-red-600 dark:text-[#f87171] text-xs py-2 rounded-md transition-all">
-                  <Trash2 size={12} /> 노드 삭제
-                </button>
+                className="w-full flex items-center justify-center gap-1.5 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-900/25 text-red-600 dark:text-[#f87171] text-xs py-2 rounded-md transition-all">
+                <Trash2 size={12} /> 노드 삭제
+              </button>
             }
           </SidePanel>
         )}
@@ -708,14 +703,14 @@ function GraphPageInner() {
             </button>
             {deleteConfirm === 'link'
               ? <ConfirmDelete
-                  message="이 연결을 삭제하시겠습니까?"
-                  onConfirm={deleteLink}
-                  onCancel={() => setDeleteConfirm(null)}
-                />
+                message="이 연결을 삭제하시겠습니까?"
+                onConfirm={deleteLink}
+                onCancel={() => setDeleteConfirm(null)}
+              />
               : <button onClick={() => setDeleteConfirm('link')}
-                  className="w-full flex items-center justify-center gap-1.5 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-900/25 text-red-600 dark:text-[#f87171] text-xs py-2 rounded-md transition-all">
-                  <Trash2 size={12} /> 엣지 삭제
-                </button>
+                className="w-full flex items-center justify-center gap-1.5 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-900/25 text-red-600 dark:text-[#f87171] text-xs py-2 rounded-md transition-all">
+                <Trash2 size={12} /> 엣지 삭제
+              </button>
             }
           </SidePanel>
         )}

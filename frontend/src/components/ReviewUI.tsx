@@ -395,7 +395,7 @@ export const ReviewUI: React.FC<ReviewUIProps> = ({ proposals, onConfirm, onRean
           )}
           <button
             onClick={handleConfirm}
-            className="flex items-center px-6 py-3 bg-[#0645ad] dark:bg-zinc-200 dark:text-zinc-900 font-bold rounded-sm hover:bg-[#0b0080] dark:hover:bg-zinc-100 transition-colors shadow-sm text-[15px]"
+            className="flex items-center px-6 py-3 bg-[#0645ad] text-white dark:bg-zinc-200 dark:text-zinc-900 font-bold rounded-sm hover:bg-[#0b0080] dark:hover:bg-zinc-100 transition-colors shadow-sm text-[15px]"
           >
             <Check size={18} className="mr-2" />
             Confirm &amp; Apply (데이터베이스에 저장)
