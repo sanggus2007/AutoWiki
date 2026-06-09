@@ -104,10 +104,10 @@ export default function ProjectPage() {
     const q = searchQuery.trim().toLowerCase();
     const filtered = q
       ? (project.entities || []).filter(e =>
-          e.name.toLowerCase().includes(q) ||
-          e.type.toLowerCase().includes(q) ||
-          e.categories.some(c => c.toLowerCase().includes(q))
-        )
+        e.name.toLowerCase().includes(q) ||
+        e.type.toLowerCase().includes(q) ||
+        e.categories.some(c => c.toLowerCase().includes(q))
+      )
       : (project.entities || []);
 
     const map = new Map<string, EntityItem[]>();
@@ -144,7 +144,7 @@ export default function ProjectPage() {
         <button onClick={() => router.push("/dashboard")} className="text-[#0645ad] dark:text-blue-400 hover:underline text-[13px] flex items-center self-start">
           <ArrowLeft size={14} className="mr-1" /> 대문으로 돌아가기
         </button>
-        
+
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {/* Main Actions - visible on all screens */}
           <button
@@ -153,7 +153,7 @@ export default function ProjectPage() {
           >
             <Upload size={13} className="mr-1 sm:mr-1.5" /> 지식 추가
           </button>
-          
+
           <button
             onClick={() => setIsChatOpen(true)}
             className="flex-1 sm:flex-none flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-sm font-bold text-[12px] sm:text-[13px] border border-[#0645ad]/20 dark:border-blue-900/35 bg-[#eef1ff] dark:bg-blue-950/20 text-[#0645ad] dark:text-blue-400 hover:bg-[#d0daff] dark:hover:bg-blue-900/30 transition-colors"
@@ -253,7 +253,7 @@ export default function ProjectPage() {
             onClick={() => router.push(`/dashboard/project/${projectId}/upload`)}
             className="text-[#0645ad] dark:text-blue-400 hover:underline mt-2 inline-block"
           >
-            파일을 업로드하여 위키를 생성하세요 →
+            정보를 추가해 위키를 생성하세요 →
           </button>
         </div>
       ) : grouped.length === 0 ? (

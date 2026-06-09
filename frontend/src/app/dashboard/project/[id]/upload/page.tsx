@@ -55,7 +55,7 @@ export default function ProjectUploadPage() {
   const { activeProcess, setActiveProcess } = useAuthStore();
 
   const [appState, setAppState] = useState<AppState>("UPLOAD");
-  const [inputMode, setInputMode] = useState<InputMode>("file");
+  const [inputMode, setInputMode] = useState<InputMode>("text");
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [userPrompt, setUserPrompt] = useState<string>("");
   const [savedFiles, setSavedFiles] = useState<File[]>([]);
@@ -408,15 +408,6 @@ export default function ProjectUploadPage() {
         <>
           <div className="flex border-b border-[#a2a9b1] dark:border-zinc-800 mb-6">
             <button
-              onClick={() => setInputMode("file")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-bold border-b-2 transition-colors ${inputMode === "file"
-                ? "border-[#0645ad] dark:border-blue-400 text-[#0645ad] dark:text-blue-400"
-                : "border-transparent text-[#54595d] dark:text-gray-400 hover:text-[#202122] dark:hover:text-white"
-                }`}
-            >
-              <Paperclip size={14} /> 파일 업로드
-            </button>
-            <button
               onClick={() => setInputMode("text")}
               className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-bold border-b-2 transition-colors ${inputMode === "text"
                 ? "border-[#0645ad] dark:border-blue-400 text-[#0645ad] dark:text-blue-400"
@@ -425,11 +416,20 @@ export default function ProjectUploadPage() {
             >
               <MessageSquareText size={14} /> 텍스트로 직접 지시
             </button>
+            <button
+              onClick={() => setInputMode("file")}
+              className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-bold border-b-2 transition-colors ${inputMode === "file"
+                ? "border-[#0645ad] dark:border-blue-400 text-[#0645ad] dark:text-blue-400"
+                : "border-transparent text-[#54595d] dark:text-gray-400 hover:text-[#202122] dark:hover:text-white"
+                }`}
+            >
+              <Paperclip size={14} /> 파일 업로드
+            </button>
           </div>
 
           <div className="flex flex-col items-center justify-start py-4 w-full">
-            {inputMode === "file" && <UploadUI onStartIngestion={handleStartIngestion} />}
             {inputMode === "text" && <TextInputUI onSubmit={handleTextSubmit} />}
+            {inputMode === "file" && <UploadUI onStartIngestion={handleStartIngestion} />}
           </div>
         </>
       )}
